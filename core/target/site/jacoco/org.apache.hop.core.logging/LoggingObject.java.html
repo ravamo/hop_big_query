@@ -1,0 +1,356 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LoggingObject.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.logging</a> &gt; <span class="el_source">LoggingObject.java</span></div><h1>LoggingObject.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.logging;
+
+import org.apache.commons.lang.StringUtils;
+import org.apache.hop.core.util.Utils;
+
+import java.util.Date;
+
+public class LoggingObject implements ILoggingObject {
+
+  private String logChannelId;
+  private LoggingObjectType objectType;
+  private String objectName;
+  private String objectCopy;
+  private String filename;
+<span class="fc" id="L37">  private LogLevel logLevel = DefaultLogLevel.getLogLevel();</span>
+
+  private String containerObjectId;
+
+  private ILoggingObject parent;
+
+  private Date registrationDate;
+
+  private boolean gatheringMetrics;
+  private boolean forcingSeparateLogging;
+
+<span class="fc" id="L48">  public LoggingObject( Object object ) {</span>
+<span class="fc bfc" id="L49" title="All 2 branches covered.">    if ( object instanceof ILoggingObject ) {</span>
+<span class="fc" id="L50">      grabLoggingObjectInformation( (ILoggingObject) object );</span>
+    } else {
+<span class="fc" id="L52">      grabObjectInformation( object );</span>
+    }
+<span class="fc" id="L54">  }</span>
+
+  @Override
+  public boolean equals( Object obj ) {
+<span class="pc bpc" id="L58" title="1 of 2 branches missed.">    if ( !( obj instanceof LoggingObject ) ) {</span>
+<span class="nc" id="L59">      return false;</span>
+    }
+<span class="fc bfc" id="L61" title="All 2 branches covered.">    if ( obj == this ) {</span>
+<span class="fc" id="L62">      return true;</span>
+    }
+
+    try {
+<span class="fc" id="L66">      LoggingObject loggingObject = (LoggingObject) obj;</span>
+
+      // No carte object id specified on either side OR the same carte object id means: the same family.
+      //
+<span class="fc" id="L70">      boolean sameCarteFamily =</span>
+<span class="pc bpc" id="L71" title="2 of 4 branches missed.">        ( getContainerId() == null &amp;&amp; loggingObject.getContainerId() == null )</span>
+<span class="nc bnc" id="L72" title="All 4 branches missed.">          || ( getContainerId() != null &amp;&amp; loggingObject.getContainerId() != null &amp;&amp; getContainerId()</span>
+<span class="pc bnc" id="L73" title="All 2 branches missed.">          .equals( loggingObject.getContainerId() ) );</span>
+
+
+      // Check if objects have the same parent
+<span class="fc" id="L77">      boolean sameParents =</span>
+<span class="fc bfc" id="L78" title="All 6 branches covered.">        loggingObject.getParent() == null &amp;&amp; this.getParent() == null || loggingObject.getParent() != null</span>
+<span class="fc bfc" id="L79" title="All 4 branches covered.">          &amp;&amp; this.getParent() != null &amp;&amp; loggingObject.getParent().equals( this.getParent() );</span>
+
+      // If the filename is the same and parent is the same, it's the same object...
+<span class="pc bpc" id="L82" title="1 of 4 branches missed.">      if ( sameCarteFamily &amp;&amp; !Utils.isEmpty( loggingObject.getFilename() )</span>
+<span class="pc bpc" id="L83" title="2 of 4 branches missed.">        &amp;&amp; loggingObject.getFilename().equals( getFilename() ) &amp;&amp; sameParents</span>
+<span class="pc bpc" id="L84" title="1 of 2 branches missed.">        &amp;&amp; StringUtils.equals( loggingObject.getObjectName(), getObjectName() ) ) {</span>
+<span class="nc" id="L85">        return true;</span>
+      }
+
+      // See if the carte family, the name &amp; type and parent name &amp; type is the same.
+      // This will catch most matches except for the most exceptional use-case.
+      //
+<span class="pc bpc" id="L91" title="1 of 2 branches missed.">      if ( !sameCarteFamily</span>
+<span class="fc bfc" id="L92" title="All 4 branches covered.">        || ( loggingObject.getObjectName() == null &amp;&amp; getObjectName() != null )</span>
+<span class="fc bfc" id="L93" title="All 4 branches covered.">        || ( loggingObject.getObjectName() != null &amp;&amp; getObjectName() == null ) ) {</span>
+<span class="fc" id="L94">        return false;</span>
+      }
+
+<span class="pc bpc" id="L97" title="1 of 2 branches missed.">      if ( sameCarteFamily</span>
+<span class="pc bpc" id="L98" title="1 of 4 branches missed.">        &amp;&amp; ( ( loggingObject.getObjectName() == null &amp;&amp; getObjectName() == null ) || ( loggingObject</span>
+<span class="fc bfc" id="L99" title="All 2 branches covered.">        .getObjectName().equals( getObjectName() ) ) )</span>
+<span class="pc bpc" id="L100" title="1 of 2 branches missed.">        &amp;&amp; loggingObject.getObjectType().equals( getObjectType() ) ) {</span>
+
+        // If there are multiple copies of this object, they both need their own channel
+        //
+<span class="pc bpc" id="L104" title="3 of 4 branches missed.">        if ( !Utils.isEmpty( getObjectCopy() ) &amp;&amp; !getObjectCopy().equals( loggingObject.getObjectCopy() ) ) {</span>
+<span class="nc" id="L105">          return false;</span>
+        }
+
+<span class="fc" id="L108">        ILoggingObject parent1 = loggingObject.getParent();</span>
+<span class="fc" id="L109">        ILoggingObject parent2 = getParent();</span>
+
+<span class="pc bpc" id="L111" title="2 of 8 branches missed.">        if ( ( parent1 != null &amp;&amp; parent2 == null ) || ( parent1 == null &amp;&amp; parent2 != null ) ) {</span>
+<span class="nc" id="L112">          return false;</span>
+        }
+<span class="pc bpc" id="L114" title="1 of 4 branches missed.">        if ( parent1 == null &amp;&amp; parent2 == null ) {</span>
+<span class="fc" id="L115">          return true;</span>
+        }
+
+        // This goes to the parent recursively...
+        //
+<span class="fc bfc" id="L120" title="All 2 branches covered.">        if ( parent1.equals( parent2 ) ) {</span>
+<span class="fc" id="L121">          return true;</span>
+        }
+      }
+<span class="nc" id="L124">    } catch ( Exception e ) {</span>
+<span class="nc" id="L125">      e.printStackTrace();</span>
+<span class="fc" id="L126">    }</span>
+
+<span class="fc" id="L128">    return false;</span>
+  }
+
+  private void grabLoggingObjectInformation( ILoggingObject loggingObject ) {
+<span class="fc" id="L132">    objectType = loggingObject.getObjectType();</span>
+<span class="fc" id="L133">    objectName = loggingObject.getObjectName();</span>
+<span class="fc" id="L134">    filename = loggingObject.getFilename();</span>
+<span class="fc" id="L135">    objectCopy = loggingObject.getObjectCopy();</span>
+<span class="fc" id="L136">    logLevel = loggingObject.getLogLevel();</span>
+<span class="fc" id="L137">    containerObjectId = loggingObject.getContainerId();</span>
+<span class="fc" id="L138">    forcingSeparateLogging = loggingObject.isForcingSeparateLogging();</span>
+<span class="fc" id="L139">    gatheringMetrics = loggingObject.isGatheringMetrics();</span>
+
+<span class="fc bfc" id="L141" title="All 2 branches covered.">    if ( loggingObject.getParent() != null ) {</span>
+<span class="fc" id="L142">      getParentLoggingObject( loggingObject.getParent() );</span>
+      // inherit the containerObjectId from parent
+<span class="fc" id="L144">      containerObjectId = loggingObject.getParent().getContainerId();</span>
+    }
+<span class="fc" id="L146">  }</span>
+
+  private void grabObjectInformation( Object object ) {
+<span class="fc" id="L149">    objectType = LoggingObjectType.GENERAL;</span>
+<span class="fc" id="L150">    objectName = object.toString(); // name of class or name of object..</span>
+
+<span class="fc" id="L152">    parent = null;</span>
+<span class="fc" id="L153">  }</span>
+
+  private void getParentLoggingObject( Object parentObject ) {
+
+<span class="pc bpc" id="L157" title="1 of 2 branches missed.">    if ( parentObject == null ) {</span>
+<span class="nc" id="L158">      return;</span>
+    }
+
+<span class="pc bpc" id="L161" title="1 of 2 branches missed.">    if ( parentObject instanceof ILoggingObject ) {</span>
+
+<span class="fc" id="L163">      parent = (ILoggingObject) parentObject;</span>
+
+      // See if the parent is already in the logging registry.
+      // This prevents the logging registry from hanging onto Pipeline and Job objects that would continue to consume
+      // memory
+      //
+<span class="fc bfc" id="L169" title="All 2 branches covered.">      if ( parent.getLogChannelId() != null ) {</span>
+        ILoggingObject parentLoggingObject =
+<span class="fc" id="L171">          LoggingRegistry.getInstance().getLoggingObject( parent.getLogChannelId() );</span>
+<span class="pc bpc" id="L172" title="1 of 2 branches missed.">        if ( parentLoggingObject != null ) {</span>
+<span class="nc" id="L173">          parent = parentLoggingObject;</span>
+        }
+      }
+<span class="fc" id="L176">      return;</span>
+    }
+
+<span class="nc" id="L179">    LoggingRegistry registry = LoggingRegistry.getInstance();</span>
+
+    // Extract the hierarchy information from the parentObject...
+    //
+<span class="nc" id="L183">    LoggingObject check = new LoggingObject( parentObject );</span>
+<span class="nc" id="L184">    ILoggingObject loggingObject = registry.findExistingLoggingSource( check );</span>
+<span class="nc bnc" id="L185" title="All 2 branches missed.">    if ( loggingObject == null ) {</span>
+<span class="nc" id="L186">      String logChannelId = registry.registerLoggingSource( check );</span>
+<span class="nc" id="L187">      loggingObject = check;</span>
+<span class="nc" id="L188">      check.setLogChannelId( logChannelId );</span>
+    }
+
+<span class="nc" id="L191">    parent = loggingObject;</span>
+<span class="nc" id="L192">  }</span>
+
+  /**
+   * @return the name
+   */
+  @Override
+  public String getObjectName() {
+<span class="fc" id="L199">    return objectName;</span>
+  }
+
+  /**
+   * @param name the name to set
+   */
+  public void setObjectName( String name ) {
+<span class="fc" id="L206">    this.objectName = name;</span>
+<span class="fc" id="L207">  }</span>
+
+  /**
+   * @return the filename
+   */
+  @Override
+  public String getFilename() {
+<span class="fc" id="L214">    return filename;</span>
+  }
+
+  /**
+   * @param filename the filename to set
+   */
+  public void setFilename( String filename ) {
+<span class="fc" id="L221">    this.filename = filename;</span>
+<span class="fc" id="L222">  }</span>
+
+
+  /**
+   * @return the id
+   */
+  @Override
+  public String getLogChannelId() {
+<span class="fc" id="L230">    return logChannelId;</span>
+  }
+
+  /**
+   * @param logChannelId the id to set
+   */
+  public void setLogChannelId( String logChannelId ) {
+<span class="fc" id="L237">    this.logChannelId = logChannelId;</span>
+<span class="fc" id="L238">  }</span>
+
+  /**
+   * @return the parent
+   */
+  @Override
+  public ILoggingObject getParent() {
+<span class="fc" id="L245">    return parent;</span>
+  }
+
+  /**
+   * @param parent the parent to set
+   */
+  public void setParent( ILoggingObject parent ) {
+<span class="fc" id="L252">    this.parent = parent;</span>
+<span class="fc" id="L253">  }</span>
+
+  /**
+   * @return the objectType
+   */
+  @Override
+  public LoggingObjectType getObjectType() {
+<span class="fc" id="L260">    return objectType;</span>
+  }
+
+  /**
+   * @param objectType the objectType to set
+   */
+  public void setObjectType( LoggingObjectType objectType ) {
+<span class="nc" id="L267">    this.objectType = objectType;</span>
+<span class="nc" id="L268">  }</span>
+
+  /**
+   * @return the copy
+   */
+  @Override
+  public String getObjectCopy() {
+<span class="fc" id="L275">    return objectCopy;</span>
+  }
+
+  /**
+   * @param objectCopy the copy to set
+   */
+  public void setObjectCopy( String objectCopy ) {
+<span class="nc" id="L282">    this.objectCopy = objectCopy;</span>
+<span class="nc" id="L283">  }</span>
+
+  @Override
+  public LogLevel getLogLevel() {
+<span class="fc" id="L287">    return logLevel;</span>
+  }
+
+  public void setLogLevel( LogLevel logLevel ) {
+<span class="nc" id="L291">    this.logLevel = logLevel;</span>
+<span class="nc" id="L292">  }</span>
+
+  /**
+   * @return the serverObjectId
+   */
+  @Override
+  public String getContainerId() {
+<span class="fc" id="L299">    return containerObjectId;</span>
+  }
+
+  /**
+   * @param serverObjectId the serverObjectId to set
+   */
+  public void setCarteObjectId( String serverObjectId ) {
+<span class="nc" id="L306">    this.containerObjectId = serverObjectId;</span>
+<span class="nc" id="L307">  }</span>
+
+  /**
+   * @return the registrationDate
+   */
+  @Override
+  public Date getRegistrationDate() {
+<span class="nc" id="L314">    return registrationDate;</span>
+  }
+
+  /**
+   * @param registrationDate the registrationDate to set
+   */
+  public void setRegistrationDate( Date registrationDate ) {
+<span class="fc" id="L321">    this.registrationDate = registrationDate;</span>
+<span class="fc" id="L322">  }</span>
+
+  /**
+   * @return the gatheringMetrics
+   */
+  @Override
+  public boolean isGatheringMetrics() {
+<span class="fc" id="L329">    return gatheringMetrics;</span>
+  }
+
+  /**
+   * @param gatheringMetrics the gatheringMetrics to set
+   */
+  @Override
+  public void setGatheringMetrics( boolean gatheringMetrics ) {
+<span class="nc" id="L337">    this.gatheringMetrics = gatheringMetrics;</span>
+<span class="nc" id="L338">  }</span>
+
+  /**
+   * @return the forcingSeparateLogging
+   */
+  @Override
+  public boolean isForcingSeparateLogging() {
+<span class="fc" id="L345">    return forcingSeparateLogging;</span>
+  }
+
+  /**
+   * @param forcingSeparateLogging the forcingSeparateLogging to set
+   */
+  @Override
+  public void setForcingSeparateLogging( boolean forcingSeparateLogging ) {
+<span class="nc" id="L353">    this.forcingSeparateLogging = forcingSeparateLogging;</span>
+<span class="nc" id="L354">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

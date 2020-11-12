@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LafMessageHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.i18n</a> &gt; <span class="el_source">LafMessageHandler.java</span></div><h1>LafMessageHandler.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.i18n;
+
+import org.apache.hop.laf.BasePropertyHandler;
+
+/**
+ * @author dhushon
+ */
+public class LafMessageHandler extends GlobalMessages {
+
+<span class="fc" id="L32">  private static String replace = &quot;org.apache.hop&quot;;</span>
+<span class="fc" id="L33">  private static String replaceWith = null;</span>
+<span class="fc" id="L34">  private static int offset = -1;</span>
+<span class="fc" id="L35">  private static String replaceSysBundle = null;</span>
+
+  static {
+<span class="fc" id="L38">    replaceWith = BasePropertyHandler.getProperty( &quot;LAFpackage&quot; );</span>
+<span class="fc" id="L39">  }</span>
+
+  // TODO: modify base class to include a mandatory accessor so that this singleton instantiation can be
+  // TODO: better controlled
+  public LafMessageHandler() {
+<span class="fc" id="L44">    super();</span>
+<span class="fc" id="L45">    reinit();</span>
+<span class="fc" id="L46">  }</span>
+
+  public static synchronized IMessageHandler getInstance() {
+<span class="nc bnc" id="L49" title="All 2 branches missed.">    if ( GMinstance == null ) {</span>
+<span class="nc" id="L50">      GMinstance = new LafMessageHandler();</span>
+    }
+<span class="nc" id="L52">    return GMinstance;</span>
+  }
+
+  protected void reinit() {
+<span class="fc" id="L56">    replaceWith = BasePropertyHandler.getProperty( &quot;LAFpackage&quot; );</span>
+<span class="fc" id="L57">    replaceSysBundle = replacePackage( SYSTEM_BUNDLE_PACKAGE );</span>
+<span class="fc" id="L58">    offset = -1;</span>
+<span class="fc" id="L59">  }</span>
+
+  /**
+   * replace the application packagename target with ours for proper resolution e.g. replace org.apache.hop.* with
+   * pointers to new package structure
+   *
+   * @param packageName
+   * @return
+   */
+  private String replacePackage( String packageName ) {
+    // we haven't yet discovered the offset for the trim
+<span class="pc bpc" id="L70" title="1 of 2 branches missed.">    if ( offset &lt; 0 ) {</span>
+<span class="fc" id="L71">      offset = packageName.indexOf( replace );</span>
+<span class="pc bpc" id="L72" title="1 of 2 branches missed.">      if ( offset &gt;= 0 ) {</span>
+<span class="fc" id="L73">        offset = replace.length();</span>
+      }
+    }
+<span class="pc bpc" id="L76" title="1 of 2 branches missed.">    if ( replaceWith != null ) {</span>
+<span class="nc" id="L77">      return new String( replaceWith + packageName.substring( offset ) );</span>
+    }
+<span class="fc" id="L79">    return packageName;</span>
+  }
+
+  @Override
+  protected String calculateString( String packageName, String key, Object[] parameters, Class&lt;?&gt; resourceClass ) {
+<span class="pc bpc" id="L84" title="1 of 2 branches missed.">    if ( replaceWith != null ) {</span>
+<span class="nc" id="L85">      final String[] pkgNames = new String[] { replacePackage( packageName ), replaceSysBundle };</span>
+<span class="nc" id="L86">      final String string = super.calculateString( pkgNames, key, parameters, resourceClass );</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">      if ( !GlobalMessageUtil.isMissingKey( string ) ) {</span>
+<span class="nc" id="L88">        return string;</span>
+      }
+    }
+
+<span class="fc" id="L92">    final String[] pkgNames = new String[] { packageName, SYSTEM_BUNDLE_PACKAGE };</span>
+<span class="fc" id="L93">    return GlobalMessageUtil.calculateString( pkgNames, key, parameters, resourceClass, BUNDLE_NAME, false );</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

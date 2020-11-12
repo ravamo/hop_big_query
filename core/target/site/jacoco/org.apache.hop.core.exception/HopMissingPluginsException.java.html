@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HopMissingPluginsException.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.exception</a> &gt; <span class="el_source">HopMissingPluginsException.java</span></div><h1>HopMissingPluginsException.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.exception;
+
+import org.apache.hop.core.Const;
+import org.apache.hop.core.plugins.IPluginType;
+import org.apache.hop.core.plugins.PluginRegistry;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * This Exception is throws when an error occurs loading plugins.
+ *
+ * @author Matt
+ * @since 9-12-2004
+ */
+public class HopMissingPluginsException extends HopException {
+  private static final long serialVersionUID = -3008319146447259788L;
+
+  public static class PluginDetails {
+    private final Class&lt;? extends IPluginType&gt; pluginTypeClass;
+    private final String pluginId;
+
+    public PluginDetails( Class&lt;? extends IPluginType&gt; pluginTypeClass, String pluginId ) {
+<span class="nc" id="L46">      super();</span>
+<span class="nc" id="L47">      this.pluginTypeClass = pluginTypeClass;</span>
+<span class="nc" id="L48">      this.pluginId = pluginId;</span>
+<span class="nc" id="L49">    }</span>
+
+	public Class&lt;? extends IPluginType&gt; getPluginTypeClass() {
+<span class="nc" id="L52">		return pluginTypeClass;</span>
+	}
+
+	public String getPluginId() {
+<span class="nc" id="L56">		return pluginId;</span>
+	}
+  }
+
+  private final List&lt;PluginDetails&gt; missingPluginDetailsList;
+
+  /**
+   * Constructs a new throwable with the specified detail message.
+   *
+   * @param message - the detail message. The detail message is saved for later retrieval by the getMessage() method.
+   */
+  public HopMissingPluginsException( String message ) {
+<span class="nc" id="L68">    super( message );</span>
+<span class="nc" id="L69">    this.missingPluginDetailsList = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L70">  }</span>
+
+  /**
+   * Add a missing plugin id for a given plugin type.
+   *
+   * @param pluginTypeClass The class of the plugin type (ex. TransformPluginType.class)
+   * @param pluginId        The id of the missing plugin
+   */
+  public void addMissingPluginDetails( Class&lt;? extends IPluginType&gt; pluginTypeClass, String pluginId ) {
+<span class="nc" id="L79">    missingPluginDetailsList.add( new PluginDetails( pluginTypeClass, pluginId ) );</span>
+<span class="nc" id="L80">  }</span>
+
+  public List&lt;PluginDetails&gt; getMissingPluginDetailsList() {
+<span class="nc" id="L83">    return missingPluginDetailsList;</span>
+  }
+
+  @Override
+  public String getMessage() {
+<span class="nc" id="L88">    StringBuilder message = new StringBuilder( super.getMessage() );</span>
+<span class="nc" id="L89">    message.append( getPluginsMessage() );</span>
+<span class="nc" id="L90">    return message.toString();</span>
+  }
+
+  public String getPluginsMessage() {
+<span class="nc" id="L94">    StringBuilder message = new StringBuilder();</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">    for ( PluginDetails details : missingPluginDetailsList ) {</span>
+<span class="nc" id="L96">      message.append( Const.CR );</span>
+      try {
+<span class="nc" id="L98">        IPluginType pluginType = PluginRegistry.getInstance().getPluginType( details.pluginTypeClass );</span>
+<span class="nc" id="L99">        message.append( pluginType.getName() );</span>
+<span class="nc" id="L100">      } catch ( Exception e ) {</span>
+<span class="nc" id="L101">        message.append( &quot;UnknownPluginType-&quot; ).append( details.getPluginTypeClass().getName() );</span>
+<span class="nc" id="L102">      }</span>
+<span class="nc" id="L103">      message.append( &quot; : &quot; ).append( details.getPluginId() );</span>
+<span class="nc" id="L104">    }</span>
+<span class="nc" id="L105">    return message.toString();</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

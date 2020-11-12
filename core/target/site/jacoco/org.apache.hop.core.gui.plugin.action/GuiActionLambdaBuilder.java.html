@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GuiActionLambdaBuilder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.gui.plugin.action</a> &gt; <span class="el_source">GuiActionLambdaBuilder.java</span></div><h1>GuiActionLambdaBuilder.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.gui.plugin.action;
+
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.gui.plugin.IGuiActionLambda;
+import org.apache.hop.core.gui.plugin.IGuiRefresher;
+
+import java.lang.reflect.Method;
+
+public class GuiActionLambdaBuilder&lt;T&gt; {
+
+<span class="nc" id="L33">  public GuiActionLambdaBuilder() {</span>
+<span class="nc" id="L34">  }</span>
+
+
+  /**
+   * Create a copy of the given action and create an action lambda for it.
+   *
+   * @param guiAction
+   * @param methodParameter
+   * @return The action with the appropriate lambda capable of executing the provided method in the given parent object
+   */
+  public GuiAction createLambda( GuiAction guiAction, T methodParameter, IGuiRefresher refresher ) {
+<span class="nc bnc" id="L45" title="All 2 branches missed.">    if ( guiAction.getGuiPluginMethodName() == null ) {</span>
+<span class="nc" id="L46">      throw new RuntimeException( &quot;We need a method to execute this action&quot; );</span>
+    }
+    // Create a copy to make sure we're not doing anything stupid
+    //
+<span class="nc" id="L50">    GuiAction action = new GuiAction( guiAction );</span>
+
+    try {
+      ClassLoader classLoader;
+<span class="nc bnc" id="L54" title="All 2 branches missed.">      if (guiAction.getClassLoader()==null) {</span>
+<span class="nc" id="L55">        classLoader = getClass().getClassLoader();</span>
+      } else {
+<span class="nc" id="L57">        classLoader = guiAction.getClassLoader();</span>
+      }
+
+      // We use the GUI Class defined in the GUI Action...
+      //
+      Class&lt;?&gt; guiPluginClass;
+
+      try {
+<span class="nc" id="L65">        guiPluginClass = classLoader.loadClass( guiAction.getGuiPluginClassName() );</span>
+<span class="nc" id="L66">      } catch(Exception e) {</span>
+<span class="nc" id="L67">        throw new HopException( &quot;Unable to find class '&quot;+guiAction.getGuiPluginClassName()+&quot;'&quot;, e );</span>
+<span class="nc" id="L68">      }</span>
+
+      Object guiPlugin;
+
+      try {
+<span class="nc" id="L73">        Method getInstanceMethod = guiPluginClass.getDeclaredMethod( &quot;getInstance&quot; );</span>
+<span class="nc" id="L74">        guiPlugin = getInstanceMethod.invoke( null, null );</span>
+<span class="nc" id="L75">      } catch(Exception nsme) {</span>
+        // On the rebound we'll try to simply construct a new instance...
+        // This makes the plugins even simpler.
+        //
+        try {
+<span class="nc" id="L80">          guiPlugin = guiPluginClass.newInstance();</span>
+<span class="nc" id="L81">        } catch(Exception e) {</span>
+<span class="nc" id="L82">          throw nsme;</span>
+<span class="nc" id="L83">        }</span>
+<span class="nc" id="L84">      }</span>
+
+<span class="nc" id="L86">      Method method = guiPluginClass.getMethod( action.getGuiPluginMethodName(), methodParameter.getClass() );</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">      if ( method == null ) {</span>
+<span class="nc" id="L88">        throw new RuntimeException( &quot;Unable to find method &quot; + action.getGuiPluginMethodName() + &quot; with parameter &quot; + methodParameter.getClass().getName() + &quot; in class &quot; + guiAction.getGuiPluginClassName() );</span>
+      }
+<span class="nc" id="L90">      final Object finalGuiPlugin = guiPlugin;</span>
+<span class="nc" id="L91">      IGuiActionLambda&lt;T&gt; actionLambda = ( shiftClicked, controlClicked, objects ) -&gt; {</span>
+        try {
+<span class="nc" id="L93">          method.invoke( finalGuiPlugin, methodParameter );</span>
+<span class="nc bnc" id="L94" title="All 2 branches missed.">          if ( refresher != null ) {</span>
+<span class="nc" id="L95">            refresher.updateGui();</span>
+          }
+<span class="nc" id="L97">        } catch ( Exception e ) {</span>
+<span class="nc" id="L98">          throw new RuntimeException( &quot;Error executing method : &quot; + action.getGuiPluginMethodName() + &quot; in class &quot; + guiAction.getGuiPluginClassName(), e );</span>
+<span class="nc" id="L99">        }</span>
+<span class="nc" id="L100">      };</span>
+<span class="nc" id="L101">      action.setActionLambda( actionLambda );</span>
+<span class="nc" id="L102">      return action;</span>
+<span class="nc" id="L103">    } catch ( Exception e ) {</span>
+<span class="nc" id="L104">      throw new RuntimeException( &quot;Error creating action function for action : &quot; + toString()+&quot;. Probably you need to provide a static getInstance() method in class &quot;+guiAction.getGuiPluginClassName()+&quot; to allow the GuiPlugin to be found and then method &quot;+guiAction.getGuiPluginMethodName()+&quot; can be called.&quot;, e );</span>
+    }
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

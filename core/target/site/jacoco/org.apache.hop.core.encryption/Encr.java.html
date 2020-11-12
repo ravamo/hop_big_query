@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Encr.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.encryption</a> &gt; <span class="el_source">Encr.java</span></div><h1>Encr.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.encryption;
+
+import org.apache.hop.core.Const;
+import org.apache.hop.core.HopClientEnvironment;
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.plugins.IPlugin;
+import org.apache.hop.core.plugins.PluginRegistry;
+import org.apache.hop.core.util.Utils;
+import org.eclipse.jetty.util.security.Password;
+
+/**
+ * This class handles basic encryption of passwords in Hop. Note that it's not really encryption, it's more
+ * obfuscation. Passwords are &lt;b&gt;difficult&lt;/b&gt; to read, not impossible.
+ *
+ * @author Matt
+ * @since 17-12-2003
+ */
+public class Encr {
+
+  private static ITwoWayPasswordEncoder encoder;
+
+<span class="nc" id="L44">  public Encr() {</span>
+<span class="nc" id="L45">  }</span>
+
+  @Deprecated
+  public boolean init() {
+<span class="nc" id="L49">    return true;</span>
+  }
+
+  public static void init( String encoderPluginId ) throws HopException {
+<span class="pc bpc" id="L53" title="1 of 2 branches missed.">    if ( Utils.isEmpty( encoderPluginId ) ) {</span>
+<span class="nc" id="L54">      throw new HopException( &quot;Unable to initialize the two way password encoder: No encoder plugin type specified.&quot; );</span>
+    }
+<span class="fc" id="L56">    PluginRegistry registry = PluginRegistry.getInstance();</span>
+<span class="fc" id="L57">    IPlugin plugin = registry.findPluginWithId( TwoWayPasswordEncoderPluginType.class, encoderPluginId );</span>
+<span class="pc bpc" id="L58" title="1 of 2 branches missed.">    if ( plugin == null ) {</span>
+<span class="nc" id="L59">      throw new HopException( &quot;Unable to find plugin with ID '&quot; + encoderPluginId + &quot;'&quot; );</span>
+    }
+<span class="fc" id="L61">    encoder = (ITwoWayPasswordEncoder) registry.loadClass( plugin );</span>
+
+    // Load encoder specific options...
+    //
+<span class="fc" id="L65">    encoder.init();</span>
+<span class="fc" id="L66">  }</span>
+
+  /**
+   * Old signature code, used in license keys, from the Hop 1.x days.
+   *
+   * @param signature
+   * @param verify
+   * @return
+   * @deprecated
+   */
+  @Deprecated
+  public static final boolean checkSignatureShort( String signature, String verify ) {
+<span class="nc" id="L78">    return getSignatureShort( signature ).equalsIgnoreCase( verify );</span>
+  }
+
+  /**
+   * Old Hop 1.x code used to get a short signature from a long version signature for license checking.
+   *
+   * @param signature
+   * @return
+   * @deprecated
+   */
+  @Deprecated
+  public static final String getSignatureShort( String signature ) {
+<span class="nc" id="L90">    String retval = &quot;&quot;;</span>
+<span class="nc bnc" id="L91" title="All 2 branches missed.">    if ( signature == null ) {</span>
+<span class="nc" id="L92">      return retval;</span>
+    }
+<span class="nc" id="L94">    int len = signature.length();</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">    if ( len &lt; 6 ) {</span>
+<span class="nc" id="L96">      return retval;</span>
+    }
+<span class="nc" id="L98">    retval = signature.substring( len - 5, len );</span>
+
+<span class="nc" id="L100">    return retval;</span>
+  }
+
+  public static final String encryptPassword( String password ) {
+
+<span class="fc" id="L105">    return encoder.encode( password, false );</span>
+
+  }
+
+  public static final String decryptPassword( String encrypted ) {
+
+<span class="fc" id="L111">    return encoder.decode( encrypted );</span>
+
+  }
+
+  /**
+   * The word that is put before a password to indicate an encrypted form. If this word is not present, the password is
+   * considered to be NOT encrypted
+   */
+  public static final String PASSWORD_ENCRYPTED_PREFIX = &quot;Encrypted &quot;;
+
+  /**
+   * Encrypt the password, but only if the password doesn't contain any variables.
+   *
+   * @param password The password to encrypt
+   * @return The encrypted password or the
+   */
+  public static final String encryptPasswordIfNotUsingVariables( String password ) {
+
+<span class="fc" id="L129">    return encoder.encode( password, true );</span>
+  }
+
+  /**
+   * Decrypts a password if it contains the prefix &quot;Encrypted &quot;
+   *
+   * @param password The encrypted password
+   * @return The decrypted password or the original value if the password doesn't start with &quot;Encrypted &quot;
+   */
+  public static final String decryptPasswordOptionallyEncrypted( String password ) {
+
+<span class="fc" id="L140">    return encoder.decode( password, true );</span>
+  }
+
+  /**
+   * Create an encrypted password
+   *
+   * @param args the password to encrypt
+   */
+  public static void main( String[] args ) throws HopException {
+<span class="nc" id="L149">    HopClientEnvironment.init();</span>
+<span class="nc bnc" id="L150" title="All 2 branches missed.">    if ( args.length != 2 ) {</span>
+<span class="nc" id="L151">      printOptions();</span>
+<span class="nc" id="L152">      System.exit( 9 );</span>
+    }
+
+<span class="nc" id="L155">    String option = args[ 0 ];</span>
+<span class="nc" id="L156">    String password = args[ 1 ];</span>
+
+<span class="nc bnc" id="L158" title="All 2 branches missed.">    if ( Const.trim( option ).substring( 1 ).equalsIgnoreCase( &quot;hop&quot; ) ) {</span>
+      // Hop password obfuscation
+      //
+      try {
+<span class="nc" id="L162">        String obfuscated = Encr.encryptPasswordIfNotUsingVariables( password );</span>
+<span class="nc" id="L163">        System.out.println(obfuscated);</span>
+<span class="nc" id="L164">        System.exit( 0 );</span>
+<span class="nc" id="L165">      } catch ( Exception ex ) {</span>
+<span class="nc" id="L166">        System.err.println( &quot;Error encrypting password&quot; );</span>
+<span class="nc" id="L167">        ex.printStackTrace();</span>
+<span class="nc" id="L168">        System.exit( 2 );</span>
+<span class="nc" id="L169">      }</span>
+
+<span class="nc bnc" id="L171" title="All 2 branches missed.">    } else if ( Const.trim( option ).substring( 1 ).equalsIgnoreCase( &quot;server&quot; ) ) {</span>
+      // Jetty password obfuscation
+      //
+<span class="nc" id="L174">      String obfuscated = Password.obfuscate( password );</span>
+<span class="nc" id="L175">      System.out.println(obfuscated);</span>
+<span class="nc" id="L176">      System.exit( 0 );</span>
+
+<span class="nc" id="L178">    } else {</span>
+      // Unknown option, print usage
+      //
+<span class="nc" id="L181">      System.err.println( &quot;Unknown option '&quot; + option + &quot;'\n&quot; );</span>
+<span class="nc" id="L182">      printOptions();</span>
+<span class="nc" id="L183">      System.exit( 1 );</span>
+    }
+
+<span class="nc" id="L186">  }</span>
+
+  private static void printOptions() {
+<span class="nc" id="L189">    System.err.println( &quot;encr usage:\n&quot; );</span>
+<span class="nc" id="L190">    System.err.println( &quot;  encr &lt;-hop|-server&gt; &lt;password&gt;&quot; );</span>
+<span class="nc" id="L191">    System.err.println( &quot;  Options:&quot; );</span>
+<span class="nc" id="L192">    System.err.println( &quot;    -hop: generate an obfuscated password to include in Hop XML files&quot; );</span>
+<span class="nc" id="L193">    System.err.println( &quot;    -server : generate an obfuscated password to include in the hop-server password file 'pwd/hop.pwd'&quot; );</span>
+<span class="nc" id="L194">    System.err.println( &quot;\nThis command line tool obfuscates a plain text password for use in XML and password files.&quot; );</span>
+<span class="nc" id="L195">    System.err.println( &quot;Make sure to also copy the '&quot; + PASSWORD_ENCRYPTED_PREFIX + &quot;' prefix to indicate the obfuscated nature of the password.&quot; );</span>
+<span class="nc" id="L196">    System.err.println( &quot;Hop will then be able to make the distinction between regular plain text passwords and obfuscated ones.&quot; );</span>
+<span class="nc" id="L197">    System.err.println();</span>
+<span class="nc" id="L198">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

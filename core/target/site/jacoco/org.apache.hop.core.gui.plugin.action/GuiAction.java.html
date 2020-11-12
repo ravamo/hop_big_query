@@ -1,0 +1,346 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GuiAction.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.gui.plugin.action</a> &gt; <span class="el_source">GuiAction.java</span></div><h1>GuiAction.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.gui.plugin.action;
+
+import org.apache.commons.lang.StringUtils;
+import org.apache.hop.core.gui.plugin.IGuiActionLambda;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+public class GuiAction {
+  private String id;
+  private GuiActionType type;
+  private String name;
+  private String tooltip;
+  private String image;
+  private IGuiActionLambda actionLambda;
+  private String guiPluginClassName;
+  private String guiPluginMethodName;
+  private ClassLoader classLoader;
+  private List&lt;String&gt; keywords;
+
+<span class="nc" id="L44">  public GuiAction() {</span>
+<span class="nc" id="L45">    this.keywords = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L46">  }</span>
+
+  /**
+   * It's a direct action using a simple lambda
+   *
+   * @param id
+   * @param type
+   * @param name
+   * @param tooltip
+   * @param image
+   * @param actionLambda
+   */
+  public GuiAction( String id, GuiActionType type, String name, String tooltip, String image, IGuiActionLambda actionLambda ) {
+<span class="nc" id="L59">    this();</span>
+<span class="nc" id="L60">    this.id = id;</span>
+<span class="nc" id="L61">    this.type = type;</span>
+<span class="nc" id="L62">    this.name = name;</span>
+<span class="nc" id="L63">    this.tooltip = tooltip;</span>
+<span class="nc" id="L64">    this.image = image;</span>
+<span class="nc" id="L65">    this.actionLambda = actionLambda;</span>
+<span class="nc" id="L66">  }</span>
+
+  /**
+   * We don't know the action to execute, just the method so we defer looking up the action until we have the parent object in hand.
+   * We're just storing the method name in this case.
+   * You can use method createLambda() to build it when you have the parent object and parameter to pass.
+   *
+   * @param id
+   * @param type
+   * @param name
+   * @param tooltip
+   * @param image
+   * @param guiPluginMethodName
+   */
+  public GuiAction( String id, GuiActionType type, String name, String tooltip, String image, String guiPluginClassName, String guiPluginMethodName ) {
+<span class="nc" id="L81">    this();</span>
+<span class="nc" id="L82">    this.id = id;</span>
+<span class="nc" id="L83">    this.type = type;</span>
+<span class="nc" id="L84">    this.name = name;</span>
+<span class="nc" id="L85">    this.tooltip = tooltip;</span>
+<span class="nc" id="L86">    this.image = image;</span>
+<span class="nc" id="L87">    this.guiPluginClassName = guiPluginClassName;</span>
+<span class="nc" id="L88">    this.guiPluginMethodName = guiPluginMethodName;</span>
+<span class="nc" id="L89">  }</span>
+
+  public GuiAction( GuiAction guiAction ) {
+<span class="nc" id="L92">    this();</span>
+<span class="nc" id="L93">    this.id = guiAction.id;</span>
+<span class="nc" id="L94">    this.type = guiAction.type;</span>
+<span class="nc" id="L95">    this.name = guiAction.name;</span>
+<span class="nc" id="L96">    this.tooltip = guiAction.tooltip;</span>
+<span class="nc" id="L97">    this.image = guiAction.image;</span>
+<span class="nc" id="L98">    this.guiPluginClassName = guiAction.guiPluginClassName;</span>
+<span class="nc" id="L99">    this.guiPluginMethodName = guiAction.guiPluginMethodName;</span>
+<span class="nc" id="L100">    this.actionLambda = guiAction.actionLambda;</span>
+<span class="nc bnc" id="L101" title="All 2 branches missed.">    for ( String keyword : guiAction.getKeywords() ) {</span>
+<span class="nc" id="L102">      keywords.add( keyword );</span>
+<span class="nc" id="L103">    }</span>
+<span class="nc" id="L104">    this.classLoader = guiAction.getClassLoader();</span>
+<span class="nc" id="L105">  }</span>
+
+  public boolean containsFilterStrings( String[] filters ) {
+<span class="nc bnc" id="L108" title="All 2 branches missed.">    for ( String filter : filters ) {</span>
+<span class="nc bnc" id="L109" title="All 2 branches missed.">      if ( !containsFilterString( filter ) ) {</span>
+<span class="nc" id="L110">        return false;</span>
+      }
+    }
+<span class="nc" id="L113">    return true;</span>
+  }
+
+  public boolean containsFilterString( String filter ) {
+<span class="nc bnc" id="L117" title="All 2 branches missed.">    if ( filter == null ) {</span>
+<span class="nc" id="L118">      return false;</span>
+    }
+<span class="nc bnc" id="L120" title="All 2 branches missed.">    if ( matchesString( name, filter ) ) {</span>
+<span class="nc" id="L121">      return true;</span>
+    }
+<span class="nc bnc" id="L123" title="All 2 branches missed.">    if ( matchesString( tooltip, filter ) ) {</span>
+<span class="nc" id="L124">      return true;</span>
+    }
+<span class="nc bnc" id="L126" title="All 4 branches missed.">    if ( type != null &amp;&amp; matchesString( type.name(), filter ) ) {</span>
+<span class="nc" id="L127">      return true;</span>
+    }
+<span class="nc bnc" id="L129" title="All 2 branches missed.">    for ( String keyword : keywords ) {</span>
+<span class="nc bnc" id="L130" title="All 2 branches missed.">      if ( matchesString( keyword, filter ) ) {</span>
+<span class="nc" id="L131">        return true;</span>
+      }
+<span class="nc" id="L133">    }</span>
+<span class="nc" id="L134">    return false;</span>
+  }
+
+  private boolean matchesString( String string, String filter ) {
+<span class="nc bnc" id="L138" title="All 2 branches missed.">    if ( StringUtils.isEmpty( string ) ) {</span>
+<span class="nc" id="L139">      return false;</span>
+    }
+    // TODO: consider some fuzzy matching algorithm
+    // TODO: Do a Levenshtein distance on the filter string across all valid string indexes 0..
+<span class="nc" id="L143">    return string.toUpperCase().contains( filter.toUpperCase() );</span>
+  }
+
+  @Override public String toString() {
+<span class="nc" id="L147">    return &quot;GuiAction{&quot; +</span>
+      &quot;id='&quot; + id + '\'' +
+      &quot;, type=&quot; + type +
+      &quot;, name='&quot; + name + '\'' +
+      &quot;, tooltip='&quot; + tooltip + '\'' +
+      '}';
+  }
+
+  /**
+   * For any name longer than 30 characters we return the first 28 characters + &quot;...&quot;;
+   *
+   * @return the short name
+   */
+  public String getShortName() {
+<span class="nc bnc" id="L161" title="All 2 branches missed.">    if ( name == null ) {</span>
+<span class="nc" id="L162">      return null;</span>
+    }
+<span class="nc bnc" id="L164" title="All 2 branches missed.">    if ( name.length() &lt; 30 ) {</span>
+<span class="nc" id="L165">      return name;</span>
+    } else {
+<span class="nc" id="L167">      return name.substring( 0, 28 ) + &quot;...&quot;;</span>
+    }
+  }
+
+  @Override public boolean equals( Object o ) {
+<span class="nc bnc" id="L172" title="All 2 branches missed.">    if ( this == o ) {</span>
+<span class="nc" id="L173">      return true;</span>
+    }
+<span class="nc bnc" id="L175" title="All 4 branches missed.">    if ( o == null || getClass() != o.getClass() ) {</span>
+<span class="nc" id="L176">      return false;</span>
+    }
+<span class="nc" id="L178">    GuiAction guiAction = (GuiAction) o;</span>
+<span class="nc" id="L179">    return id.equals( guiAction.id );</span>
+  }
+
+  @Override public int hashCode() {
+<span class="nc" id="L183">    return Objects.hash( id );</span>
+  }
+
+  /**
+   * Gets id
+   *
+   * @return value of id
+   */
+  public String getId() {
+<span class="nc" id="L192">    return id;</span>
+  }
+
+  /**
+   * @param id The id to set
+   */
+  public void setId( String id ) {
+<span class="nc" id="L199">    this.id = id;</span>
+<span class="nc" id="L200">  }</span>
+
+  /**
+   * Gets type
+   *
+   * @return value of type
+   */
+  public GuiActionType getType() {
+<span class="nc" id="L208">    return type;</span>
+  }
+
+  /**
+   * @param type The type to set
+   */
+  public void setType( GuiActionType type ) {
+<span class="nc" id="L215">    this.type = type;</span>
+<span class="nc" id="L216">  }</span>
+
+  /**
+   * Gets name
+   *
+   * @return value of name
+   */
+  public String getName() {
+<span class="nc" id="L224">    return name;</span>
+  }
+
+  /**
+   * @param name The name to set
+   */
+  public void setName( String name ) {
+<span class="nc" id="L231">    this.name = name;</span>
+<span class="nc" id="L232">  }</span>
+
+  /**
+   * Gets tooltip
+   *
+   * @return value of tooltip
+   */
+  public String getTooltip() {
+<span class="nc" id="L240">    return tooltip;</span>
+  }
+
+  /**
+   * @param tooltip The tooltip to set
+   */
+  public void setTooltip( String tooltip ) {
+<span class="nc" id="L247">    this.tooltip = tooltip;</span>
+<span class="nc" id="L248">  }</span>
+
+  /**
+   * Gets image
+   *
+   * @return value of image
+   */
+  public String getImage() {
+<span class="nc" id="L256">    return image;</span>
+  }
+
+  /**
+   * @param image The image to set
+   */
+  public void setImage( String image ) {
+<span class="nc" id="L263">    this.image = image;</span>
+<span class="nc" id="L264">  }</span>
+
+  /**
+   * Gets actionLambda
+   *
+   * @return value of actionLambda
+   */
+  public IGuiActionLambda getActionLambda() {
+<span class="nc" id="L272">    return actionLambda;</span>
+  }
+
+  /**
+   * @param actionLambda The actionLambda to set
+   */
+  public void setActionLambda( IGuiActionLambda actionLambda ) {
+<span class="nc" id="L279">    this.actionLambda = actionLambda;</span>
+<span class="nc" id="L280">  }</span>
+
+  /**
+   * Gets guiPluginClassName
+   *
+   * @return value of guiPluginClassName
+   */
+  public String getGuiPluginClassName() {
+<span class="nc" id="L288">    return guiPluginClassName;</span>
+  }
+
+  /**
+   * @param guiPluginClassName The guiPluginClassName to set
+   */
+  public void setGuiPluginClassName( String guiPluginClassName ) {
+<span class="nc" id="L295">    this.guiPluginClassName = guiPluginClassName;</span>
+<span class="nc" id="L296">  }</span>
+
+  /**
+   * Gets methodName
+   *
+   * @return value of methodName
+   */
+  public String getGuiPluginMethodName() {
+<span class="nc" id="L304">    return guiPluginMethodName;</span>
+  }
+
+  /**
+   * @param guiPluginMethodName The methodName to set
+   */
+  public void setGuiPluginMethodName( String guiPluginMethodName ) {
+<span class="nc" id="L311">    this.guiPluginMethodName = guiPluginMethodName;</span>
+<span class="nc" id="L312">  }</span>
+
+  /**
+   * Gets classLoader
+   *
+   * @return value of classLoader
+   */
+  public ClassLoader getClassLoader() {
+<span class="nc" id="L320">    return classLoader;</span>
+  }
+
+  /**
+   * @param classLoader The classLoader to set
+   */
+  public void setClassLoader( ClassLoader classLoader ) {
+<span class="nc" id="L327">    this.classLoader = classLoader;</span>
+<span class="nc" id="L328">  }</span>
+
+  /**
+   * Gets keywords
+   *
+   * @return value of keywords
+   */
+  public List&lt;String&gt; getKeywords() {
+<span class="nc" id="L336">    return keywords;</span>
+  }
+
+  /**
+   * @param keywords The keywords to set
+   */
+  public void setKeywords( List&lt;String&gt; keywords ) {
+<span class="nc" id="L343">    this.keywords = keywords;</span>
+<span class="nc" id="L344">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

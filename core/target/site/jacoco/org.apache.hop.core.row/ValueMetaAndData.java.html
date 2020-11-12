@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ValueMetaAndData.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.row</a> &gt; <span class="el_source">ValueMetaAndData.java</span></div><h1>ValueMetaAndData.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.row;
+
+import org.apache.hop.core.Const;
+import org.apache.hop.core.exception.HopValueException;
+import org.apache.hop.core.row.value.ValueMetaBase;
+import org.apache.hop.core.row.value.ValueMetaBigNumber;
+import org.apache.hop.core.row.value.ValueMetaBinary;
+import org.apache.hop.core.row.value.ValueMetaBoolean;
+import org.apache.hop.core.row.value.ValueMetaDate;
+import org.apache.hop.core.row.value.ValueMetaFactory;
+import org.apache.hop.core.row.value.ValueMetaInteger;
+import org.apache.hop.core.row.value.ValueMetaNumber;
+import org.apache.hop.core.row.value.ValueMetaSerializable;
+import org.apache.hop.core.row.value.ValueMetaString;
+import org.apache.hop.core.xml.XmlHandler;
+import org.w3c.dom.Node;
+
+import java.math.BigDecimal;
+import java.util.Date;
+
+public class ValueMetaAndData {
+  public static final String XML_TAG = &quot;value&quot;;
+
+  private IValueMeta valueMeta;
+  private Object valueData;
+
+<span class="nc" id="L49">  public ValueMetaAndData() {</span>
+<span class="nc" id="L50">  }</span>
+
+  /**
+   * @param valueMeta
+   * @param valueData
+   */
+<span class="fc" id="L56">  public ValueMetaAndData( IValueMeta valueMeta, Object valueData ) {</span>
+<span class="fc" id="L57">    this.valueMeta = valueMeta;</span>
+<span class="fc" id="L58">    this.valueData = valueData;</span>
+<span class="fc" id="L59">  }</span>
+
+<span class="fc" id="L61">  public ValueMetaAndData( String valueName, Object valueData ) throws HopValueException {</span>
+<span class="fc" id="L62">    this.valueData = valueData;</span>
+<span class="fc bfc" id="L63" title="All 2 branches covered.">    if ( valueData instanceof String ) {</span>
+<span class="fc" id="L64">      this.valueMeta = new ValueMetaString( valueName );</span>
+<span class="fc bfc" id="L65" title="All 2 branches covered.">    } else if ( valueData instanceof Double ) {</span>
+<span class="fc" id="L66">      this.valueMeta = new ValueMetaNumber( valueName );</span>
+<span class="fc bfc" id="L67" title="All 2 branches covered.">    } else if ( valueData instanceof Long ) {</span>
+<span class="fc" id="L68">      this.valueMeta = new ValueMetaInteger( valueName );</span>
+<span class="fc bfc" id="L69" title="All 2 branches covered.">    } else if ( valueData instanceof Date ) {</span>
+<span class="fc" id="L70">      this.valueMeta = new ValueMetaDate( valueName );</span>
+<span class="fc bfc" id="L71" title="All 2 branches covered.">    } else if ( valueData instanceof BigDecimal ) {</span>
+<span class="fc" id="L72">      this.valueMeta = new ValueMetaBigNumber( valueName );</span>
+<span class="fc bfc" id="L73" title="All 2 branches covered.">    } else if ( valueData instanceof Boolean ) {</span>
+<span class="fc" id="L74">      this.valueMeta = new ValueMetaBoolean( valueName );</span>
+<span class="fc bfc" id="L75" title="All 2 branches covered.">    } else if ( valueData instanceof byte[] ) {</span>
+<span class="fc" id="L76">      this.valueMeta = new ValueMetaBinary( valueName );</span>
+    } else {
+<span class="fc" id="L78">      this.valueMeta = new ValueMetaSerializable( valueName );</span>
+    }
+<span class="fc" id="L80">  }</span>
+
+  @Override
+  public Object clone() {
+<span class="nc" id="L84">    ValueMetaAndData vmad = new ValueMetaAndData();</span>
+    try {
+<span class="nc" id="L86">      vmad.valueData = valueMeta.cloneValueData( valueData );</span>
+<span class="nc" id="L87">    } catch ( HopValueException e ) {</span>
+<span class="nc" id="L88">      vmad.valueData = null; // TODO: should we really do this? Is it safe?</span>
+<span class="nc" id="L89">    }</span>
+<span class="nc" id="L90">    vmad.valueMeta = valueMeta.clone();</span>
+
+<span class="nc" id="L92">    return vmad;</span>
+  }
+
+  @Override
+  public String toString() {
+    try {
+<span class="nc" id="L98">      return valueMeta.getString( valueData );</span>
+<span class="nc" id="L99">    } catch ( HopValueException e ) {</span>
+<span class="nc" id="L100">      return &quot;&lt;![&quot; + e.getMessage() + &quot;]!&gt;&quot;;</span>
+    }
+  }
+
+  /**
+   * Produce the XML representation of this value.
+   *
+   * @return a String containing the XML to represent this Value.
+   * @throws HopValueException in case there is a data conversion error, only throws in case of lazy conversion
+   */
+  public String getXml() throws HopValueException {
+<span class="nc" id="L111">    IValueMeta meta = valueMeta.clone();</span>
+<span class="nc" id="L112">    meta.setDecimalSymbol( &quot;.&quot; );</span>
+<span class="nc" id="L113">    meta.setGroupingSymbol( null );</span>
+<span class="nc" id="L114">    meta.setCurrencySymbol( null );</span>
+
+<span class="nc" id="L116">    StringBuilder retval = new StringBuilder( 128 );</span>
+<span class="nc" id="L117">    retval.append( &quot;&lt;&quot; + XML_TAG + &quot;&gt;&quot; );</span>
+<span class="nc" id="L118">    retval.append( XmlHandler.addTagValue( &quot;name&quot;, meta.getName(), false ) );</span>
+<span class="nc" id="L119">    retval.append( XmlHandler.addTagValue( &quot;type&quot;, meta.getTypeDesc(), false ) );</span>
+    try {
+<span class="nc" id="L121">      retval.append( XmlHandler.addTagValue( &quot;text&quot;, meta.getCompatibleString( valueData ), false ) );</span>
+<span class="nc" id="L122">    } catch ( HopValueException e ) {</span>
+      // LogWriter.getInstance().logError(toString(), Const.getStackTracker(e));
+<span class="nc" id="L124">      retval.append( XmlHandler.addTagValue( &quot;text&quot;, &quot;&quot;, false ) );</span>
+<span class="nc" id="L125">    }</span>
+<span class="nc" id="L126">    retval.append( XmlHandler.addTagValue( &quot;length&quot;, meta.getLength(), false ) );</span>
+<span class="nc" id="L127">    retval.append( XmlHandler.addTagValue( &quot;precision&quot;, meta.getPrecision(), false ) );</span>
+<span class="nc" id="L128">    retval.append( XmlHandler.addTagValue( &quot;isnull&quot;, meta.isNull( valueData ), false ) );</span>
+<span class="nc" id="L129">    retval.append( XmlHandler.addTagValue( &quot;mask&quot;, meta.getConversionMask(), false ) );</span>
+<span class="nc" id="L130">    retval.append( &quot;&lt;/&quot; + XML_TAG + &quot;&gt;&quot; );</span>
+
+<span class="nc" id="L132">    return retval.toString();</span>
+  }
+
+  /**
+   * Construct a new Value and read the data from XML
+   *
+   * @param valnode The XML Node to read from.
+   */
+  public ValueMetaAndData( Node valnode ) {
+<span class="nc" id="L141">    this();</span>
+<span class="nc" id="L142">    loadXml( valnode );</span>
+<span class="nc" id="L143">  }</span>
+
+  /**
+   * Read the data for this Value from an XML Node
+   *
+   * @param valnode The XML Node to read from
+   * @return true if all went well, false if something went wrong.
+   */
+  public boolean loadXml( Node valnode ) {
+<span class="nc" id="L152">    valueMeta = null;</span>
+
+    try {
+<span class="nc" id="L155">      String valname = XmlHandler.getTagValue( valnode, &quot;name&quot; );</span>
+<span class="nc" id="L156">      int valtype = ValueMetaBase.getType( XmlHandler.getTagValue( valnode, &quot;type&quot; ) );</span>
+<span class="nc" id="L157">      String text = XmlHandler.getTagValue( valnode, &quot;text&quot; );</span>
+<span class="nc" id="L158">      boolean isnull = &quot;Y&quot;.equalsIgnoreCase( XmlHandler.getTagValue( valnode, &quot;isnull&quot; ) );</span>
+<span class="nc" id="L159">      int len = Const.toInt( XmlHandler.getTagValue( valnode, &quot;length&quot; ), -1 );</span>
+<span class="nc" id="L160">      int prec = Const.toInt( XmlHandler.getTagValue( valnode, &quot;precision&quot; ), -1 );</span>
+<span class="nc" id="L161">      String mask = XmlHandler.getTagValue( valnode, &quot;mask&quot; );</span>
+
+<span class="nc" id="L163">      valueMeta = ValueMetaFactory.createValueMeta( valname, valtype, len, prec );</span>
+<span class="nc" id="L164">      valueData = text;</span>
+
+<span class="nc bnc" id="L166" title="All 2 branches missed.">      if ( mask != null ) {</span>
+<span class="nc" id="L167">        valueMeta.setConversionMask( mask );</span>
+      }
+
+<span class="nc bnc" id="L170" title="All 2 branches missed.">      if ( valtype != IValueMeta.TYPE_STRING ) {</span>
+<span class="nc" id="L171">        IValueMeta originMeta = new ValueMetaString( valname );</span>
+<span class="nc bnc" id="L172" title="All 2 branches missed.">        if ( valueMeta.isNumeric() ) {</span>
+<span class="nc" id="L173">          originMeta.setDecimalSymbol( &quot;.&quot; );</span>
+<span class="nc" id="L174">          originMeta.setGroupingSymbol( null );</span>
+<span class="nc" id="L175">          originMeta.setCurrencySymbol( null );</span>
+        }
+<span class="nc bnc" id="L177" title="All 2 branches missed.">        if ( valtype == IValueMeta.TYPE_DATE ) {</span>
+<span class="nc" id="L178">          originMeta.setConversionMask( ValueMetaBase.COMPATIBLE_DATE_FORMAT_PATTERN );</span>
+        }
+<span class="nc" id="L180">        valueData = Const.trim( text );</span>
+<span class="nc" id="L181">        valueData = valueMeta.convertData( originMeta, valueData );</span>
+      }
+
+<span class="nc bnc" id="L184" title="All 2 branches missed.">      if ( isnull ) {</span>
+<span class="nc" id="L185">        valueData = null;</span>
+      }
+<span class="nc" id="L187">    } catch ( Exception e ) {</span>
+<span class="nc" id="L188">      valueData = null;</span>
+<span class="nc" id="L189">      return false;</span>
+<span class="nc" id="L190">    }</span>
+
+<span class="nc" id="L192">    return true;</span>
+  }
+
+  public String toStringMeta() {
+<span class="nc" id="L196">    return valueMeta.toStringMeta();</span>
+  }
+
+  /**
+   * @return the valueData
+   */
+  public Object getValueData() {
+<span class="fc" id="L203">    return valueData;</span>
+  }
+
+  /**
+   * @param valueData the valueData to set
+   */
+  public void setValueData( Object valueData ) {
+<span class="nc" id="L210">    this.valueData = valueData;</span>
+<span class="nc" id="L211">  }</span>
+
+  /**
+   * @return the valueMeta
+   */
+  public IValueMeta getValueMeta() {
+<span class="fc" id="L217">    return valueMeta;</span>
+  }
+
+  /**
+   * @param valueMeta the valueMeta to set
+   */
+  public void setValueMeta( IValueMeta valueMeta ) {
+<span class="nc" id="L224">    this.valueMeta = valueMeta;</span>
+<span class="nc" id="L225">  }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

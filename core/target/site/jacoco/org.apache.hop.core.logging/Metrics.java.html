@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Metrics.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.logging</a> &gt; <span class="el_source">Metrics.java</span></div><h1>Metrics.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.logging;
+
+import org.apache.hop.core.metrics.MetricsSnapshotType;
+
+import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.List;
+
+public class Metrics implements IMetrics {
+
+  // Database
+  //
+<span class="fc" id="L35">  public static Metrics METRIC_DATABASE_CONNECT_START = new Metrics(</span>
+    MetricsSnapshotType.START, &quot;METRIC_DATABASE_CONNECT&quot;, &quot;Connect to database&quot; );
+<span class="fc" id="L37">  public static Metrics METRIC_DATABASE_CONNECT_STOP = new Metrics(</span>
+    MetricsSnapshotType.STOP, &quot;METRIC_DATABASE_CONNECT&quot;, &quot;Connect to database&quot; );
+<span class="fc" id="L39">  public static Metrics METRIC_DATABASE_PREPARE_SQL_START = new Metrics(</span>
+    MetricsSnapshotType.START, &quot;METRIC_DATABASE_PREPARE_SQL&quot;, &quot;Prepare SQL statement&quot; );
+<span class="fc" id="L41">  public static Metrics METRIC_DATABASE_PREPARE_SQL_STOP = new Metrics(</span>
+    MetricsSnapshotType.STOP, &quot;METRIC_DATABASE_PREPARE_SQL&quot;, &quot;Prepare SQL statement&quot; );
+<span class="fc" id="L43">  public static Metrics METRIC_DATABASE_CREATE_SQL_START = new Metrics(</span>
+    MetricsSnapshotType.START, &quot;METRIC_DATABASE_CREATE_SQL&quot;, &quot;Create SQL statement&quot; );
+<span class="fc" id="L45">  public static Metrics METRIC_DATABASE_CREATE_SQL_STOP = new Metrics(</span>
+    MetricsSnapshotType.STOP, &quot;METRIC_DATABASE_CREATE_SQL&quot;, &quot;Create SQL statement&quot; );
+<span class="fc" id="L47">  public static Metrics METRIC_DATABASE_SQL_VALUES_START = new Metrics(</span>
+    MetricsSnapshotType.START, &quot;METRIC_DATABASE_SQL_VALUES&quot;, &quot;Set values on perpared statement&quot; );
+<span class="fc" id="L49">  public static Metrics METRIC_DATABASE_SQL_VALUES_STOP = new Metrics(</span>
+    MetricsSnapshotType.STOP, &quot;METRIC_DATABASE_SQL_VALUES&quot;, &quot;Set values on perpared statement&quot; );
+<span class="fc" id="L51">  public static Metrics METRIC_DATABASE_EXECUTE_SQL_START = new Metrics(</span>
+    MetricsSnapshotType.START, &quot;METRIC_DATABASE_EXECUTE_SQL&quot;, &quot;Execute SQL statement&quot; );
+<span class="fc" id="L53">  public static Metrics METRIC_DATABASE_EXECUTE_SQL_STOP = new Metrics(</span>
+    MetricsSnapshotType.STOP, &quot;METRIC_DATABASE_EXECUTE_SQL&quot;, &quot;Execute SQL statement&quot; );
+<span class="fc" id="L55">  public static Metrics METRIC_DATABASE_OPEN_QUERY_START = new Metrics(</span>
+    MetricsSnapshotType.START, &quot;METRIC_DATABASE_OPEN_QUERY&quot;, &quot;Open SQL query&quot; );
+<span class="fc" id="L57">  public static Metrics METRIC_DATABASE_OPEN_QUERY_STOP = new Metrics(</span>
+    MetricsSnapshotType.STOP, &quot;METRIC_DATABASE_OPEN_QUERY&quot;, &quot;Open SQL query&quot; );
+<span class="fc" id="L59">  public static Metrics METRIC_DATABASE_GET_ROW_META_START = new Metrics(</span>
+    MetricsSnapshotType.START, &quot;METRIC_DATABASE_GET_ROW_META&quot;, &quot;Get row metadata&quot; );
+<span class="fc" id="L61">  public static Metrics METRIC_DATABASE_GET_ROW_META_STOP = new Metrics(</span>
+    MetricsSnapshotType.STOP, &quot;METRIC_DATABASE_GET_ROW_META&quot;, &quot;Get row metadata&quot; );
+<span class="fc" id="L63">  public static Metrics METRIC_DATABASE_SET_LOOKUP_START = new Metrics(</span>
+    MetricsSnapshotType.START, &quot;METRIC_DATABASE_SET_LOOKUP&quot;, &quot;Set lookup values&quot; );
+<span class="fc" id="L65">  public static Metrics METRIC_DATABASE_SET_LOOKUP_STOP = new Metrics(</span>
+    MetricsSnapshotType.STOP, &quot;METRIC_DATABASE_SET_LOOKUP&quot;, &quot;Set lookup values&quot; );
+<span class="fc" id="L67">  public static Metrics METRIC_DATABASE_PREPARE_UPDATE_START = new Metrics(</span>
+    MetricsSnapshotType.START, &quot;METRIC_DATABASE_PREPARE_UPDATE&quot;, &quot;Prepare update&quot; );
+<span class="fc" id="L69">  public static Metrics METRIC_DATABASE_PREPARE_UPDATE_STOP = new Metrics(</span>
+    MetricsSnapshotType.STOP, &quot;METRIC_DATABASE_PREPARE_UPDATE&quot;, &quot;Prepare update&quot; );
+<span class="fc" id="L71">  public static Metrics METRIC_DATABASE_PREPARE_DELETE_START = new Metrics(</span>
+    MetricsSnapshotType.START, &quot;METRIC_DATABASE_PREPARE_DELETE&quot;, &quot;Prepare delete&quot; );
+<span class="fc" id="L73">  public static Metrics METRIC_DATABASE_PREPARE_DELETE_STOP = new Metrics(</span>
+    MetricsSnapshotType.STOP, &quot;METRIC_DATABASE_PREPARE_DELETE&quot;, &quot;Prepare delete&quot; );
+<span class="fc" id="L75">  public static Metrics METRIC_DATABASE_PREPARE_DBPROC_START = new Metrics(</span>
+    MetricsSnapshotType.START, &quot;METRIC_DATABASE_PREPARE_DBPROC&quot;, &quot;Prepare DB procedure&quot; );
+<span class="fc" id="L77">  public static Metrics METRIC_DATABASE_PREPARE_DBPROC_STOP = new Metrics(</span>
+    MetricsSnapshotType.STOP, &quot;METRIC_DATABASE_PREPARE_DBPROC&quot;, &quot;Prepare DB procedure&quot; );
+<span class="fc" id="L79">  public static Metrics METRIC_DATABASE_GET_LOOKUP_START = new Metrics(</span>
+    MetricsSnapshotType.START, &quot;METRIC_DATABASE_GET_LOOKUP&quot;, &quot;Get lookup&quot; );
+<span class="fc" id="L81">  public static Metrics METRIC_DATABASE_GET_LOOKUP_STOP = new Metrics(</span>
+    MetricsSnapshotType.STOP, &quot;METRIC_DATABASE_GET_LOOKUP&quot;, &quot;Get lookup&quot; );
+<span class="fc" id="L83">  public static Metrics METRIC_DATABASE_GET_DBMETA_START = new Metrics(</span>
+    MetricsSnapshotType.START, &quot;METRIC_DATABASE_GET_DBMETA&quot;, &quot;Get DB metadata&quot; );
+<span class="fc" id="L85">  public static Metrics METRIC_DATABASE_GET_DBMETA_STOP = new Metrics(</span>
+    MetricsSnapshotType.STOP, &quot;METRIC_DATABASE_GET_DBMETA&quot;, &quot;Get DB metadata&quot; );
+
+<span class="fc" id="L88">  public static Metrics METRIC_DATABASE_GET_ROW_COUNT = new Metrics(</span>
+    MetricsSnapshotType.COUNT, &quot;METRIC_DATABASE_GET_ROW_COUNT&quot;, &quot;Get row from DB (count)&quot; );
+<span class="fc" id="L90">  public static Metrics METRIC_DATABASE_GET_ROW_SUM_TIME = new Metrics(</span>
+    MetricsSnapshotType.SUM, &quot;METRIC_DATABASE_GET_ROW_SUM_TIME&quot;, &quot;Get row from DB (total time)&quot; );
+<span class="fc" id="L92">  public static Metrics METRIC_DATABASE_GET_ROW_MIN_TIME = new Metrics(</span>
+    MetricsSnapshotType.MIN, &quot;METRIC_DATABASE_GET_ROW_MIN_TIME&quot;, &quot;Get row from DB (min time)&quot; );
+<span class="fc" id="L94">  public static Metrics METRIC_DATABASE_GET_ROW_MAX_TIME = new Metrics(</span>
+    MetricsSnapshotType.MAX, &quot;METRIC_DATABASE_GET_ROW_MAX_TIME&quot;, &quot;Get row from DB (max time)&quot; );
+
+  // Plugin registry...
+  //
+<span class="fc" id="L99">  public static Metrics METRIC_PLUGIN_REGISTRY_PLUGIN_REGISTRATION_START = new Metrics(</span>
+    MetricsSnapshotType.START, &quot;METRIC_PLUGIN_REGISTRY_PLUGIN_REGISTRATION&quot;, &quot;Register plugins&quot; );
+<span class="fc" id="L101">  public static Metrics METRIC_PLUGIN_REGISTRY_PLUGIN_REGISTRATION_STOP = new Metrics(</span>
+    MetricsSnapshotType.STOP, &quot;METRIC_PLUGIN_REGISTRY_PLUGIN_REGISTRATION&quot;, &quot;Register plugins&quot; );
+<span class="fc" id="L103">  public static Metrics METRIC_PLUGIN_REGISTRY_PLUGIN_TYPE_REGISTRATION_START = new Metrics(</span>
+    MetricsSnapshotType.START, &quot;METRIC_PLUGIN_REGISTRY_PLUGIN_TYPE_REGISTRATION&quot;,
+    &quot;Register plugins of a certain type&quot; );
+<span class="fc" id="L106">  public static Metrics METRIC_PLUGIN_REGISTRY_PLUGIN_TYPE_REGISTRATION_STOP = new Metrics(</span>
+    MetricsSnapshotType.STOP, &quot;METRIC_PLUGIN_REGISTRY_PLUGIN_TYPE_REGISTRATION&quot;,
+    &quot;Register plugins of a certain type&quot; );
+
+  // Pipeline
+  //
+<span class="fc" id="L112">  public static Metrics METRIC_PIPELINE_EXECUTION_START = new Metrics(</span>
+    MetricsSnapshotType.START, &quot;METRIC_PIPELINE_EXECUTION&quot;, &quot;Execute a pipeline&quot; );
+<span class="fc" id="L114">  public static Metrics METRIC_PIPELINE_EXECUTION_STOP = new Metrics(</span>
+    MetricsSnapshotType.STOP, &quot;METRIC_PIPELINE_EXECUTION&quot;, &quot;Execute a pipeline&quot; );
+<span class="fc" id="L116">  public static Metrics METRIC_PIPELINE_INIT_START = new Metrics(</span>
+    MetricsSnapshotType.START, &quot;METRIC_PIPELINE_INIT&quot;, &quot;Initialize a pipeline&quot; );
+<span class="fc" id="L118">  public static Metrics METRIC_PIPELINE_INIT_STOP = new Metrics(</span>
+    MetricsSnapshotType.STOP, &quot;METRIC_PIPELINE_INIT&quot;, &quot;Initialize a pipeline&quot; );
+<span class="fc" id="L120">  public static Metrics METRIC_TRANSFORM_EXECUTION_START = new Metrics(</span>
+    MetricsSnapshotType.START, &quot;METRIC_TRANSFORM_EXECUTION&quot;, &quot;Execute a transform&quot; );
+<span class="fc" id="L122">  public static Metrics METRIC_TRANSFORM_EXECUTION_STOP = new Metrics(</span>
+    MetricsSnapshotType.STOP, &quot;METRIC_TRANSFORM_EXECUTION&quot;, &quot;Execute a transform&quot; );
+<span class="fc" id="L124">  public static Metrics METRIC_TRANSFORM_INIT_START = new Metrics(</span>
+    MetricsSnapshotType.START, &quot;METRIC_TRANSFORM_INIT&quot;, &quot;Initialize a transform&quot; );
+<span class="fc" id="L126">  public static Metrics METRIC_TRANSFORM_INIT_STOP = new Metrics(</span>
+    MetricsSnapshotType.STOP, &quot;METRIC_TRANSFORM_INIT&quot;, &quot;Initialize a transform&quot; );
+
+  // Logging back-end
+  //
+<span class="fc" id="L131">  public static Metrics METRIC_CENTRAL_LOG_STORE_TIMEOUT_CLEAN_TIME = new Metrics(</span>
+    MetricsSnapshotType.SUM, &quot;METRIC_CENTRAL_LOG_STORE_TIMEOUT_CLEAN_TIME&quot;,
+    &quot;Time consumed removing old log records (ms)&quot; );
+<span class="fc" id="L134">  public static Metrics METRIC_CENTRAL_LOG_STORE_TIMEOUT_CLEAN_COUNT = new Metrics(</span>
+    MetricsSnapshotType.COUNT, &quot;METRIC_CENTRAL_LOG_STORE_TIMEOUT_CLEAN_COUNT&quot;,
+    &quot;Number of times removed old log records&quot; );
+<span class="fc" id="L137">  public static Metrics METRIC_LOGGING_REGISTRY_CLEAN_TIME = new Metrics(</span>
+    MetricsSnapshotType.SUM, &quot;METRIC_LOGGING_REGISTRY_CLEAN_TIME&quot;,
+    &quot;Time consumed removing old log registry entries (ms)&quot; );
+<span class="fc" id="L140">  public static Metrics METRIC_LOGGING_REGISTRY_CLEAN_COUNT = new Metrics(</span>
+    MetricsSnapshotType.COUNT, &quot;METRIC_LOGGING_REGISTRY_CLEAN_COUNT&quot;,
+    &quot;Number of times removed old log registry entries&quot; );
+<span class="fc" id="L143">  public static Metrics METRIC_LOGGING_REGISTRY_GET_CHILDREN_TIME = new Metrics(</span>
+    MetricsSnapshotType.SUM, &quot;METRIC_LOGGING_REGISTRY_GET_CHILDREN_TIME&quot;,
+    &quot;Time consumed getting log registry children (ms)&quot; );
+<span class="fc" id="L146">  public static Metrics METRIC_LOGGING_REGISTRY_GET_CHILDREN_COUNT = new Metrics(</span>
+    MetricsSnapshotType.COUNT, &quot;METRIC_LOGGING_REGISTRY_GET_CHILDREN_COUNT&quot;,
+    &quot;Number of times retrieved log registry children&quot; );
+
+  // Job
+  //
+<span class="fc" id="L152">  public static Metrics METRIC_JOB_START = new Metrics(</span>
+    MetricsSnapshotType.START, &quot;METRIC_JOB_EXECUTION&quot;, &quot;Execute a workflow&quot; );
+<span class="fc" id="L154">  public static Metrics METRIC_JOB_STOP = new Metrics(</span>
+    MetricsSnapshotType.STOP, &quot;METRIC_JOB_EXECUTION&quot;, &quot;Execute a workflow&quot; );
+<span class="fc" id="L156">  public static Metrics METRIC_JOBENTRY_START = new Metrics(</span>
+    MetricsSnapshotType.START, &quot;METRIC_JOBENTRY_EXECUTION&quot;, &quot;Execute a action&quot; );
+<span class="fc" id="L158">  public static Metrics METRIC_JOBENTRY_STOP = new Metrics(</span>
+    MetricsSnapshotType.STOP, &quot;METRIC_JOBENTRY_EXECUTION&quot;, &quot;Execute a action&quot; );
+
+  private String code;
+  private String description;
+  private MetricsSnapshotType type;
+
+<span class="fc" id="L165">  public Metrics( MetricsSnapshotType type, String code, String description ) {</span>
+<span class="fc" id="L166">    this.type = type;</span>
+<span class="fc" id="L167">    this.code = code;</span>
+<span class="fc" id="L168">    this.description = description;</span>
+<span class="fc" id="L169">  }</span>
+
+  @Override
+  public String getDescription() {
+<span class="nc" id="L173">    return description;</span>
+  }
+
+  @Override
+  public String getCode() {
+<span class="fc" id="L178">    return code;</span>
+  }
+
+  @Override
+  public MetricsSnapshotType getType() {
+<span class="fc" id="L183">    return type;</span>
+  }
+
+  @Override
+  public boolean equals( Object obj ) {
+<span class="nc bnc" id="L188" title="All 2 branches missed.">    if ( !( obj instanceof IMetrics ) ) {</span>
+<span class="nc" id="L189">      return false;</span>
+    }
+<span class="nc bnc" id="L191" title="All 2 branches missed.">    if ( this == obj ) {</span>
+<span class="nc" id="L192">      return true;</span>
+    }
+
+<span class="nc" id="L195">    return ( (IMetrics) obj ).getCode().equalsIgnoreCase( code );</span>
+  }
+
+  public static List&lt;IMetrics&gt; getDefaultMetrics() {
+<span class="nc" id="L199">    List&lt;IMetrics&gt; metrics = new ArrayList&lt;IMetrics&gt;();</span>
+
+<span class="nc bnc" id="L201" title="All 2 branches missed.">    for ( Field field : Metrics.class.getDeclaredFields() ) {</span>
+<span class="nc bnc" id="L202" title="All 4 branches missed.">      if ( field.getType().equals( Metrics.class ) &amp;&amp; field.getName().startsWith( &quot;METRIC_&quot; ) ) {</span>
+<span class="nc" id="L203">        field.setAccessible( true );</span>
+        try {
+<span class="nc" id="L205">          metrics.add( (IMetrics) field.get( null ) );</span>
+<span class="nc" id="L206">        } catch ( Exception e ) {</span>
+<span class="nc" id="L207">          e.printStackTrace(); // it either works or doesn't, seems more like a JRE problem if it doesn't.</span>
+<span class="nc" id="L208">        }</span>
+      }
+    }
+
+<span class="nc" id="L212">    return metrics;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

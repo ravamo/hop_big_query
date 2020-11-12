@@ -1,0 +1,1073 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PluginRegistry.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.plugins</a> &gt; <span class="el_source">PluginRegistry.java</span></div><h1>PluginRegistry.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.plugins;
+
+import org.apache.commons.lang.StringUtils;
+import org.apache.hop.core.Const;
+import org.apache.hop.core.exception.HopPluginClassMapException;
+import org.apache.hop.core.exception.HopPluginException;
+import org.apache.hop.core.logging.HopLogStore;
+import org.apache.hop.core.logging.ILogChannel;
+import org.apache.hop.core.logging.LogChannel;
+import org.apache.hop.core.logging.Metrics;
+import org.apache.hop.core.row.IRowMeta;
+import org.apache.hop.core.row.RowBuffer;
+import org.apache.hop.core.row.RowMeta;
+import org.apache.hop.core.row.value.ValueMetaString;
+import org.apache.hop.core.util.EnvUtil;
+import org.apache.hop.core.util.Utils;
+import org.apache.hop.i18n.BaseMessages;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Method;
+import java.net.MalformedURLException;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.net.URLDecoder;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.Callable;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.stream.Collectors;
+
+/**
+ * This singleton provides access to all the plugins in the Hop universe.&lt;br&gt; It allows you to register types and
+ * plugins, query plugin lists per category, list plugins per type, etc.&lt;br&gt;
+ *
+ * @author matt
+ */
+public class PluginRegistry {
+
+<span class="fc" id="L72">  private static final Class&lt;?&gt; PKG = PluginRegistry.class; // for i18n purposes, needed by Translator!!</span>
+
+<span class="fc" id="L74">  private static final PluginRegistry pluginRegistry = new PluginRegistry();</span>
+
+<span class="fc" id="L76">  private static final List&lt;IPluginType&gt; pluginTypes = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L77">  private static final List&lt;IPluginRegistryExtension&gt; extensions = new ArrayList&lt;&gt;();</span>
+  private static final String SUPPLEMENTALS_SUFFIX = &quot;-supplementals&quot;;
+
+<span class="fc" id="L80">  public static final ILogChannel log = new LogChannel( &quot;PluginRegistry&quot;, true );</span>
+
+  // the list of plugins
+<span class="fc" id="L83">  private final Map&lt;Class&lt;? extends IPluginType&gt;, Set&lt;IPlugin&gt;&gt; pluginMap = new HashMap&lt;&gt;();</span>
+
+<span class="fc" id="L85">  private final Map&lt;Class&lt;? extends IPluginType&gt;, Map&lt;IPlugin, URLClassLoader&gt;&gt; classLoaderMap = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L86">  private final Map&lt;URLClassLoader, Set&lt;IPlugin&gt;&gt; inverseClassLoaderLookup = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L87">  private final Map&lt;String, URLClassLoader&gt; classLoaderGroupsMap = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L88">  private final Map&lt;String, URLClassLoader&gt; folderBasedClassLoaderMap = new HashMap&lt;&gt;();</span>
+
+<span class="fc" id="L90">  private final Map&lt;IPlugin, String[]&gt; parentClassloaderPatternMap = new HashMap&lt;&gt;();</span>
+
+<span class="fc" id="L92">  private final Map&lt;Class&lt;? extends IPluginType&gt;, Set&lt;IPluginTypeListener&gt;&gt; listeners = new HashMap&lt;&gt;();</span>
+
+<span class="fc" id="L94">  private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();</span>
+  private static final int WAIT_FOR_PLUGIN_TO_BE_AVAILABLE_LIMIT = 5;
+
+
+  /**
+   * Initialize the registry, keep private to keep this a singleton
+   */
+<span class="fc" id="L101">  private PluginRegistry() {</span>
+<span class="fc" id="L102">  }</span>
+
+  /**
+   * @return The one and only PluginRegistry instance
+   */
+  public static PluginRegistry getInstance() {
+<span class="fc" id="L108">    return pluginRegistry;</span>
+  }
+
+  public void registerPluginType( Class&lt;? extends IPluginType&gt; pluginType ) {
+<span class="fc" id="L112">    lock.writeLock().lock();</span>
+    try {
+<span class="fc" id="L114">      pluginMap.computeIfAbsent( pluginType, k -&gt; new TreeSet&lt;&gt;( Plugin.nullStringComparator ) );</span>
+    } finally {
+<span class="fc" id="L116">      lock.writeLock().unlock();</span>
+    }
+<span class="fc" id="L118">  }</span>
+
+  public void removePlugin( Class&lt;? extends IPluginType&gt; pluginType, IPlugin plugin ) {
+<span class="fc" id="L121">    lock.writeLock().lock();</span>
+    try {
+      URLClassLoader ucl;
+<span class="fc" id="L124">      Set&lt;IPlugin&gt; list = pluginMap.get( pluginType );</span>
+<span class="pc bpc" id="L125" title="1 of 2 branches missed.">      if ( list != null ) {</span>
+<span class="fc" id="L126">        list.remove( plugin );</span>
+      }
+
+<span class="fc" id="L129">      Map&lt;IPlugin, URLClassLoader&gt; classLoaders = classLoaderMap.get( plugin.getPluginType() );</span>
+<span class="fc bfc" id="L130" title="All 2 branches covered.">      if ( classLoaders != null ) {</span>
+<span class="fc" id="L131">        classLoaders.remove( plugin );</span>
+      }
+
+<span class="fc bfc" id="L134" title="All 2 branches covered.">      if ( !StringUtils.isEmpty( plugin.getClassLoaderGroup() ) ) {</span>
+        // Straight away remove the class loader for the whole group...
+        //
+<span class="fc" id="L137">        ucl = classLoaderGroupsMap.remove( plugin.getClassLoaderGroup() );</span>
+<span class="pc bpc" id="L138" title="2 of 4 branches missed.">        if ( ucl != null &amp;&amp; classLoaders != null ) {</span>
+<span class="fc bfc" id="L139" title="All 2 branches covered.">          for ( IPlugin p : inverseClassLoaderLookup.remove( ucl ) ) {</span>
+<span class="fc" id="L140">            classLoaders.remove( p );</span>
+<span class="fc" id="L141">          }</span>
+          try {
+<span class="fc" id="L143">            ucl.close();</span>
+<span class="nc" id="L144">          } catch ( IOException e ) {</span>
+<span class="nc" id="L145">            e.printStackTrace();</span>
+<span class="fc" id="L146">          }</span>
+        }
+      }
+
+<span class="pc bpc" id="L150" title="1 of 2 branches missed.">      if ( plugin.getPluginDirectory() != null ) {</span>
+<span class="nc" id="L151">        folderBasedClassLoaderMap.remove( plugin.getPluginDirectory().toString() );</span>
+      }
+    } finally {
+<span class="fc" id="L154">      lock.writeLock().unlock();</span>
+<span class="fc" id="L155">      Set&lt;IPluginTypeListener&gt; listeners = this.listeners.get( pluginType );</span>
+<span class="fc bfc" id="L156" title="All 2 branches covered.">      if ( listeners != null ) {</span>
+<span class="fc bfc" id="L157" title="All 2 branches covered.">        for ( IPluginTypeListener listener : listeners ) {</span>
+<span class="fc" id="L158">          listener.pluginRemoved( plugin );</span>
+<span class="fc" id="L159">        }</span>
+      }
+<span class="fc" id="L161">      synchronized ( this ) {</span>
+<span class="fc" id="L162">        notifyAll();</span>
+<span class="fc" id="L163">      }</span>
+    }
+<span class="fc" id="L165">  }</span>
+
+  public void addParentClassLoaderPatterns( IPlugin plugin, String[] patterns ) {
+<span class="nc" id="L168">    lock.writeLock().lock();</span>
+    try {
+<span class="nc" id="L170">      parentClassloaderPatternMap.put( plugin, patterns );</span>
+    } finally {
+<span class="nc" id="L172">      lock.writeLock().unlock();</span>
+    }
+<span class="nc" id="L174">  }</span>
+
+  public void registerPlugin( Class&lt;? extends IPluginType&gt; pluginType, IPlugin plugin )
+    throws HopPluginException {
+<span class="fc" id="L178">    boolean changed = false; // Is this an add or an update?</span>
+<span class="fc" id="L179">    lock.writeLock().lock();</span>
+    try {
+<span class="pc bpc" id="L181" title="1 of 2 branches missed.">      if ( plugin.getIds()[ 0 ] == null ) {</span>
+<span class="nc" id="L182">        throw new HopPluginException( &quot;Not a valid id specified in plugin :&quot; + plugin );</span>
+      }
+
+      // Keep the list of plugins sorted by name...
+      //
+<span class="fc" id="L187">      Set&lt;IPlugin&gt; list = pluginMap.computeIfAbsent( pluginType, k -&gt; new TreeSet&lt;&gt;( Plugin.nullStringComparator ) );</span>
+
+<span class="fc bfc" id="L189" title="All 2 branches covered.">      if ( !list.add( plugin ) ) {</span>
+<span class="fc" id="L190">        list.remove( plugin );</span>
+<span class="fc" id="L191">        list.add( plugin );</span>
+<span class="fc" id="L192">        changed = true;</span>
+      }
+    } finally {
+<span class="fc" id="L195">      lock.writeLock().unlock();</span>
+<span class="fc" id="L196">      Set&lt;IPluginTypeListener&gt; listeners = this.listeners.get( pluginType );</span>
+<span class="fc bfc" id="L197" title="All 2 branches covered.">      if ( listeners != null ) {</span>
+<span class="fc bfc" id="L198" title="All 2 branches covered.">        for ( IPluginTypeListener listener : listeners ) {</span>
+          // Changed or added?
+<span class="fc bfc" id="L200" title="All 2 branches covered.">          if ( changed ) {</span>
+<span class="fc" id="L201">            listener.pluginChanged( plugin );</span>
+          } else {
+<span class="fc" id="L203">            listener.pluginAdded( plugin );</span>
+          }
+<span class="fc" id="L205">        }</span>
+      }
+<span class="fc" id="L207">      synchronized ( this ) {</span>
+<span class="fc" id="L208">        notifyAll();</span>
+<span class="fc" id="L209">      }</span>
+    }
+<span class="fc" id="L211">  }</span>
+
+  /**
+   * @return An unmodifiable list of plugin types
+   */
+  public List&lt;Class&lt;? extends IPluginType&gt;&gt; getPluginTypes() {
+<span class="nc" id="L217">    lock.readLock().lock();</span>
+    try {
+<span class="nc" id="L219">      return Collections.unmodifiableList( new ArrayList&lt;&gt;( pluginMap.keySet() ) );</span>
+    } finally {
+<span class="nc" id="L221">      lock.readLock().unlock();</span>
+    }
+  }
+
+  /**
+   * @param type The plugin type to query
+   * @return The list of plugins
+   */
+  public &lt;T extends IPlugin, K extends IPluginType&gt; List&lt;T&gt; getPlugins( Class&lt;K&gt; type ) {
+    List&lt;T&gt; result;
+<span class="fc" id="L231">    lock.readLock().lock();</span>
+    try {
+<span class="fc" id="L233">      result = pluginMap.keySet().stream()</span>
+<span class="fc" id="L234">        .filter( pi -&gt; Const.classIsOrExtends( pi, type ) )</span>
+<span class="fc" id="L235">        .flatMap( pi -&gt; pluginMap.get( pi ).stream() )</span>
+<span class="fc" id="L236">        .map( p -&gt; (T) p )</span>
+<span class="fc" id="L237">        .collect( Collectors.toList() );</span>
+    } finally {
+<span class="fc" id="L239">      lock.readLock().unlock();</span>
+    }
+<span class="fc" id="L241">    return result;</span>
+  }
+
+  /**
+   * Get a plugin from the registry
+   *
+   * @param pluginType The type of plugin to look for
+   * @param id         The ID to scan for
+   * @return the plugin or null if nothing was found.
+   */
+  public IPlugin getPlugin( Class&lt;? extends IPluginType&gt; pluginType, String id ) {
+<span class="pc bpc" id="L252" title="1 of 2 branches missed.">    if ( Utils.isEmpty( id ) ) {</span>
+<span class="nc" id="L253">      return null;</span>
+    }
+
+    // getPlugins() never returns null, see his method above
+<span class="fc" id="L257">    return getPlugins( pluginType ).stream()</span>
+<span class="fc" id="L258">      .filter( plugin -&gt; plugin.matches( id ) )</span>
+<span class="fc" id="L259">      .findFirst()</span>
+<span class="fc" id="L260">      .orElse( null );</span>
+  }
+
+  /**
+   * Retrieve a list of plugins per category.
+   *
+   * @param pluginType     The type of plugins to search
+   * @param pluginCategory The category to look in
+   * @return An unmodifiable list of plugins that belong to the specified type and category.
+   */
+  public &lt;T extends IPluginType&gt; List&lt;IPlugin&gt; getPluginsByCategory( Class&lt;T&gt; pluginType,
+                                                                     String pluginCategory ) {
+<span class="nc" id="L272">    List&lt;IPlugin&gt; plugins = getPlugins( pluginType ).stream()</span>
+<span class="nc bnc" id="L273" title="All 4 branches missed.">      .filter( plugin -&gt; plugin.getCategory() != null &amp;&amp; plugin.getCategory().equals( pluginCategory ) )</span>
+<span class="nc" id="L274">      .collect( Collectors.toList() );</span>
+
+<span class="nc" id="L276">    return Collections.unmodifiableList( plugins );</span>
+  }
+
+  /**
+   * List all the main types (classes) for the specified plugin type.
+   *
+   * @param pluginType
+   * @return The list of plugin classes
+   */
+  public List&lt;Class&lt;?&gt;&gt; listMainTypes( Class&lt;? extends IPluginType&gt; pluginType ) {
+<span class="nc" id="L286">    List&lt;Class&lt;?&gt;&gt; classes = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L287" title="All 2 branches missed.">    for ( IPlugin plugin : getPlugins( pluginType ) ) {</span>
+<span class="nc" id="L288">      classes.add( plugin.getMainType() );</span>
+<span class="nc" id="L289">    }</span>
+<span class="nc" id="L290">    return classes;</span>
+  }
+
+  /**
+   * Load and instantiate the main class of the plugin specified.
+   *
+   * @param plugin The plugin to load the main class for.
+   * @return The instantiated class
+   * @throws HopPluginException In case there was a loading problem.
+   */
+  public Object loadClass( IPlugin plugin ) throws HopPluginException {
+<span class="fc" id="L301">    return loadClass( plugin, plugin.getMainType() );</span>
+  }
+
+  /**
+   * Load the class of the type specified for the plugin that owns the class of the specified object.
+   *
+   * @param pluginType the type of plugin
+   * @param object     The object for which we want to search the class to find the plugin
+   * @param classType  The type of class to load
+   * @return the instantiated class.
+   * @throws HopPluginException
+   */
+  public &lt;T&gt; T loadClass( Class&lt;? extends IPluginType&gt; pluginType, Object object, Class&lt;T&gt; classType )
+    throws HopPluginException {
+<span class="nc" id="L315">    IPlugin plugin = getPlugin( pluginType, object );</span>
+<span class="nc bnc" id="L316" title="All 2 branches missed.">    if ( plugin == null ) {</span>
+<span class="nc" id="L317">      return null;</span>
+    }
+<span class="nc" id="L319">    return loadClass( plugin, classType );</span>
+  }
+
+  /**
+   * Load the class of the type specified for the plugin with the ID specified.
+   *
+   * @param pluginType the type of plugin
+   * @param pluginId   The plugin id to use
+   * @param classType  The type of class to load
+   * @return the instantiated class.
+   * @throws HopPluginException
+   */
+  public &lt;T&gt; T loadClass( Class&lt;? extends IPluginType&gt; pluginType, String pluginId, Class&lt;T&gt; classType )
+    throws HopPluginException {
+<span class="fc" id="L333">    IPlugin plugin = getPlugin( pluginType, pluginId );</span>
+<span class="pc bpc" id="L334" title="1 of 2 branches missed.">    if ( plugin == null ) {</span>
+<span class="nc" id="L335">      return null;</span>
+    }
+<span class="fc" id="L337">    return loadClass( plugin, classType );</span>
+  }
+
+  private HopURLClassLoader createClassLoader( IPlugin plugin ) throws MalformedURLException, UnsupportedEncodingException {
+
+<span class="fc" id="L342">    List&lt;String&gt; jarFiles = plugin.getLibraries();</span>
+<span class="fc" id="L343">    URL[] urls = new URL[ jarFiles.size() ];</span>
+<span class="pc bpc" id="L344" title="1 of 2 branches missed.">    for ( int i = 0; i &lt; jarFiles.size(); i++ ) {</span>
+<span class="nc" id="L345">      File jarFile = new File( jarFiles.get( i ) );</span>
+<span class="nc" id="L346">      urls[ i ] = new URL( URLDecoder.decode( jarFile.toURI().toURL().toString(), &quot;UTF-8&quot; ) );</span>
+    }
+<span class="fc" id="L348">    ClassLoader classLoader = getClass().getClassLoader();</span>
+<span class="fc" id="L349">    String[] patterns = parentClassloaderPatternMap.get( plugin );</span>
+<span class="pc bpc" id="L350" title="1 of 2 branches missed.">    if ( patterns != null ) {</span>
+<span class="nc" id="L351">      return new HopSelectiveParentFirstClassLoader( urls, classLoader, plugin.getDescription(), patterns );</span>
+    } else {
+<span class="fc" id="L353">      return new HopURLClassLoader( urls, classLoader, plugin.getDescription() );</span>
+    }
+  }
+
+  private void addToClassLoader( IPlugin plugin, HopURLClassLoader ucl ) throws MalformedURLException,
+    UnsupportedEncodingException {
+<span class="nc" id="L359">    String[] patterns = parentClassloaderPatternMap.get( plugin );</span>
+
+<span class="nc bnc" id="L361" title="All 2 branches missed.">    if ( ucl instanceof HopSelectiveParentFirstClassLoader ) {</span>
+<span class="nc" id="L362">      ( (HopSelectiveParentFirstClassLoader) ucl ).addPatterns( patterns );</span>
+    }
+
+<span class="nc bnc" id="L365" title="All 2 branches missed.">    for ( String jarFile : plugin.getLibraries() ) {</span>
+<span class="nc" id="L366">      File jarfile = new File( jarFile );</span>
+<span class="nc" id="L367">      ucl.addURL( new URL( URLDecoder.decode( jarfile.toURI().toURL().toString(), &quot;UTF-8&quot; ) ) );</span>
+<span class="nc" id="L368">    }</span>
+<span class="nc" id="L369">  }</span>
+
+  /**
+   * Add a Class Mapping + factory for a plugin. This allows extra classes to be added to existing plugins.
+   *
+   * @param pluginType Type of plugin
+   * @param tClass     Class to factory
+   * @param id         ID of the plugin to extend
+   * @param callable   Factory Callable
+   * @param &lt;T&gt;        Type of the object factoried
+   * @throws HopPluginException
+   */
+  public &lt;T&gt; void addClassFactory( Class&lt;? extends IPluginType&gt; pluginType, Class&lt;T&gt; tClass, String id,
+                                   Callable&lt;T&gt; callable ) throws HopPluginException {
+
+<span class="fc" id="L384">    String key = createSupplemantalKey( pluginType.getName(), id );</span>
+<span class="fc" id="L385">    SupplementalPlugin supplementalPlugin = (SupplementalPlugin) getPlugin( pluginType, key );</span>
+
+<span class="fc bfc" id="L387" title="All 2 branches covered.">    if ( supplementalPlugin == null ) {</span>
+<span class="fc" id="L388">      supplementalPlugin = new SupplementalPlugin( pluginType, key );</span>
+<span class="fc" id="L389">      registerPlugin( pluginType, supplementalPlugin );</span>
+    }
+<span class="fc" id="L391">    supplementalPlugin.addFactory( tClass, callable );</span>
+<span class="fc" id="L392">  }</span>
+
+  private String createSupplemantalKey( String pluginName, String id ) {
+<span class="fc" id="L395">    return pluginName + &quot;-&quot; + id + SUPPLEMENTALS_SUFFIX;</span>
+  }
+
+  /**
+   * Load and instantiate the plugin class specified
+   *
+   * @param plugin      the plugin to load
+   * @param pluginClass the class to be loaded
+   * @return The instantiated class
+   * @throws HopPluginException In case there was a class loading problem somehow
+   */
+  @SuppressWarnings( &quot;unchecked&quot; )
+  public &lt;T&gt; T loadClass( IPlugin plugin, Class&lt;T&gt; pluginClass ) throws HopPluginException {
+<span class="pc bpc" id="L408" title="1 of 2 branches missed.">    if ( plugin == null ) {</span>
+<span class="nc" id="L409">      throw new HopPluginException( BaseMessages.getString(</span>
+        PKG, &quot;PluginRegistry.RuntimeError.NoValidTransformOrPlugin.PLUGINREGISTRY001&quot; ) );
+    }
+
+<span class="fc bfc" id="L413" title="All 2 branches covered.">    if ( plugin instanceof IClassLoadingPlugin ) {</span>
+<span class="fc" id="L414">      T aClass = ( (IClassLoadingPlugin) plugin ).loadClass( pluginClass );</span>
+<span class="fc bfc" id="L415" title="All 2 branches covered.">      if ( aClass == null ) {</span>
+<span class="fc" id="L416">        throw new HopPluginClassMapException( BaseMessages</span>
+<span class="fc" id="L417">          .getString( PKG, &quot;PluginRegistry.RuntimeError.NoValidClassRequested.PLUGINREGISTRY002&quot;, plugin.getName(),</span>
+<span class="fc" id="L418">            pluginClass.getName() ) );</span>
+      } else {
+<span class="fc" id="L420">        return aClass;</span>
+      }
+    } else {
+<span class="fc" id="L423">      String className = plugin.getClassMap().get( pluginClass );</span>
+<span class="fc bfc" id="L424" title="All 2 branches covered.">      if ( className == null ) {</span>
+        // Look for supplemental plugin supplying extra classes
+<span class="pc bpc" id="L426" title="1 of 2 branches missed.">        for ( String id : plugin.getIds() ) {</span>
+          try {
+<span class="fc" id="L428">            T aClass = loadClass( plugin.getPluginType(), createSupplemantalKey( plugin.getPluginType().getName(), id ), pluginClass );</span>
+<span class="pc bpc" id="L429" title="1 of 2 branches missed.">            if ( aClass != null ) {</span>
+<span class="fc" id="L430">              return aClass;</span>
+            }
+<span class="nc" id="L432">          } catch ( HopPluginException exception ) {</span>
+            // ignore. we'll fall through to the other exception if this loop doesn't produce a return
+<span class="nc" id="L434">          }</span>
+        }
+<span class="nc" id="L436">        throw new HopPluginClassMapException( BaseMessages.getString( PKG,</span>
+<span class="nc" id="L437">          &quot;PluginRegistry.RuntimeError.NoValidClassRequested.PLUGINREGISTRY002&quot;, plugin.getName(),</span>
+<span class="nc" id="L438">          pluginClass.getName() ) );</span>
+      }
+
+      try {
+        Class&lt;? extends T&gt; cl;
+<span class="fc bfc" id="L443" title="All 2 branches covered.">        if ( plugin.isNativePlugin() ) {</span>
+<span class="fc" id="L444">          cl = (Class&lt;? extends T&gt;) Class.forName( className );</span>
+        } else {
+<span class="fc" id="L446">          ClassLoader ucl = getClassLoader( plugin );</span>
+
+          // Load the class.
+<span class="fc" id="L449">          cl = (Class&lt;? extends T&gt;) ucl.loadClass( className );</span>
+        }
+
+<span class="fc" id="L452">        return cl.newInstance();</span>
+<span class="nc" id="L453">      } catch ( ClassNotFoundException e ) {</span>
+<span class="nc" id="L454">        throw new HopPluginException( BaseMessages.getString(</span>
+          PKG, &quot;PluginRegistry.RuntimeError.ClassNotFound.PLUGINREGISTRY003&quot; ), e );
+<span class="nc" id="L456">      } catch ( InstantiationException e ) {</span>
+<span class="nc" id="L457">        throw new HopPluginException( BaseMessages.getString(</span>
+          PKG, &quot;PluginRegistry.RuntimeError.UnableToInstantiateClass.PLUGINREGISTRY004&quot; ), e );
+<span class="nc" id="L459">      } catch ( IllegalAccessException e ) {</span>
+<span class="nc" id="L460">        throw new HopPluginException( BaseMessages.getString(</span>
+          PKG, &quot;PluginRegistry.RuntimeError.IllegalAccessToClass.PLUGINREGISTRY005&quot; ), e );
+<span class="nc" id="L462">      } catch ( Throwable e ) {</span>
+<span class="nc" id="L463">        e.printStackTrace();</span>
+<span class="nc" id="L464">        throw new HopPluginException( BaseMessages.getString(</span>
+          PKG, &quot;PluginRegistry.RuntimeError.UnExpectedErrorLoadingClass.PLUGINREGISTRY007&quot; ), e );
+      }
+    }
+  }
+
+  /**
+   * Add a PluginType to be managed by the registry
+   *
+   * @param type
+   */
+  public static synchronized void addPluginType( IPluginType type ) {
+<span class="fc" id="L476">    pluginTypes.add( type );</span>
+<span class="fc" id="L477">  }</span>
+
+  /**
+   * Added so we can tell when types have been added (but not necessarily registered)
+   *
+   * @return the list of added plugin types
+   */
+  public static List&lt;IPluginType&gt; getAddedPluginTypes() {
+<span class="nc" id="L485">    return Collections.unmodifiableList( pluginTypes );</span>
+  }
+
+  public static synchronized void init() throws HopPluginException {
+<span class="fc" id="L489">    init( true );</span>
+<span class="fc" id="L490">  }</span>
+
+  /**
+   * This method registers plugin types and loads their respective plugins
+   *
+   * @throws HopPluginException
+   */
+  public static synchronized void init( boolean keepCache ) throws HopPluginException {
+<span class="fc" id="L498">    final PluginRegistry registry = getInstance();</span>
+
+<span class="fc" id="L500">    log.snap( Metrics.METRIC_PLUGIN_REGISTRY_PLUGIN_REGISTRATION_START );</span>
+<span class="fc bfc" id="L501" title="All 2 branches covered.">    for ( final IPluginType pluginType : pluginTypes ) {</span>
+<span class="fc" id="L502">      log.snap( Metrics.METRIC_PLUGIN_REGISTRY_PLUGIN_TYPE_REGISTRATION_START, pluginType.getName() );</span>
+<span class="fc" id="L503">      registry.registerType( pluginType );</span>
+<span class="fc" id="L504">      log.snap( Metrics.METRIC_PLUGIN_REGISTRY_PLUGIN_TYPE_REGISTRATION_STOP, pluginType.getName() );</span>
+<span class="fc" id="L505">    }</span>
+<span class="fc" id="L506">    log.snap( Metrics.METRIC_PLUGIN_REGISTRY_PLUGIN_REGISTRATION_STOP );</span>
+
+    // Clear the jar file cache so that we don't waste memory...
+    //
+<span class="pc bpc" id="L510" title="1 of 2 branches missed.">    if ( !keepCache ) {</span>
+<span class="nc" id="L511">      JarFileCache.getInstance().clear();</span>
+    }
+<span class="fc" id="L513">  }</span>
+
+  private void registerType( IPluginType pluginType ) throws HopPluginException {
+<span class="fc" id="L516">    registerPluginType( pluginType.getClass() );</span>
+
+    // Search plugins for this type...
+    //
+<span class="fc" id="L520">    long startScan = System.currentTimeMillis();</span>
+<span class="fc" id="L521">    pluginType.searchPlugins();</span>
+
+<span class="pc bpc" id="L523" title="1 of 2 branches missed.">    for ( IPluginRegistryExtension ext : extensions ) {</span>
+<span class="nc" id="L524">      ext.searchForType( pluginType );</span>
+<span class="nc" id="L525">    }</span>
+
+<span class="fc" id="L527">    Set&lt;String&gt; pluginClassNames = new HashSet&lt;&gt;();</span>
+
+    // Scan for plugin classes to facilitate debugging etc.
+    //
+<span class="fc" id="L531">    String pluginClasses = EnvUtil.getSystemProperty( Const.HOP_PLUGIN_CLASSES );</span>
+<span class="pc bpc" id="L532" title="1 of 2 branches missed.">    if ( !Utils.isEmpty( pluginClasses ) ) {</span>
+<span class="nc" id="L533">      String[] classNames = pluginClasses.split( &quot;,&quot; );</span>
+<span class="nc" id="L534">      Collections.addAll( pluginClassNames, classNames );</span>
+    }
+
+<span class="pc bpc" id="L537" title="1 of 2 branches missed.">    for ( String className : pluginClassNames ) {</span>
+      try {
+        // What annotation does the plugin type have?
+        //
+<span class="nc" id="L541">        PluginAnnotationType annotationType = pluginType.getClass().getAnnotation( PluginAnnotationType.class );</span>
+<span class="nc bnc" id="L542" title="All 2 branches missed.">        if ( annotationType != null ) {</span>
+<span class="nc" id="L543">          Class&lt;? extends Annotation&gt; annotationClass = annotationType.value();</span>
+
+<span class="nc" id="L545">          Class&lt;?&gt; clazz = Class.forName( className );</span>
+<span class="nc" id="L546">          Annotation annotation = clazz.getAnnotation( annotationClass );</span>
+
+<span class="nc bnc" id="L548" title="All 2 branches missed.">          if ( annotation != null ) {</span>
+            // Register this one!
+            //
+<span class="nc" id="L551">            pluginType.handlePluginAnnotation( clazz, annotation, new ArrayList&lt;&gt;(), true, null );</span>
+<span class="nc" id="L552">            LogChannel.GENERAL.logBasic( &quot;Plugin class &quot;</span>
+<span class="nc" id="L553">              + className + &quot; registered for plugin type '&quot; + pluginType.getName() + &quot;'&quot; );</span>
+          } else {
+<span class="nc bnc" id="L555" title="All 4 branches missed.">            if ( HopLogStore.isInitialized() &amp;&amp; LogChannel.GENERAL.isDebug() ) {</span>
+<span class="nc" id="L556">              LogChannel.GENERAL.logDebug( &quot;Plugin class &quot;</span>
+<span class="nc" id="L557">                + className + &quot; doesn't contain annotation for plugin type '&quot; + pluginType.getName() + &quot;'&quot; );</span>
+            }
+          }
+<span class="nc" id="L560">        } else {</span>
+<span class="nc bnc" id="L561" title="All 4 branches missed.">          if ( HopLogStore.isInitialized() &amp;&amp; LogChannel.GENERAL.isDebug() ) {</span>
+<span class="nc" id="L562">            LogChannel.GENERAL.logDebug( &quot;Plugin class &quot;</span>
+<span class="nc" id="L563">              + className + &quot; doesn't contain valid class for plugin type '&quot; + pluginType.getName() + &quot;'&quot; );</span>
+          }
+        }
+<span class="nc" id="L566">      } catch ( Exception e ) {</span>
+<span class="nc bnc" id="L567" title="All 2 branches missed.">        if ( HopLogStore.isInitialized() ) {</span>
+<span class="nc" id="L568">          LogChannel.GENERAL.logError( &quot;Error registring plugin class from HOP_PLUGIN_CLASSES: &quot;</span>
+<span class="nc" id="L569">            + className + Const.CR + Const.getSimpleStackTrace( e ) + Const.CR + Const.getStackTracker( e ) );</span>
+        }
+<span class="nc" id="L571">      }</span>
+<span class="nc" id="L572">    }</span>
+
+<span class="pc bpc" id="L574" title="1 of 2 branches missed.">    if ( LogChannel.GENERAL.isDetailed() ) {</span>
+<span class="nc" id="L575">      LogChannel.GENERAL.logDetailed( &quot;Registered &quot;</span>
+<span class="nc" id="L576">        + getPlugins( pluginType.getClass() ).size() + &quot; plugins of type '&quot; + pluginType.getName() + &quot;' in &quot;</span>
+<span class="nc" id="L577">        + ( System.currentTimeMillis() - startScan ) + &quot;ms.&quot; );</span>
+    }
+
+<span class="fc" id="L580">  }</span>
+
+  /**
+   * Find the plugin ID based on the class
+   *
+   * @param pluginClass
+   * @return The ID of the plugin to which this class belongs (checks the plugin class maps)
+   */
+  public String getPluginId( Object pluginClass ) {
+<span class="nc" id="L589">    return getPluginTypes().stream()</span>
+<span class="nc" id="L590">      .map( pluginType -&gt; getPluginId( pluginType, pluginClass ) )</span>
+<span class="nc" id="L591">      .filter( Objects::nonNull )</span>
+<span class="nc" id="L592">      .findFirst()</span>
+<span class="nc" id="L593">      .orElse( null );</span>
+  }
+
+  /**
+   * Find the plugin ID based on the class
+   *
+   * @param pluginType  the type of plugin
+   * @param pluginClass The class to look for
+   * @return The ID of the plugin to which this class belongs (checks the plugin class maps) or null if nothing was
+   * found.
+   */
+  public String getPluginId( Class&lt;? extends IPluginType&gt; pluginType, Object pluginClass ) {
+<span class="nc" id="L605">    String className = pluginClass.getClass().getName();</span>
+
+<span class="nc" id="L607">    IPlugin plugin = getPlugins( pluginType ).stream()</span>
+<span class="nc" id="L608">      .filter( p -&gt; p.getClassMap().values().contains( className ) )</span>
+<span class="nc" id="L609">      .findFirst()</span>
+<span class="nc" id="L610">      .orElse( null );</span>
+
+<span class="nc bnc" id="L612" title="All 2 branches missed.">    if ( plugin != null ) {</span>
+<span class="nc" id="L613">      return plugin.getIds()[ 0 ];</span>
+    }
+
+<span class="nc" id="L616">    return extensions.stream()</span>
+<span class="nc" id="L617">      .map( ext -&gt; ext.getPluginId( pluginType, pluginClass ) )</span>
+<span class="nc" id="L618">      .filter( Objects::nonNull )</span>
+<span class="nc" id="L619">      .findFirst()</span>
+<span class="nc" id="L620">      .orElse( null );</span>
+  }
+
+  /**
+   * Retrieve the Plugin for a given class
+   *
+   * @param pluginType  The type of plugin to search for
+   * @param pluginClass The class of this object is used to look around
+   * @return the plugin or null if nothing could be found
+   */
+  public IPlugin getPlugin( Class&lt;? extends IPluginType&gt; pluginType, Object pluginClass ) {
+<span class="nc" id="L631">    String pluginId = getPluginId( pluginType, pluginClass );</span>
+<span class="nc bnc" id="L632" title="All 2 branches missed.">    if ( pluginId == null ) {</span>
+<span class="nc" id="L633">      return null;</span>
+    }
+<span class="nc" id="L635">    return getPlugin( pluginType, pluginId );</span>
+  }
+
+  /**
+   * Find the plugin ID based on the name of the plugin
+   *
+   * @param pluginType the type of plugin
+   * @param pluginName The name to look for
+   * @return The plugin with the specified name or null if nothing was found.
+   */
+  public IPlugin findPluginWithName( Class&lt;? extends IPluginType&gt; pluginType, String pluginName ) {
+<span class="nc" id="L646">    return getPlugins( pluginType ).stream()</span>
+<span class="nc" id="L647">      .filter( plugin -&gt; plugin.getName().equals( pluginName ) )</span>
+<span class="nc" id="L648">      .findFirst()</span>
+<span class="nc" id="L649">      .orElse( null );</span>
+  }
+
+  /**
+   * Find the plugin ID based on the description of the plugin
+   *
+   * @param pluginType        the type of plugin
+   * @param pluginDescription The description to look for
+   * @return The plugin with the specified description or null if nothing was found.
+   */
+  public IPlugin findPluginWithDescription( Class&lt;? extends IPluginType&gt; pluginType,
+                                            String pluginDescription ) {
+<span class="nc" id="L661">    return getPlugins( pluginType ).stream()</span>
+<span class="nc" id="L662">      .filter( plugin -&gt; plugin.getDescription().equals( pluginDescription ) )</span>
+<span class="nc" id="L663">      .findFirst()</span>
+<span class="nc" id="L664">      .orElse( null );</span>
+  }
+
+  /**
+   * Find the plugin ID based on the name of the plugin
+   *
+   * @param pluginType the type of plugin
+   * @param pluginId   The name to look for
+   * @return The plugin with the specified name or null if nothing was found.
+   */
+  public IPlugin findPluginWithId( Class&lt;? extends IPluginType&gt; pluginType, String pluginId ) {
+<span class="fc" id="L675">    return getPlugin( pluginType, pluginId );</span>
+  }
+
+  /**
+   * @return a unique list of all the transform plugin package names
+   */
+  public List&lt;String&gt; getPluginPackages( Class&lt;? extends IPluginType&gt; pluginType ) {
+<span class="nc" id="L682">    Set&lt;String&gt; list = new TreeSet&lt;&gt;();</span>
+<span class="nc bnc" id="L683" title="All 2 branches missed.">    for ( IPlugin plugin : getPlugins( pluginType ) ) {</span>
+<span class="nc bnc" id="L684" title="All 2 branches missed.">      for ( String className : plugin.getClassMap().values() ) {</span>
+<span class="nc" id="L685">        int lastIndex = className.lastIndexOf( &quot;.&quot; );</span>
+<span class="nc bnc" id="L686" title="All 2 branches missed.">        if ( lastIndex &gt; -1 ) {</span>
+<span class="nc" id="L687">          list.add( className.substring( 0, lastIndex ) );</span>
+        }
+<span class="nc" id="L689">      }</span>
+<span class="nc" id="L690">    }</span>
+<span class="nc" id="L691">    return new ArrayList&lt;&gt;( list );</span>
+  }
+
+  private IRowMeta getPluginInformationRowMeta() {
+<span class="fc" id="L695">    IRowMeta row = new RowMeta();</span>
+
+<span class="fc" id="L697">    row.addValueMeta( new ValueMetaString( BaseMessages.getString( PKG, &quot;PluginRegistry.Information.Type.Label&quot; ) ) );</span>
+<span class="fc" id="L698">    row.addValueMeta( new ValueMetaString( BaseMessages.getString( PKG, &quot;PluginRegistry.Information.ID.Label&quot; ) ) );</span>
+<span class="fc" id="L699">    row.addValueMeta( new ValueMetaString( BaseMessages.getString( PKG, &quot;PluginRegistry.Information.Name.Label&quot; ) ) );</span>
+<span class="fc" id="L700">    row.addValueMeta( new ValueMetaString( BaseMessages.getString( PKG, &quot;PluginRegistry.Information.Description.Label&quot; ) ) );</span>
+<span class="fc" id="L701">    row.addValueMeta( new ValueMetaString( BaseMessages.getString( PKG, &quot;PluginRegistry.Information.ImageFile.Label&quot; ) ) );</span>
+<span class="fc" id="L702">    row.addValueMeta( new ValueMetaString( BaseMessages.getString( PKG, &quot;PluginRegistry.Information.Category.Label&quot; ) ) );</span>
+<span class="fc" id="L703">    row.addValueMeta( new ValueMetaString( BaseMessages.getString( PKG, &quot;PluginRegistry.Information.Keywords.Label&quot; ) ) );</span>
+<span class="fc" id="L704">    row.addValueMeta( new ValueMetaString( BaseMessages.getString( PKG, &quot;PluginRegistry.Information.ClassName.Label&quot; ) ) );</span>
+<span class="fc" id="L705">    row.addValueMeta( new ValueMetaString( BaseMessages.getString( PKG, &quot;PluginRegistry.Information.Libraries.Label&quot; ) ) );</span>
+
+<span class="fc" id="L707">    return row;</span>
+  }
+
+  /**
+   * @param pluginType the type of plugin to get information for
+   * @return a row buffer containing plugin information for the given plugin type
+   * @throws HopPluginException
+   */
+  public RowBuffer getPluginInformation( Class&lt;? extends IPluginType&gt; pluginType )
+    throws HopPluginException {
+<span class="fc" id="L717">    RowBuffer rowBuffer = new RowBuffer( getPluginInformationRowMeta() );</span>
+<span class="pc bpc" id="L718" title="1 of 2 branches missed.">    for ( IPlugin plugin : getPlugins( pluginType ) ) {</span>
+
+<span class="nc" id="L720">      Object[] row = new Object[ getPluginInformationRowMeta().size() ];</span>
+<span class="nc" id="L721">      int rowIndex = 0;</span>
+
+<span class="nc" id="L723">      row[ rowIndex++ ] = getPluginType( plugin.getPluginType() ).getName();</span>
+<span class="nc" id="L724">      row[ rowIndex++ ] = plugin.getIds()[ 0 ];</span>
+<span class="nc" id="L725">      row[ rowIndex++ ] = plugin.getName();</span>
+<span class="nc" id="L726">      row[ rowIndex++ ] = Const.NVL( plugin.getDescription(), &quot;&quot; );</span>
+<span class="nc" id="L727">      row[ rowIndex++ ] = Const.NVL( plugin.getImageFile(), &quot;&quot; );</span>
+<span class="nc" id="L728">      row[ rowIndex++ ] = Const.NVL( plugin.getCategory(), &quot;&quot; );</span>
+<span class="nc" id="L729">      row[ rowIndex++ ] = String.join( &quot;,&quot;, plugin.getKeywords() );</span>
+<span class="nc" id="L730">      row[ rowIndex++ ] = plugin.getClassMap().values().toString();</span>
+<span class="nc" id="L731">      row[ rowIndex++ ] = String.join( &quot;,&quot;, plugin.getLibraries() );</span>
+
+<span class="nc" id="L733">      rowBuffer.getBuffer().add( row );</span>
+<span class="nc" id="L734">    }</span>
+<span class="fc" id="L735">    return rowBuffer;</span>
+  }
+
+  /**
+   * Load the class with a certain name using the class loader of certain plugin.
+   *
+   * @param plugin    The plugin for which we want to use the class loader
+   * @param className The name of the class to load
+   * @return the name of the class
+   * @throws HopPluginException In case there is something wrong
+   */
+  @SuppressWarnings( &quot;unchecked&quot; )
+  public &lt;T&gt; T getClass( IPlugin plugin, String className ) throws HopPluginException {
+    try {
+<span class="nc bnc" id="L749" title="All 2 branches missed.">      if ( plugin.isNativePlugin() ) {</span>
+<span class="nc" id="L750">        return (T) Class.forName( className );</span>
+<span class="nc bnc" id="L751" title="All 4 branches missed.">      } else if ( ( plugin instanceof IClassLoadingPlugin ) &amp;&amp; ( (IClassLoadingPlugin) plugin ).getClassLoader() != null ) {</span>
+<span class="nc" id="L752">        return (T) ( (IClassLoadingPlugin) plugin ).getClassLoader().loadClass( className );</span>
+      } else {
+        URLClassLoader ucl;
+<span class="nc" id="L755">        lock.writeLock().lock();</span>
+        try {
+<span class="nc" id="L757">          Map&lt;IPlugin, URLClassLoader&gt; classLoaders = classLoaderMap.computeIfAbsent( plugin.getPluginType(), k -&gt; new HashMap&lt;&gt;() );</span>
+<span class="nc" id="L758">          ucl = classLoaders.get( plugin );</span>
+
+<span class="nc bnc" id="L760" title="All 2 branches missed.">          if ( ucl == null ) {</span>
+<span class="nc bnc" id="L761" title="All 2 branches missed.">            if ( !Utils.isEmpty( plugin.getClassLoaderGroup() ) ) {</span>
+<span class="nc" id="L762">              ucl = classLoaderGroupsMap.get( plugin.getClassLoaderGroup() );</span>
+            } else {
+<span class="nc" id="L764">              ucl = folderBasedClassLoaderMap.get( plugin.getPluginDirectory().toString() );</span>
+            }
+          }
+<span class="nc bnc" id="L767" title="All 2 branches missed.">          if ( ucl != null ) {</span>
+<span class="nc" id="L768">            classLoaders.put( plugin, ucl ); // save for later use...</span>
+          }
+        } finally {
+<span class="nc" id="L771">          lock.writeLock().unlock();</span>
+        }
+
+<span class="nc bnc" id="L774" title="All 2 branches missed.">        if ( ucl == null ) {</span>
+<span class="nc" id="L775">          throw new HopPluginException( &quot;Unable to find class loader for plugin: &quot; + plugin );</span>
+        }
+<span class="nc" id="L777">        return (T) ucl.loadClass( className );</span>
+
+      }
+<span class="nc" id="L780">    } catch ( Exception e ) {</span>
+<span class="nc" id="L781">      throw new HopPluginException( &quot;Unexpected error loading class with name: &quot; + className, e );</span>
+    }
+  }
+
+  /**
+   * Load the class with a certain name using the class loader of certain plugin.
+   *
+   * @param plugin    The plugin for which we want to use the class loader
+   * @param classType The type of class to load
+   * @return the name of the class
+   * @throws HopPluginException In case there is something wrong
+   */
+  @SuppressWarnings( &quot;unchecked&quot; )
+  public &lt;T&gt; T getClass( IPlugin plugin, T classType ) throws HopPluginException {
+<span class="nc" id="L795">    String className = plugin.getClassMap().get( classType );</span>
+<span class="nc bnc" id="L796" title="All 2 branches missed.">    if ( className == null ) {</span>
+<span class="nc" id="L797">      throw new HopPluginException( &quot;Unable to find the classname for class type &quot; + classType.getClass().getName() );</span>
+    }
+<span class="nc" id="L799">    return (T) getClass( plugin, className );</span>
+  }
+
+  /**
+   * Create or retrieve the class loader for the specified plugin
+   *
+   * @param plugin the plugin to use
+   * @return The class loader
+   * @throws HopPluginException In case there was a problem
+   *                            &lt;p/&gt;
+   *                            getClassLoader();
+   */
+  public ClassLoader getClassLoader( IPlugin plugin ) throws HopPluginException {
+
+<span class="pc bpc" id="L813" title="1 of 2 branches missed.">    if ( plugin == null ) {</span>
+<span class="nc" id="L814">      throw new HopPluginException( BaseMessages.getString(</span>
+        PKG, &quot;PluginRegistry.RuntimeError.NoValidTransformOrPlugin.PLUGINREGISTRY001&quot; ) );
+    }
+
+    try {
+<span class="pc bpc" id="L819" title="1 of 2 branches missed.">      if ( plugin.isNativePlugin() ) {</span>
+<span class="nc" id="L820">        return this.getClass().getClassLoader();</span>
+      } else {
+        URLClassLoader ucl;
+
+<span class="fc" id="L824">        lock.writeLock().lock();</span>
+        try {
+          // If the plugin needs to have a separate class loader for each instance of the plugin.
+          // This is not the default. By default we cache the class loader for each plugin ID.
+<span class="pc bpc" id="L828" title="1 of 2 branches missed.">          if ( plugin.isSeparateClassLoaderNeeded() ) {</span>
+            // Create a new one each time
+<span class="nc" id="L830">            ucl = createClassLoader( plugin );</span>
+          } else {
+            // See if we can find a class loader to re-use.
+<span class="fc" id="L833">            Map&lt;IPlugin, URLClassLoader&gt; classLoaders = classLoaderMap.computeIfAbsent( plugin.getPluginType(), k -&gt; new HashMap&lt;&gt;() );</span>
+<span class="fc" id="L834">            ucl = classLoaders.get( plugin );</span>
+
+<span class="fc bfc" id="L836" title="All 2 branches covered.">            if ( ucl == null ) {</span>
+              // check if plugin belongs to a group we can use
+<span class="fc bfc" id="L838" title="All 2 branches covered.">              if ( !Utils.isEmpty( plugin.getClassLoaderGroup() ) ) {</span>
+<span class="fc" id="L839">                ucl = classLoaderGroupsMap.get( plugin.getClassLoaderGroup() );</span>
+<span class="fc bfc" id="L840" title="All 2 branches covered.">                if ( ucl == null ) {</span>
+<span class="fc" id="L841">                  ucl = createClassLoader( plugin );</span>
+<span class="fc" id="L842">                  classLoaders.put( plugin, ucl ); // save for later use...</span>
+<span class="fc" id="L843">                  inverseClassLoaderLookup.computeIfAbsent( ucl, k -&gt; new HashSet&lt;&gt;() ).add( plugin );</span>
+<span class="fc" id="L844">                  classLoaderGroupsMap.put( plugin.getClassLoaderGroup(), ucl );</span>
+                } else {
+                  // we have a classloader, but does it have this plugin?
+                  try {
+<span class="fc" id="L848">                    ucl.loadClass( plugin.getClassMap().values().iterator().next() );</span>
+<span class="nc" id="L849">                  } catch ( ClassNotFoundException ignored ) {</span>
+                    // missed, add it to the classloader
+<span class="nc" id="L851">                    addToClassLoader( plugin, (HopURLClassLoader) ucl );</span>
+<span class="pc" id="L852">                  }</span>
+                }
+              } else {
+                // fallthrough folder based plugin
+<span class="pc bpc" id="L856" title="2 of 4 branches missed.">                if ( !plugin.isUsingLibrariesOutsidePluginFolder() &amp;&amp; plugin.getPluginDirectory() != null ) {</span>
+<span class="nc" id="L857">                  ucl = folderBasedClassLoaderMap.get( plugin.getPluginDirectory().toString() );</span>
+<span class="nc bnc" id="L858" title="All 2 branches missed.">                  if ( ucl == null ) {</span>
+<span class="nc" id="L859">                    ucl = createClassLoader( plugin );</span>
+<span class="nc" id="L860">                    classLoaders.put( plugin, ucl ); // save for later use...</span>
+<span class="nc" id="L861">                    inverseClassLoaderLookup.computeIfAbsent( ucl, k -&gt; new HashSet&lt;&gt;() ).add( plugin );</span>
+<span class="nc" id="L862">                    folderBasedClassLoaderMap.put( plugin.getPluginDirectory().toString(), ucl );</span>
+                  } else {
+                    // we have a classloader, but does it have this plugin?
+                    try {
+<span class="nc" id="L866">                      ucl.loadClass( plugin.getClassMap().values().iterator().next() );</span>
+<span class="nc" id="L867">                    } catch ( ClassNotFoundException ignored ) {</span>
+                      // missed, add it to the classloader
+<span class="nc" id="L869">                      addToClassLoader( plugin, (HopURLClassLoader) ucl );</span>
+<span class="nc" id="L870">                    }</span>
+                  }
+                } else {
+<span class="fc" id="L873">                  ucl = classLoaders.get( plugin );</span>
+<span class="pc bpc" id="L874" title="1 of 2 branches missed.">                  if ( ucl == null ) {</span>
+<span class="pc bpc" id="L875" title="1 of 2 branches missed.">                    if ( plugin.getLibraries().size() == 0 ) {</span>
+<span class="pc bpc" id="L876" title="1 of 2 branches missed.">                      if ( plugin instanceof IClassLoadingPlugin ) {</span>
+<span class="nc" id="L877">                        return ( (IClassLoadingPlugin) plugin ).getClassLoader();</span>
+                      }
+                    }
+<span class="fc" id="L880">                    ucl = createClassLoader( plugin );</span>
+<span class="fc" id="L881">                    classLoaders.put( plugin, ucl ); // save for later use...</span>
+<span class="fc" id="L882">                    inverseClassLoaderLookup.computeIfAbsent( ucl, k -&gt; new HashSet&lt;&gt;() ).add( plugin );</span>
+                  }
+                }
+              }
+            }
+          }
+        } finally {
+<span class="fc" id="L889">          lock.writeLock().unlock();</span>
+        }
+
+        // Load the class.
+<span class="fc" id="L893">        return ucl;</span>
+      }
+<span class="nc" id="L895">    } catch ( MalformedURLException e ) {</span>
+<span class="nc" id="L896">      throw new HopPluginException( BaseMessages.getString(</span>
+        PKG, &quot;PluginRegistry.RuntimeError.MalformedURL.PLUGINREGISTRY006&quot; ), e );
+<span class="nc" id="L898">    } catch ( Throwable e ) {</span>
+<span class="nc" id="L899">      e.printStackTrace();</span>
+<span class="nc" id="L900">      throw new HopPluginException( BaseMessages.getString(</span>
+        PKG, &quot;PluginRegistry.RuntimeError.UnExpectedCreatingClassLoader.PLUGINREGISTRY008&quot; ), e );
+    }
+  }
+
+  /**
+   * Allows the tracking of plugins as they come and go.
+   *
+   * @param typeToTrack extension of IPluginType to track.
+   * @param listener    receives notification when a plugin of the specified type is added/removed/modified
+   * @param &lt;T&gt;         extension of IPluginType
+   */
+  public &lt;T extends IPluginType&gt; void addPluginListener( Class&lt;T&gt; typeToTrack, IPluginTypeListener listener ) {
+<span class="fc" id="L913">    lock.writeLock().lock();</span>
+    try {
+<span class="fc" id="L915">      Set&lt;IPluginTypeListener&gt; list = listeners.computeIfAbsent( typeToTrack, k -&gt; new HashSet&lt;&gt;() );</span>
+<span class="fc" id="L916">      list.add( listener );</span>
+    } finally {
+<span class="fc" id="L918">      lock.writeLock().unlock();</span>
+    }
+<span class="fc" id="L920">  }</span>
+
+  public IPluginType getPluginType( Class&lt;? extends IPluginType&gt; pluginTypeClass )
+    throws HopPluginException {
+    try {
+      // All these plugin type interfaces are singletons...
+      // So we should call a static getInstance() method...
+      //
+<span class="nc" id="L928">      Method method = pluginTypeClass.getMethod( &quot;getInstance&quot;, new Class&lt;?&gt;[ 0 ] );</span>
+
+<span class="nc" id="L930">      return (IPluginType) method.invoke( null, new Object[ 0 ] );</span>
+<span class="nc" id="L931">    } catch ( Exception e ) {</span>
+<span class="nc" id="L932">      throw new HopPluginException( &quot;Unable to get instance of plugin type: &quot; + pluginTypeClass.getName(), e );</span>
+    }
+  }
+
+  public List&lt;IPlugin&gt; findPluginsByFolder( URL folder ) {
+<span class="nc" id="L937">    String path = folder.getPath();</span>
+    try {
+<span class="nc" id="L939">      path = folder.toURI().normalize().getPath();</span>
+<span class="nc" id="L940">    } catch ( URISyntaxException e ) {</span>
+<span class="nc" id="L941">      log.logError( e.getLocalizedMessage(), e );</span>
+<span class="nc" id="L942">    }</span>
+<span class="nc bnc" id="L943" title="All 2 branches missed.">    if ( path.endsWith( &quot;/&quot; ) ) {</span>
+<span class="nc" id="L944">      path = path.substring( 0, path.length() - 1 );</span>
+    }
+<span class="nc" id="L946">    List&lt;IPlugin&gt; result = new ArrayList&lt;IPlugin&gt;();</span>
+<span class="nc" id="L947">    lock.readLock().lock();</span>
+    try {
+<span class="nc bnc" id="L949" title="All 2 branches missed.">      for ( Set&lt;IPlugin&gt; typeInterfaces : pluginMap.values() ) {</span>
+<span class="nc bnc" id="L950" title="All 2 branches missed.">        for ( IPlugin plugin : typeInterfaces ) {</span>
+<span class="nc" id="L951">          URL pluginFolder = plugin.getPluginDirectory();</span>
+          try {
+<span class="nc bnc" id="L953" title="All 4 branches missed.">            if ( pluginFolder != null &amp;&amp; pluginFolder.toURI().normalize().getPath().startsWith( path ) ) {</span>
+<span class="nc" id="L954">              result.add( plugin );</span>
+            }
+<span class="nc" id="L956">          } catch ( URISyntaxException e ) {</span>
+<span class="nc" id="L957">            log.logError( e.getLocalizedMessage(), e );</span>
+<span class="nc" id="L958">          }</span>
+<span class="nc" id="L959">        }</span>
+<span class="nc" id="L960">      }</span>
+    } finally {
+<span class="nc" id="L962">      lock.readLock().unlock();</span>
+    }
+<span class="nc" id="L964">    return result;</span>
+  }
+
+  public void reset() {
+<span class="fc" id="L968">    lock.writeLock().lock();</span>
+    try {
+<span class="fc" id="L970">      pluginTypes.clear();</span>
+<span class="fc" id="L971">      extensions.clear();</span>
+<span class="fc" id="L972">      pluginMap.clear();</span>
+<span class="fc" id="L973">      classLoaderMap.clear();</span>
+<span class="fc" id="L974">      classLoaderGroupsMap.clear();</span>
+<span class="fc" id="L975">      folderBasedClassLoaderMap.clear();</span>
+<span class="fc" id="L976">      inverseClassLoaderLookup.forEach( ( key, value ) -&gt; {</span>
+        try {
+<span class="fc" id="L978">          key.close();</span>
+<span class="nc" id="L979">        } catch ( IOException e ) {</span>
+<span class="nc" id="L980">          e.printStackTrace();</span>
+<span class="fc" id="L981">        }</span>
+<span class="fc" id="L982">      } );</span>
+<span class="fc" id="L983">      inverseClassLoaderLookup.clear();</span>
+<span class="fc" id="L984">      parentClassloaderPatternMap.clear();</span>
+<span class="fc" id="L985">      listeners.clear();</span>
+<span class="fc" id="L986">      JarFileCache.getInstance().clear();</span>
+    } finally {
+<span class="fc" id="L988">      lock.writeLock().unlock();</span>
+    }
+<span class="fc" id="L990">  }</span>
+
+  public IPlugin findPluginWithId( Class&lt;? extends IPluginType&gt; pluginType, String pluginId, boolean waitForPluginToBeAvailable ) {
+<span class="nc" id="L993">    IPlugin pluginInterface = findPluginWithId( pluginType, pluginId );</span>
+<span class="nc bnc" id="L994" title="All 4 branches missed.">    return waitForPluginToBeAvailable &amp;&amp; pluginInterface == null</span>
+<span class="nc" id="L995">      ? waitForPluginToBeAvailable( pluginType, pluginId, WAIT_FOR_PLUGIN_TO_BE_AVAILABLE_LIMIT )</span>
+      : pluginInterface;
+  }
+
+  private IPlugin waitForPluginToBeAvailable( Class&lt;? extends IPluginType&gt; pluginType, String pluginId, int waitLimit ) {
+<span class="nc" id="L1000">    int timeToSleep = 50;</span>
+    try {
+<span class="nc" id="L1002">      Thread.sleep( timeToSleep );</span>
+<span class="nc" id="L1003">      waitLimit -= timeToSleep;</span>
+<span class="nc" id="L1004">    } catch ( InterruptedException e ) {</span>
+<span class="nc" id="L1005">      log.logError( e.getLocalizedMessage(), e );</span>
+<span class="nc" id="L1006">      Thread.currentThread().interrupt();</span>
+<span class="nc" id="L1007">      return null;</span>
+<span class="nc" id="L1008">    }</span>
+<span class="nc" id="L1009">    IPlugin pluginInterface = findPluginWithId( pluginType, pluginId );</span>
+<span class="nc bnc" id="L1010" title="All 6 branches missed.">    return waitLimit &lt;= 0 &amp;&amp; pluginInterface == null</span>
+      ? null
+      : pluginInterface != null
+      ? pluginInterface
+<span class="nc" id="L1014">      : waitForPluginToBeAvailable( pluginType, pluginId, waitLimit );</span>
+  }
+
+  /**
+   * Try to register the given annotated class, present in the classpath, as a plugin
+   *
+   * @param pluginClassName The name of the class to register
+   * @param pluginTypeClass The type of plugin to register
+   * @param annotationClass The type of annotation to consider
+   */
+  public void registerPluginClass( String pluginClassName, Class&lt;? extends IPluginType&gt; pluginTypeClass, Class&lt;? extends Annotation&gt; annotationClass ) throws HopPluginException {
+<span class="nc" id="L1025">    registerPluginClass(getClass().getClassLoader(), Collections.emptyList(), null, pluginClassName, pluginTypeClass, annotationClass, true);</span>
+<span class="nc" id="L1026">  }</span>
+
+    /**
+     * Try to register the given annotated class, present in the classpath, as a plugin
+     *
+     * @param classLoader the classloader to find the class with
+     * @param pluginClassName The name of the class to register
+     * @param pluginTypeClass The type of plugin to register
+     * @param annotationClass The type of annotation to consider
+     * @param isNative if this is a native plugin (in the classpath) or an external plugin
+     */
+  public void registerPluginClass( ClassLoader classLoader, List&lt;String&gt; libraries, URL pluginUrl, String pluginClassName, Class&lt;? extends IPluginType&gt; pluginTypeClass, Class&lt;? extends Annotation&gt; annotationClass, boolean isNative ) throws HopPluginException {
+<span class="nc" id="L1038">    IPluginType pluginType = getPluginType( pluginTypeClass );</span>
+    try {
+<span class="nc" id="L1040">      Class&lt;?&gt; pluginClass = classLoader.loadClass( pluginClassName );</span>
+<span class="nc" id="L1041">      Annotation annotation = pluginClass.getAnnotation( annotationClass );</span>
+<span class="nc bnc" id="L1042" title="All 2 branches missed.">      if ( annotation == null ) {</span>
+<span class="nc" id="L1043">        throw new HopPluginException( &quot;The requested annotation '&quot; + annotationClass.getName() + &quot; couldn't be found in the plugin class&quot; );</span>
+      }
+
+      // Register the plugin using the metadata in the annotation
+      //
+<span class="nc" id="L1048">      pluginType.handlePluginAnnotation( pluginClass, annotation, libraries, isNative, pluginUrl );</span>
+
+<span class="nc" id="L1050">    } catch ( ClassNotFoundException e ) {</span>
+<span class="nc" id="L1051">      throw new HopPluginException( &quot;Sorry, the plugin class you want to register '&quot; + pluginClassName + &quot;' can't be found in the classpath&quot;, e );</span>
+<span class="nc" id="L1052">    }</span>
+<span class="nc" id="L1053">  }</span>
+
+  /**
+   * Try to find the plugin ID using the main class of the plugin.
+   *
+   * @param pluginTypeClass The plugin type
+   * @param className       The main classname to search for
+   * @return The plugin ID or null if nothing was found.
+   */
+  public String findPluginIdWithMainClassName( Class&lt;? extends IPluginType&gt; pluginTypeClass, String className ) {
+<span class="nc" id="L1063">    List&lt;IPlugin&gt; plugins = getPlugins( pluginTypeClass );</span>
+<span class="nc bnc" id="L1064" title="All 2 branches missed.">    for ( IPlugin plugin : plugins ) {</span>
+<span class="nc" id="L1065">      String mainClassName = plugin.getClassMap().get( plugin.getMainType() );</span>
+<span class="nc bnc" id="L1066" title="All 4 branches missed.">      if ( mainClassName != null &amp;&amp; mainClassName.equals( className ) ) {</span>
+<span class="nc" id="L1067">        return plugin.getIds()[ 0 ];</span>
+      }
+<span class="nc" id="L1069">    }</span>
+<span class="nc" id="L1070">    return null;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

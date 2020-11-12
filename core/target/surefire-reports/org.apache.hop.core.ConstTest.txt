@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: org.apache.hop.core.ConstTest
+-------------------------------------------------------------------------------
+Tests run: 99, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 10.481 s - in org.apache.hop.core.ConstTest

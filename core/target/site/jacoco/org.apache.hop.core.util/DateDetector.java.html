@@ -1,0 +1,355 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DateDetector.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.util</a> &gt; <span class="el_source">DateDetector.java</span></div><h1>DateDetector.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+package org.apache.hop.core.util;
+
+import org.apache.commons.collections.BidiMap;
+import org.apache.commons.collections.bidimap.DualHashBidiMap;
+
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+public class DateDetector {
+
+  private static final String LOCALE_en_US = &quot;en_US&quot;;
+
+  @SuppressWarnings( &quot;serial&quot; )
+<span class="fc" id="L36">  static final BidiMap DATE_FORMAT_TO_REGEXPS_US = new DualHashBidiMap() {</span>
+    {
+<span class="fc" id="L38">      put( &quot;MM-dd-yyyy&quot;, &quot;^[0-1]?[0-9]-[0-3]?[0-9]-\\d{4}$&quot; );</span>
+<span class="fc" id="L39">      put( &quot;dd/MM/yyyy&quot;, &quot;^[0-3]?[0-9]/[0-1]?[0-9]/\\d{4}$&quot; );</span>
+<span class="fc" id="L40">      put( &quot;MM-dd-yy&quot;, &quot;^[0-1]?[0-9]-[0-3]?[0-9]-\\d{2}$&quot; );</span>
+<span class="fc" id="L41">      put( &quot;dd/MM/yy&quot;, &quot;^[0-3]?[0-9]/[0-1]?[0-9]/\\d{2}$&quot; );</span>
+<span class="fc" id="L42">      put( &quot;yyyyMMdd&quot;, &quot;^\\d{8}$&quot; );</span>
+<span class="fc" id="L43">      put( &quot;dd-MM-yy&quot;, &quot;^\\d{1,2}-\\d{1,2}-\\d{2}$&quot; );</span>
+<span class="fc" id="L44">      put( &quot;dd-MM-yyyy&quot;, &quot;^\\d{1,2}-\\d{1,2}-\\d{4}$&quot; );</span>
+<span class="fc" id="L45">      put( &quot;dd.MM.yy&quot;, &quot;^\\d{1,2}\\.\\d{1,2}\\.\\d{2}$&quot; );</span>
+<span class="fc" id="L46">      put( &quot;dd.MM.yyyy&quot;, &quot;^\\d{1,2}\\.\\d{1,2}\\.\\d{4}$&quot; );</span>
+<span class="fc" id="L47">      put( &quot;MM/dd/yy&quot;, &quot;^\\d{1,2}/\\d{1,2}/\\d{2}$&quot; );</span>
+<span class="fc" id="L48">      put( &quot;MM/dd/yyyy&quot;, &quot;^\\d{1,2}/\\d{1,2}/\\d{4}$&quot; );</span>
+<span class="fc" id="L49">      put( &quot;yyyy-MM-dd&quot;, &quot;^\\d{4}-\\d{1,2}-\\d{1,2}$&quot; );</span>
+<span class="fc" id="L50">      put( &quot;yyyy.MM.dd&quot;, &quot;^\\d{4}\\.\\d{1,2}\\.\\d{1,2}$&quot; );</span>
+<span class="fc" id="L51">      put( &quot;yyyy/MM/dd&quot;, &quot;^\\d{4}/\\d{1,2}/\\d{1,2}$&quot; );</span>
+<span class="fc" id="L52">      put( &quot;dd MMM yyyy&quot;, &quot;^\\d{1,2}\\s[a-z]{3}\\s\\d{4}$&quot; );</span>
+<span class="fc" id="L53">      put( &quot;dd MMMM yyyy&quot;, &quot;^\\d{1,2}\\s[a-z]{4,}\\s\\d{4}$&quot; );</span>
+<span class="fc" id="L54">      put( &quot;yyyyMMddHHmm&quot;, &quot;^\\d{12}$&quot; );</span>
+<span class="fc" id="L55">      put( &quot;yyyyMMdd HHmm&quot;, &quot;^\\d{8}\\s\\d{4}$&quot; );</span>
+<span class="fc" id="L56">      put( &quot;dd-MM-yy HH:mm&quot;, &quot;^\\d{1,2}-\\d{1,2}-\\d{2}\\s\\d{1,2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L57">      put( &quot;dd-MM-yyyy HH:mm&quot;, &quot;^\\d{1,2}-\\d{1,2}-\\d{4}\\s\\d{1,2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L58">      put( &quot;dd.MM.yy HH:mm&quot;, &quot;^\\d{1,2}\\.\\d{1,2}\\.\\d{2}\\s\\d{1,2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L59">      put( &quot;dd.MM.yyyy HH:mm&quot;, &quot;^\\d{1,2}\\.\\d{1,2}\\.\\d{4}\\s\\d{1,2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L60">      put( &quot;MM/dd/yy HH:mm&quot;, &quot;^\\d{1,2}/\\d{1,2}/\\d{2}\\s\\d{1,2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L61">      put( &quot;MM/dd/yyyy HH:mm&quot;, &quot;^\\d{1,2}/\\d{1,2}/\\d{4}\\s\\d{1,2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L62">      put( &quot;yyyy-MM-dd HH:mm&quot;, &quot;^\\d{4}-\\d{1,2}-\\d{1,2}\\s\\d{1,2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L63">      put( &quot;yyyy.MM.dd HH:mm&quot;, &quot;^\\d{4}\\.\\d{1,2}\\.\\d{1,2}\\s\\d{1,2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L64">      put( &quot;yyyy/MM/dd HH:mm&quot;, &quot;^\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{1,2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L65">      put( &quot;dd MMM yyyy HH:mm&quot;, &quot;^\\d{1,2}\\s[a-z]{3}\\s\\d{4}\\s\\d{1,2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L66">      put( &quot;dd MMMM yyyy HH:mm&quot;, &quot;^\\d{1,2}\\s[a-z]{4,}\\s\\d{4}\\s\\d{1,2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L67">      put( &quot;yyyyMMddHHmmss&quot;, &quot;^\\d{14}$&quot; );</span>
+<span class="fc" id="L68">      put( &quot;yyyyMMdd HHmmss&quot;, &quot;^\\d{8}\\s\\d{6}$&quot; );</span>
+<span class="fc" id="L69">      put( &quot;dd-MM-yy HH:mm:ss&quot;, &quot;^\\d{1,2}-\\d{1,2}-\\d{2}\\s\\d{1,2}:\\d{2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L70">      put( &quot;dd-MM-yyyy HH:mm:ss&quot;, &quot;^\\d{1,2}-\\d{1,2}-\\d{4}\\s\\d{1,2}:\\d{2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L71">      put( &quot;dd.MM.yy HH:mm:ss&quot;, &quot;^\\d{1,2}\\.\\d{1,2}\\.\\d{2}\\s\\d{1,2}:\\d{2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L72">      put( &quot;dd.MM.yyyy HH:mm:ss&quot;, &quot;^\\d{1,2}\\.\\d{1,2}\\.\\d{4}\\s\\d{1,2}:\\d{2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L73">      put( &quot;MM/dd/yy HH:mm:ss&quot;, &quot;^\\d{1,2}/\\d{1,2}/\\d{2}\\s\\d{1,2}:\\d{2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L74">      put( &quot;MM/dd/yyyy HH:mm:ss&quot;, &quot;^\\d{1,2}/\\d{1,2}/\\d{4}\\s\\d{1,2}:\\d{2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L75">      put( &quot;yyyy-MM-dd HH:mm:ss&quot;, &quot;^\\d{4}-\\d{1,2}-\\d{1,2}\\s\\d{1,2}:\\d{2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L76">      put( &quot;yyyy.MM.dd HH:mm:ss&quot;, &quot;^\\d{4}\\.\\d{1,2}\\.\\d{1,2}\\s\\d{1,2}:\\d{2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L77">      put( &quot;yyyy/MM/dd HH:mm:ss&quot;, &quot;^\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{1,2}:\\d{2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L78">      put( &quot;dd MMM yyyy HH:mm:ss&quot;, &quot;^\\d{1,2}\\s[a-z]{3}\\s\\d{4}\\s\\d{1,2}:\\d{2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L79">      put( &quot;dd MMMM yyyy HH:mm:ss&quot;, &quot;^\\d{1,2}\\s[a-z]{4,}\\s\\d{4}\\s\\d{1,2}:\\d{2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L80">      put( &quot;dd-MM-yy HH:mm:ss.SSS&quot;, &quot;^\\d{1,2}-\\d{1,2}-\\d{2}\\s\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}$&quot; );</span>
+<span class="fc" id="L81">      put( &quot;dd-MM-yyyy HH:mm:ss.SSS&quot;, &quot;^\\d{1,2}-\\d{1,2}-\\d{4}\\s\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}$&quot; );</span>
+<span class="fc" id="L82">      put( &quot;dd.MM.yy HH:mm:ss.SSS&quot;, &quot;^\\d{1,2}\\.\\d{1,2}\\.\\d{2}\\s\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}$&quot; );</span>
+<span class="fc" id="L83">      put( &quot;dd.MM.yyyy HH:mm:ss.SSS&quot;, &quot;^\\d{1,2}\\.\\d{1,2}\\.\\d{4}\\s\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}$&quot; );</span>
+<span class="fc" id="L84">      put( &quot;MM/dd/yy HH:mm:ss.SSS&quot;, &quot;^\\d{1,2}/\\d{1,2}/\\d{2}\\s\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}$&quot; );</span>
+<span class="fc" id="L85">      put( &quot;MM/dd/yyyy HH:mm:ss.SSS&quot;, &quot;^\\d{1,2}/\\d{1,2}/\\d{4}\\s\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}$&quot; );</span>
+<span class="fc" id="L86">      put( &quot;yyyy-MM-dd HH:mm:ss.SSS&quot;, &quot;^\\d{4}-\\d{1,2}-\\d{1,2}\\s\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}$&quot; );</span>
+<span class="fc" id="L87">      put( &quot;yyyy.MM.dd HH:mm:ss.SSS&quot;, &quot;^\\d{4}\\.\\d{1,2}\\.\\d{1,2}\\s\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}$&quot; );</span>
+<span class="fc" id="L88">      put( &quot;yyyy/MM/dd HH:mm:ss.SSS&quot;, &quot;^\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}$&quot; );</span>
+<span class="fc" id="L89">      put( &quot;dd MMM yyyy HH:mm:ss.SSS&quot;, &quot;^\\d{1,2}\\s[a-z]{3}\\s\\d{4}\\s\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}$&quot; );</span>
+<span class="fc" id="L90">      put( &quot;dd MMMM yyyy HH:mm:ss.SSS&quot;, &quot;^\\d{1,2}\\s[a-z]{4,}\\s\\d{4}\\s\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}$&quot; );</span>
+<span class="fc" id="L91">    }</span>
+  };
+
+  @SuppressWarnings( &quot;serial&quot; )
+<span class="fc" id="L95">  static final BidiMap DATE_FORMAT_TO_REGEXPS = new DualHashBidiMap() {</span>
+    {
+<span class="fc" id="L97">      put( &quot;MM-dd-yyyy&quot;, &quot;^[0-1]?[0-9]-[0-3]?[0-9]-\\d{4}$&quot; );</span>
+<span class="fc" id="L98">      put( &quot;dd/MM/yyyy&quot;, &quot;^[0-3]?[0-9]/[0-1]?[0-9]/\\d{4}$&quot; );</span>
+<span class="fc" id="L99">      put( &quot;MM-dd-yy&quot;, &quot;^[0-1]?[0-9]-[0-3]?[0-9]-\\d{2}$&quot; );</span>
+<span class="fc" id="L100">      put( &quot;dd/MM/yy&quot;, &quot;^[0-3]?[0-9]/[0-1]?[0-9]/\\d{2}$&quot; );</span>
+<span class="fc" id="L101">      put( &quot;yyyyMMdd&quot;, &quot;^\\d{8}$&quot; );</span>
+<span class="fc" id="L102">      put( &quot;dd-MM-yy&quot;, &quot;^\\d{1,2}-\\d{1,2}-\\d{2}$&quot; );</span>
+<span class="fc" id="L103">      put( &quot;dd-MM-yyyy&quot;, &quot;^\\d{1,2}-\\d{1,2}-\\d{4}$&quot; );</span>
+<span class="fc" id="L104">      put( &quot;dd.MM.yy&quot;, &quot;^\\d{1,2}\\.\\d{1,2}\\.\\d{2}$&quot; );</span>
+<span class="fc" id="L105">      put( &quot;dd.MM.yyyy&quot;, &quot;^\\d{1,2}\\.\\d{1,2}\\.\\d{4}$&quot; );</span>
+<span class="fc" id="L106">      put( &quot;dd/MM/yy&quot;, &quot;^\\d{1,2}/\\d{1,2}/\\d{2}$&quot; );</span>
+<span class="fc" id="L107">      put( &quot;dd/MM/yyyy&quot;, &quot;^\\d{1,2}/\\d{1,2}/\\d{4}$&quot; );</span>
+<span class="fc" id="L108">      put( &quot;yyyy-MM-dd&quot;, &quot;^\\d{4}-\\d{1,2}-\\d{1,2}$&quot; );</span>
+<span class="fc" id="L109">      put( &quot;yyyy.MM.dd&quot;, &quot;^\\d{4}\\.\\d{1,2}\\.\\d{1,2}$&quot; );</span>
+<span class="fc" id="L110">      put( &quot;yyyy/MM/dd&quot;, &quot;^\\d{4}/\\d{1,2}/\\d{1,2}$&quot; );</span>
+<span class="fc" id="L111">      put( &quot;dd MMM yyyy&quot;, &quot;^\\d{1,2}\\s[a-z]{3}\\s\\d{4}$&quot; );</span>
+<span class="fc" id="L112">      put( &quot;dd MMMM yyyy&quot;, &quot;^\\d{1,2}\\s[a-z]{4,}\\s\\d{4}$&quot; );</span>
+<span class="fc" id="L113">      put( &quot;yyyyMMddHHmm&quot;, &quot;^\\d{12}$&quot; );</span>
+<span class="fc" id="L114">      put( &quot;yyyyMMdd HHmm&quot;, &quot;^\\d{8}\\s\\d{4}$&quot; );</span>
+<span class="fc" id="L115">      put( &quot;dd-MM-yy HH:mm&quot;, &quot;^\\d{1,2}-\\d{1,2}-\\d{2}\\s\\d{1,2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L116">      put( &quot;dd-MM-yyyy HH:mm&quot;, &quot;^\\d{1,2}-\\d{1,2}-\\d{4}\\s\\d{1,2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L117">      put( &quot;dd.MM.yy HH:mm&quot;, &quot;^\\d{1,2}\\.\\d{1,2}\\.\\d{2}\\s\\d{1,2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L118">      put( &quot;dd.MM.yyyy HH:mm&quot;, &quot;^\\d{1,2}\\.\\d{1,2}\\.\\d{4}\\s\\d{1,2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L119">      put( &quot;dd/MM/yy HH:mm&quot;, &quot;^\\d{1,2}/\\d{1,2}/\\d{2}\\s\\d{1,2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L120">      put( &quot;dd/MM/yyyy HH:mm&quot;, &quot;^\\d{1,2}/\\d{1,2}/\\d{4}\\s\\d{1,2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L121">      put( &quot;yyyy-MM-dd HH:mm&quot;, &quot;^\\d{4}-\\d{1,2}-\\d{1,2}\\s\\d{1,2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L122">      put( &quot;yyyy.MM.dd HH:mm&quot;, &quot;^\\d{4}\\.\\d{1,2}\\.\\d{1,2}\\s\\d{1,2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L123">      put( &quot;yyyy/MM/dd HH:mm&quot;, &quot;^\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{1,2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L124">      put( &quot;dd MMM yyyy HH:mm&quot;, &quot;^\\d{1,2}\\s[a-z]{3}\\s\\d{4}\\s\\d{1,2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L125">      put( &quot;dd MMMM yyyy HH:mm&quot;, &quot;^\\d{1,2}\\s[a-z]{4,}\\s\\d{4}\\s\\d{1,2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L126">      put( &quot;yyyyMMddHHmmss&quot;, &quot;^\\d{14}$&quot; );</span>
+<span class="fc" id="L127">      put( &quot;yyyyMMdd HHmmss&quot;, &quot;^\\d{8}\\s\\d{6}$&quot; );</span>
+<span class="fc" id="L128">      put( &quot;dd-MM-yy HH:mm:ss&quot;, &quot;^\\d{1,2}-\\d{1,2}-\\d{2}\\s\\d{1,2}:\\d{2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L129">      put( &quot;dd-MM-yyyy HH:mm:ss&quot;, &quot;^\\d{1,2}-\\d{1,2}-\\d{4}\\s\\d{1,2}:\\d{2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L130">      put( &quot;dd.MM.yy HH:mm:ss&quot;, &quot;^\\d{1,2}\\.\\d{1,2}\\.\\d{2}\\s\\d{1,2}:\\d{2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L131">      put( &quot;dd.MM.yyyy HH:mm:ss&quot;, &quot;^\\d{1,2}\\.\\d{1,2}\\.\\d{4}\\s\\d{1,2}:\\d{2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L132">      put( &quot;dd/MM/yy HH:mm:ss&quot;, &quot;^\\d{1,2}/\\d{1,2}/\\d{2}\\s\\d{1,2}:\\d{2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L133">      put( &quot;dd/MM/yyyy HH:mm:ss&quot;, &quot;^\\d{1,2}/\\d{1,2}/\\d{4}\\s\\d{1,2}:\\d{2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L134">      put( &quot;yyyy-MM-dd HH:mm:ss&quot;, &quot;^\\d{4}-\\d{1,2}-\\d{1,2}\\s\\d{1,2}:\\d{2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L135">      put( &quot;yyyy.MM.dd HH:mm:ss&quot;, &quot;^\\d{4}\\.\\d{1,2}\\.\\d{1,2}\\s\\d{1,2}:\\d{2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L136">      put( &quot;yyyy/MM/dd HH:mm:ss&quot;, &quot;^\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{1,2}:\\d{2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L137">      put( &quot;dd MMM yyyy HH:mm:ss&quot;, &quot;^\\d{1,2}\\s[a-z]{3}\\s\\d{4}\\s\\d{1,2}:\\d{2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L138">      put( &quot;dd MMMM yyyy HH:mm:ss&quot;, &quot;^\\d{1,2}\\s[a-z]{4,}\\s\\d{4}\\s\\d{1,2}:\\d{2}:\\d{2}$&quot; );</span>
+<span class="fc" id="L139">      put( &quot;dd-MM-yy HH:mm:ss.SSS&quot;, &quot;^\\d{1,2}-\\d{1,2}-\\d{2}\\s\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}$&quot; );</span>
+<span class="fc" id="L140">      put( &quot;dd-MM-yyyy HH:mm:ss.SSS&quot;, &quot;^\\d{1,2}-\\d{1,2}-\\d{4}\\s\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}$&quot; );</span>
+<span class="fc" id="L141">      put( &quot;dd.MM.yy HH:mm:ss.SSS&quot;, &quot;^\\d{1,2}\\.\\d{1,2}\\.\\d{2}\\s\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}$&quot; );</span>
+<span class="fc" id="L142">      put( &quot;dd.MM.yyyy HH:mm:ss.SSS&quot;, &quot;^\\d{1,2}\\.\\d{1,2}\\.\\d{4}\\s\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}$&quot; );</span>
+<span class="fc" id="L143">      put( &quot;dd/MM/yy HH:mm:ss.SSS&quot;, &quot;^\\d{1,2}/\\d{1,2}/\\d{2}\\s\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}$&quot; );</span>
+<span class="fc" id="L144">      put( &quot;dd/MM/yyyy HH:mm:ss.SSS&quot;, &quot;^\\d{1,2}/\\d{1,2}/\\d{4}\\s\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}$&quot; );</span>
+<span class="fc" id="L145">      put( &quot;yyyy-MM-dd HH:mm:ss.SSS&quot;, &quot;^\\d{4}-\\d{1,2}-\\d{1,2}\\s\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}$&quot; );</span>
+<span class="fc" id="L146">      put( &quot;yyyy.MM.dd HH:mm:ss.SSS&quot;, &quot;^\\d{4}\\.\\d{1,2}\\.\\d{1,2}\\s\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}$&quot; );</span>
+<span class="fc" id="L147">      put( &quot;yyyy/MM/dd HH:mm:ss.SSS&quot;, &quot;^\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}$&quot; );</span>
+<span class="fc" id="L148">      put( &quot;dd MMM yyyy HH:mm:ss.SSS&quot;, &quot;^\\d{1,2}\\s[a-z]{3}\\s\\d{4}\\s\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}$&quot; );</span>
+<span class="fc" id="L149">      put( &quot;dd MMMM yyyy HH:mm:ss.SSS&quot;, &quot;^\\d{1,2}\\s[a-z]{4,}\\s\\d{4}\\s\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}$&quot; );</span>
+<span class="fc" id="L150">    }</span>
+  };
+
+  // util class, hide constructor
+  private DateDetector() {
+  }
+
+  ;
+
+  /**
+   * @param dateFormat - date format for get regexp
+   * @return regexp for given date format
+   */
+  public static String getRegexpByDateFormat( String dateFormat ) {
+<span class="fc" id="L164">    return getRegexpByDateFormat( dateFormat, null );</span>
+  }
+
+  /**
+   * @param dateFormat - date format for get regexp by locale
+   * @return regexp for given date format
+   */
+  public static String getRegexpByDateFormat( String dateFormat, String locale ) {
+<span class="pc bpc" id="L172" title="1 of 4 branches missed.">    if ( locale != null &amp;&amp; LOCALE_en_US.equalsIgnoreCase( locale ) ) {</span>
+<span class="fc" id="L173">      return (String) DATE_FORMAT_TO_REGEXPS_US.get( dateFormat );</span>
+    }
+<span class="fc" id="L175">    return (String) DATE_FORMAT_TO_REGEXPS.get( dateFormat );</span>
+  }
+
+  /**
+   * @param regex - regexp for parse date format from string
+   *              &lt;br&gt;
+   *              &lt;b&gt;NOTES:&lt;/b&gt; if regex could be used for US and EU locale.
+   *              It returns europeans locale. For en_US locale please use
+   *              &lt;p&gt;
+   *              {@link #getDateFormatByRegex(String regex, String locale) }
+   * @return {@link java.lang.String} string wich represented Date Format
+   */
+  public static String getDateFormatByRegex( String regex ) {
+<span class="fc" id="L188">    return getDateFormatByRegex( regex, null );</span>
+  }
+
+  /**
+   * @param regex - regexp for parse date format from string by locale
+   * @return {@link java.lang.String} string wich represented Date Format
+   */
+  public static String getDateFormatByRegex( String regex, String locale ) {
+<span class="pc bpc" id="L196" title="1 of 4 branches missed.">    if ( locale != null &amp;&amp; LOCALE_en_US.equalsIgnoreCase( locale ) ) {</span>
+<span class="fc" id="L197">      return (String) DATE_FORMAT_TO_REGEXPS_US.getKey( regex );</span>
+    }
+<span class="fc" id="L199">    return (String) DATE_FORMAT_TO_REGEXPS.getKey( regex );</span>
+  }
+
+  /**
+   * @param dateString date string for parse
+   * @return {@link java.util.Date} converted from dateString by detected format
+   * @throws ParseException - if we can not detect date format for string or we can not parse date string
+   */
+  public static Date getDateFromString( String dateString ) throws ParseException {
+<span class="fc" id="L208">    String dateFormat = detectDateFormat( dateString );</span>
+<span class="fc bfc" id="L209" title="All 2 branches covered.">    if ( dateFormat == null ) {</span>
+<span class="fc" id="L210">      throw new ParseException( &quot;Unknown date format.&quot;, 0 );</span>
+    }
+<span class="fc" id="L212">    return getDateFromStringByFormat( dateString, dateFormat );</span>
+  }
+
+  /**
+   * @param dateString date string for parse
+   * @return {@link java.util.Date} converted from dateString by detected format
+   * @throws ParseException - if we can not detect date format for string or we can not parse date string
+   */
+  public static Date getDateFromString( String dateString, String locale ) throws ParseException {
+<span class="fc" id="L221">    String dateFormat = detectDateFormat( dateString, locale );</span>
+<span class="fc bfc" id="L222" title="All 2 branches covered.">    if ( dateFormat == null ) {</span>
+<span class="fc" id="L223">      throw new ParseException( &quot;Unknown date format.&quot;, 0 );</span>
+    }
+<span class="fc" id="L225">    return getDateFromStringByFormat( dateString, dateFormat );</span>
+  }
+
+  /**
+   * @param dateString date string for parse
+   * @param dateFormat format which should be applied for string
+   * @return {@link java.util.Date} converted from dateString by format
+   * @throws ParseException if we can not parse date string
+   */
+  public static Date getDateFromStringByFormat( String dateString, String dateFormat ) throws ParseException {
+<span class="fc bfc" id="L235" title="All 2 branches covered.">    if ( dateFormat == null ) {</span>
+<span class="fc" id="L236">      throw new ParseException( &quot;Unknown date format. Format is null. &quot;, 0 );</span>
+    }
+<span class="fc bfc" id="L238" title="All 2 branches covered.">    if ( dateString == null ) {</span>
+<span class="fc" id="L239">      throw new ParseException( &quot;Unknown date string. Date string is null. &quot;, 0 );</span>
+    }
+<span class="fc" id="L241">    SimpleDateFormat simpleDateFormat = new SimpleDateFormat( dateFormat );</span>
+<span class="fc" id="L242">    simpleDateFormat.setLenient( false ); // Don't automatically convert invalid date.</span>
+<span class="fc" id="L243">    return simpleDateFormat.parse( dateString );</span>
+  }
+
+  /**
+   * @param dateString - date string for detect date format
+   * @return {@link java.lang.String} string which represented Date Format or null
+   */
+  public static String detectDateFormat( String dateString ) {
+<span class="fc" id="L251">    return detectDateFormat( dateString, null );</span>
+  }
+
+  /**
+   * @param dateString - date string for detect date format
+   * @return {@link java.lang.String} string which represented Date Format or null
+   */
+  public static String detectDateFormat( String dateString, String locale ) {
+<span class="fc bfc" id="L259" title="All 2 branches covered.">    if ( dateString == null ) {</span>
+<span class="fc" id="L260">      return null;</span>
+    }
+<span class="fc bfc" id="L262" title="All 2 branches covered.">    for ( Object regexp : getDateFormatToRegExps( locale ).values() ) {</span>
+<span class="fc bfc" id="L263" title="All 2 branches covered.">      if ( dateString.toLowerCase().matches( (String) regexp ) ) {</span>
+<span class="fc" id="L264">        return (String) getDateFormatToRegExps( locale ).getKey( regexp );</span>
+      }
+<span class="fc" id="L266">    }</span>
+<span class="fc" id="L267">    return null;</span>
+  }
+
+  /**
+   * Finds a date format that matches the date value given. Will try the desiredKey format before attempting others. The
+   * first to match is returned.
+   *
+   * @param dateString the literal value of the date (eg: &quot;01/01/2001&quot;)
+   * @param locale     the locale in play
+   * @param desiredKey the desired format (should be a valid key to DATE_FORMAT_TO_REGEXPS)
+   * @return The key to the format that matched or null if none found.
+   */
+  public static String detectDateFormatBiased( String dateString, String locale, String desiredKey ) {
+<span class="fc bfc" id="L280" title="All 2 branches covered.">    if ( dateString == null ) {</span>
+<span class="fc" id="L281">      return null;</span>
+    }
+<span class="fc" id="L283">    String regex = (String) getDateFormatToRegExps( locale ).get( desiredKey );</span>
+<span class="fc bfc" id="L284" title="All 4 branches covered.">    if ( regex != null &amp;&amp; dateString.toLowerCase().matches( regex ) ) {</span>
+<span class="fc" id="L285">      return desiredKey;</span>
+    } else {
+<span class="fc" id="L287">      return detectDateFormat( dateString, locale );</span>
+    }
+  }
+
+  public static BidiMap getDateFormatToRegExps( String locale ) {
+<span class="fc bfc" id="L292" title="All 4 branches covered.">    if ( locale == null || LOCALE_en_US.equalsIgnoreCase( locale ) ) {</span>
+<span class="fc" id="L293">      return DATE_FORMAT_TO_REGEXPS_US;</span>
+    } else {
+<span class="fc" id="L295">      return DATE_FORMAT_TO_REGEXPS;</span>
+    }
+  }
+
+  /**
+   * @param dateString - string for check
+   * @param dateFormat - format for check
+   * @return true if we can parse string by format without exception
+   */
+  public static boolean isValidDate( String dateString, String dateFormat ) {
+    try {
+<span class="fc" id="L306">      getDateFromStringByFormat( dateString, dateFormat );</span>
+<span class="fc" id="L307">      return true;</span>
+<span class="fc" id="L308">    } catch ( ParseException e ) {</span>
+<span class="fc" id="L309">      return false;</span>
+    }
+  }
+
+  /**
+   * @param dateString - string for check
+   * @return true if we can parse string without exception
+   */
+  public static boolean isValidDate( String dateString ) {
+    try {
+<span class="fc" id="L319">      getDateFromString( dateString );</span>
+<span class="fc" id="L320">      return true;</span>
+<span class="fc" id="L321">    } catch ( ParseException e ) {</span>
+<span class="fc" id="L322">      return false;</span>
+    }
+  }
+
+  /**
+   * @param dateFormat - format which we will try to apply for string
+   * @param dateString - string which contains date
+   * @return true if we found that we know dateFormat and it applied for given string
+   */
+  public static boolean isValidDateFormatToStringDate( String dateFormat, String dateString ) {
+<span class="fc" id="L332">    String detectedDateFormat = detectDateFormat( dateString );</span>
+<span class="fc bfc" id="L333" title="All 4 branches covered.">    if ( ( dateFormat != null ) &amp;&amp; ( dateFormat.equals( detectedDateFormat ) ) ) {</span>
+<span class="fc" id="L334">      return true;</span>
+    }
+<span class="fc" id="L336">    return false;</span>
+  }
+
+  /**
+   * @param dateFormat - format which we will try to apply for string
+   * @param dateString - string which contains date
+   * @param locale     - locale for date format
+   * @return true if we found that we know dateFormat and it applied for given string
+   */
+  public static boolean isValidDateFormatToStringDate( String dateFormat, String dateString, String locale ) {
+<span class="fc bfc" id="L346" title="All 2 branches covered.">    String detectedDateFormat =</span>
+<span class="fc" id="L347">      dateFormat != null ? detectDateFormatBiased( dateString, locale, dateFormat ) : detectDateFormat( dateString,</span>
+        locale );
+<span class="fc bfc" id="L349" title="All 4 branches covered.">    if ( ( dateFormat != null ) &amp;&amp; ( dateFormat.equals( detectedDateFormat ) ) ) {</span>
+<span class="fc" id="L350">      return true;</span>
+    }
+<span class="fc" id="L352">    return false;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

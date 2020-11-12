@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StorageUnitConverter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.util</a> &gt; <span class="el_source">StorageUnitConverter.java</span></div><h1>StorageUnitConverter.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop: The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+package org.apache.hop.core.util;
+
+import org.apache.commons.io.FileUtils;
+
+import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+<span class="nc" id="L32">public class StorageUnitConverter {</span>
+
+  /**
+   * Converts byte count to the human readable representation. The size is rounded to nearest X-byte.
+   * &lt;p&gt;
+   * For example: 13.1MB in byte count will return 13MB and 13.9MB in byte count wil return 13MB.
+   * &lt;p&gt;
+   *  Supported types: EB, PB, TB, GB, MB, KB or B (for bytes).
+   *
+   * @param byteCount
+   * @return human reabable display size
+   */
+  public String byteCountToDisplaySize( long byteCount ) {
+<span class="nc" id="L45">    String spacedDisplaySize = FileUtils.byteCountToDisplaySize( byteCount );</span>
+<span class="nc" id="L46">    return spacedDisplaySize.replace( &quot;bytes&quot;, &quot;B&quot; ).replace( &quot; &quot;, &quot;&quot; );</span>
+  }
+
+  /**
+   * Convert human  human readable file size format to byte equivalent.
+   * &lt;p&gt;Accepted units:
+   * &lt;ul&gt;
+   *   &lt;li&gt;B - Bytes&lt;/li&gt;
+   *   &lt;li&gt;KB - Kilobytes&lt;/li&gt;
+   *   &lt;li&gt;MB - Megabytes&lt;/li&gt;
+   *   &lt;li&gt;GB - Gigabytes&lt;/li&gt;
+   * &lt;/ul&gt;
+   * Example display sizes:
+   * &lt;br&gt;&quot;5MB&quot;
+   * &lt;br&gt;&quot;123B&quot;
+   * &lt;br&gt;&quot;1.5GB&quot;
+   * &lt;br&gt;&quot;1,5GB&quot;
+   * @param displaySize human readable size format
+   * @return total number of bytes
+   */
+  public long displaySizeToByteCount( String displaySize ) {
+<span class="nc" id="L67">    long returnValue = -1;</span>
+    // replace &quot;,&quot; for int'l decimal convention
+<span class="nc bnc" id="L69" title="All 2 branches missed.">    String displaySizeDecimal = ( displaySize == null ) ? &quot;&quot; : displaySize.replace( &quot;,&quot;, &quot;.&quot; );</span>
+<span class="nc" id="L70">    Pattern pattern = Pattern.compile( &quot;([\\d.]+)([GMK]?B)&quot;, Pattern.CASE_INSENSITIVE );</span>
+<span class="nc" id="L71">    Matcher matcher = pattern.matcher( displaySizeDecimal );</span>
+<span class="nc" id="L72">    Map&lt;String, Integer&gt; powerMap = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L73">    powerMap.put( &quot;GB&quot;, 3 );</span>
+<span class="nc" id="L74">    powerMap.put( &quot;MB&quot;, 2 );</span>
+<span class="nc" id="L75">    powerMap.put( &quot;KB&quot;, 1 );</span>
+<span class="nc" id="L76">    powerMap.put( &quot;B&quot;, 0 );</span>
+<span class="nc bnc" id="L77" title="All 2 branches missed.">    if ( matcher.find() ) {</span>
+<span class="nc" id="L78">      String number = matcher.group( 1 );</span>
+<span class="nc" id="L79">      int pow = powerMap.get( matcher.group( 2 ).toUpperCase() );</span>
+<span class="nc" id="L80">      BigDecimal bytes = new BigDecimal( number );</span>
+<span class="nc" id="L81">      bytes = bytes.multiply( BigDecimal.valueOf( 1024 ).pow( pow ) );</span>
+<span class="nc" id="L82">      returnValue = bytes.longValue();</span>
+    }
+<span class="nc" id="L84">    return returnValue;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

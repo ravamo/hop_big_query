@@ -1,0 +1,586 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StringEvaluator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.util</a> &gt; <span class="el_source">StringEvaluator.java</span></div><h1>StringEvaluator.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.util;
+
+import org.apache.commons.lang.StringUtils;
+import org.apache.hop.core.Const;
+import org.apache.hop.core.exception.HopPluginException;
+import org.apache.hop.core.exception.HopValueException;
+import org.apache.hop.core.row.IValueMeta;
+import org.apache.hop.core.row.value.ValueMetaBoolean;
+import org.apache.hop.core.row.value.ValueMetaDate;
+import org.apache.hop.core.row.value.ValueMetaFactory;
+import org.apache.hop.core.row.value.ValueMetaInteger;
+import org.apache.hop.core.row.value.ValueMetaNumber;
+import org.apache.hop.core.row.value.ValueMetaString;
+
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
+import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * This class evaluates strings and extracts a data type. It allows you to criteria after which the analysis should be
+ * completed.
+ *
+ * @author matt
+ */
+public class StringEvaluator {
+
+  private Set&lt;String&gt; values;
+  private List&lt;StringEvaluationResult&gt; evaluationResults;
+  private int maxLength;
+  private int maxPrecision;
+  private int count;
+  private boolean tryTrimming;
+
+  private IValueMeta stringMeta;
+
+  private String[] dateFormats;
+  private String[] numberFormats;
+
+<span class="fc" id="L70">  private static final String[] DEFAULT_NUMBER_FORMATS = new String[]</span>
+    {
+      &quot;#,###,###.#&quot;,
+      &quot;#.#&quot;,
+      &quot;#&quot;,
+      &quot;#.0&quot;,
+      &quot;#.00&quot;,
+      &quot;#.000&quot;,
+      &quot;#.0000&quot;,
+      &quot;#.00000&quot;,
+      &quot;#.000000&quot;,
+      &quot; #.0#&quot;
+    };
+
+<span class="fc" id="L84">  protected static final Pattern PRECISION_PATTERN = Pattern.compile( &quot;[^0-9#]&quot; );</span>
+
+  public StringEvaluator() {
+<span class="fc" id="L87">    this( true );</span>
+<span class="fc" id="L88">  }</span>
+
+  public StringEvaluator( boolean tryTrimming ) {
+<span class="fc" id="L91">    this( tryTrimming, DEFAULT_NUMBER_FORMATS, Const.getDateFormats() );</span>
+<span class="fc" id="L92">  }</span>
+
+  public StringEvaluator( boolean tryTrimming, List&lt;String&gt; numberFormats, List&lt;String&gt; dateFormats ) {
+<span class="fc" id="L95">    this( tryTrimming, numberFormats.toArray( new String[ numberFormats.size() ] ), dateFormats</span>
+<span class="fc" id="L96">      .toArray( new String[ dateFormats.size() ] ) );</span>
+<span class="fc" id="L97">  }</span>
+
+<span class="fc" id="L99">  public StringEvaluator( boolean tryTrimming, String[] numberFormats, String[] dateFormats ) {</span>
+<span class="fc" id="L100">    this.tryTrimming = tryTrimming;</span>
+
+<span class="fc" id="L102">    values = new HashSet&lt;String&gt;();</span>
+<span class="fc" id="L103">    evaluationResults = new ArrayList&lt;StringEvaluationResult&gt;();</span>
+<span class="fc" id="L104">    count = 0;</span>
+
+<span class="fc" id="L106">    stringMeta = new ValueMetaString( &quot;string&quot; );</span>
+<span class="fc" id="L107">    this.numberFormats = numberFormats;</span>
+<span class="fc" id="L108">    this.dateFormats = dateFormats;</span>
+
+<span class="fc" id="L110">    populateConversionMetaList();</span>
+<span class="fc" id="L111">  }</span>
+
+  public void evaluateString( String value ) {
+<span class="fc" id="L114">    count++;</span>
+
+<span class="fc bfc" id="L116" title="All 2 branches covered.">    if ( !values.contains( value ) ) {</span>
+<span class="fc" id="L117">      values.add( value );</span>
+
+<span class="pc bpc" id="L119" title="1 of 2 branches missed.">      if ( value != null ) {</span>
+<span class="fc" id="L120">        evaluateLength( value );</span>
+<span class="fc" id="L121">        evaluatePrecision( value );</span>
+<span class="fc" id="L122">        challengeConversions( value );</span>
+      }
+    }
+<span class="fc" id="L125">  }</span>
+
+  private void challengeConversions( String value ) {
+<span class="fc" id="L128">    List&lt;StringEvaluationResult&gt; all = new ArrayList&lt;StringEvaluationResult&gt;( evaluationResults );</span>
+<span class="fc" id="L129">    IValueMeta stringMetaClone = null;</span>
+<span class="fc bfc" id="L130" title="All 2 branches covered.">    for ( StringEvaluationResult cmm : all ) {</span>
+<span class="fc bfc" id="L131" title="All 2 branches covered.">      if ( cmm.getConversionMeta().isBoolean() ) {</span>
+        // Boolean conversion never fails.
+        // If it's a Y, N, true, false it's a boolean otherwise it ain't.
+        //
+        String string;
+<span class="pc bpc" id="L136" title="1 of 2 branches missed.">        if ( tryTrimming ) {</span>
+<span class="fc" id="L137">          string = Const.trim( value );</span>
+        } else {
+<span class="nc" id="L139">          string = value;</span>
+        }
+<span class="fc bfc" id="L141" title="All 2 branches covered.">        if ( StringUtils.isEmpty( value ) ) {</span>
+<span class="fc" id="L142">          cmm.incrementNrNull();</span>
+<span class="fc bfc" id="L143" title="All 6 branches covered.">        } else if ( !( &quot;Y&quot;.equalsIgnoreCase( string ) || &quot;N&quot;.equalsIgnoreCase( string ) || &quot;TRUE&quot;.equalsIgnoreCase(</span>
+<span class="fc bfc" id="L144" title="All 2 branches covered.">          string ) || &quot;FALSE&quot;.equalsIgnoreCase( string ) ) ) {</span>
+<span class="fc" id="L145">          evaluationResults.remove( cmm );</span>
+        } else {
+<span class="fc" id="L147">          cmm.incrementSuccesses();</span>
+        }
+<span class="fc bfc" id="L149" title="All 2 branches covered.">      } else if ( cmm.getConversionMeta().isDate() ) {</span>
+<span class="fc" id="L150">        String dateFormat = cmm.getConversionMeta().getConversionMask();</span>
+<span class="fc bfc" id="L151" title="All 2 branches covered.">        if ( !DateDetector.isValidDateFormatToStringDate( dateFormat, value, &quot;en_US&quot; ) ) {</span>
+<span class="fc" id="L152">          evaluationResults.remove( cmm );</span>
+        } else {
+          try {
+<span class="fc" id="L155">            Object object = DateDetector.getDateFromStringByFormat( value, dateFormat );</span>
+<span class="fc" id="L156">            cmm.incrementSuccesses();</span>
+<span class="pc bpc" id="L157" title="1 of 4 branches missed.">            if ( cmm.getMin() == null || cmm.getConversionMeta().compare( cmm.getMin(), object ) &gt; 0 ) {</span>
+<span class="fc" id="L158">              cmm.setMin( object );</span>
+            }
+<span class="pc bpc" id="L160" title="1 of 4 branches missed.">            if ( cmm.getMax() == null || cmm.getConversionMeta().compare( cmm.getMax(), object ) &lt; 0 ) {</span>
+<span class="fc" id="L161">              cmm.setMax( object );</span>
+            }
+<span class="nc" id="L163">          } catch ( ParseException e ) {</span>
+<span class="nc" id="L164">            evaluationResults.remove( cmm );</span>
+<span class="nc" id="L165">          } catch ( HopValueException e ) {</span>
+<span class="nc" id="L166">            evaluationResults.remove( cmm );</span>
+<span class="pc" id="L167">          }</span>
+        }
+<span class="fc" id="L169">      } else {</span>
+        try {
+<span class="pc bpc" id="L171" title="1 of 2 branches missed.">          if ( cmm.getConversionMeta().isNumeric() ) {</span>
+<span class="fc" id="L172">            boolean stop = false;</span>
+<span class="fc" id="L173">            int nrDots = 0;</span>
+<span class="fc" id="L174">            int nrCommas = 0;</span>
+<span class="fc" id="L175">            int pos = 0;</span>
+<span class="fc bfc" id="L176" title="All 2 branches covered.">            for ( char c : value.toCharArray() ) {</span>
+
+<span class="pc bpc" id="L178" title="3 of 6 branches missed.">              boolean currencySymbolMatch = !String.valueOf( c ).equals( cmm.getConversionMeta().getCurrencySymbol() )</span>
+                &amp;&amp; c != '('
+                &amp;&amp; c != ')';
+
+<span class="fc bfc" id="L182" title="All 6 branches covered.">              if ( !Character.isDigit( c )</span>
+                &amp;&amp; c != '.'
+                &amp;&amp; c != ','
+<span class="pc bpc" id="L185" title="3 of 10 branches missed.">                &amp;&amp; !Character.isSpaceChar( c )</span>
+                &amp;&amp; currencySymbolMatch
+                &amp;&amp; ( pos &gt; 0 &amp;&amp; ( c == '+' || c == '-' ) ) // allow + &amp; - at the 1st position
+              ) {
+<span class="nc" id="L189">                evaluationResults.remove( cmm );</span>
+<span class="nc" id="L190">                stop = true;</span>
+<span class="nc" id="L191">                break;</span>
+              }
+
+              // If the value contains a decimal or grouping symbol or some sort, it's not an integer
+              //
+<span class="fc bfc" id="L196" title="All 6 branches covered.">              if ( ( c == '.' &amp;&amp; cmm.getConversionMeta().isInteger() )</span>
+<span class="fc bfc" id="L197" title="All 2 branches covered.">                || ( c == ',' &amp;&amp; cmm.getConversionMeta().isInteger() ) ) {</span>
+<span class="fc" id="L198">                evaluationResults.remove( cmm );</span>
+<span class="fc" id="L199">                stop = true;</span>
+<span class="fc" id="L200">                break;</span>
+              }
+<span class="fc bfc" id="L202" title="All 2 branches covered.">              if ( c == '.' ) {</span>
+<span class="fc" id="L203">                nrDots++;</span>
+              }
+<span class="fc bfc" id="L205" title="All 2 branches covered.">              if ( c == ',' ) {</span>
+<span class="fc" id="L206">                nrCommas++;</span>
+              }
+<span class="fc" id="L208">              pos++;</span>
+            }
+
+<span class="pc bpc" id="L211" title="1 of 4 branches missed.">            if ( nrDots &gt; 1 &amp;&amp; nrCommas &gt; 1 ) {</span>
+<span class="nc" id="L212">              evaluationResults.remove( cmm );</span>
+<span class="nc" id="L213">              stop = true;</span>
+            }
+
+<span class="fc bfc" id="L216" title="All 2 branches covered.">            if ( stop ) {</span>
+<span class="fc" id="L217">              continue;</span>
+            }
+
+          }
+
+<span class="fc bfc" id="L222" title="All 2 branches covered.">          if ( stringMetaClone == null ) {</span>
+            // avoid cloning each time
+<span class="fc" id="L224">            stringMetaClone = stringMeta.clone();</span>
+          }
+<span class="fc" id="L226">          stringMetaClone.setConversionMetadata( cmm.getConversionMeta() );</span>
+<span class="fc" id="L227">          stringMetaClone.setTrimType( cmm.getConversionMeta().getTrimType() );</span>
+<span class="fc" id="L228">          Object object = stringMetaClone.convertDataUsingConversionMetaData( value );</span>
+
+          // Still here? Evaluate the data...
+          // Keep track of null values, min, max, etc.
+          //
+<span class="fc bfc" id="L233" title="All 2 branches covered.">          if ( cmm.getConversionMeta().isNull( object ) ) {</span>
+<span class="fc" id="L234">            cmm.incrementNrNull();</span>
+          } else {
+<span class="fc" id="L236">            cmm.incrementSuccesses();</span>
+          }
+<span class="fc bfc" id="L238" title="All 4 branches covered.">          if ( cmm.getMin() == null || cmm.getConversionMeta().compare( cmm.getMin(), object ) &gt; 0 ) {</span>
+<span class="fc" id="L239">            cmm.setMin( object );</span>
+          }
+<span class="fc bfc" id="L241" title="All 4 branches covered.">          if ( cmm.getMax() == null || cmm.getConversionMeta().compare( cmm.getMax(), object ) &lt; 0 ) {</span>
+<span class="fc" id="L242">            cmm.setMax( object );</span>
+          }
+<span class="fc" id="L244">        } catch ( HopValueException e ) {</span>
+          // This one doesn't work, remove it from the list!
+          //
+<span class="fc" id="L247">          evaluationResults.remove( cmm );</span>
+<span class="fc" id="L248">        }</span>
+      }
+<span class="fc" id="L250">    }</span>
+<span class="fc" id="L251">  }</span>
+
+  private void evaluateLength( String value ) {
+<span class="fc bfc" id="L254" title="All 2 branches covered.">    if ( value.length() &gt; maxLength ) {</span>
+<span class="fc" id="L255">      maxLength = value.length();</span>
+    }
+<span class="fc" id="L257">  }</span>
+
+  private void evaluatePrecision( String value ) {
+<span class="fc" id="L260">    int p = determinePrecision( value );</span>
+<span class="fc bfc" id="L261" title="All 2 branches covered.">    if ( p &gt; maxPrecision ) {</span>
+<span class="fc" id="L262">      maxPrecision = p;</span>
+    }
+<span class="fc" id="L264">  }</span>
+
+  private boolean containsInteger() {
+<span class="fc bfc" id="L267" title="All 2 branches covered.">    for ( StringEvaluationResult result : evaluationResults ) {</span>
+<span class="fc bfc" id="L268" title="All 4 branches covered.">      if ( result.getConversionMeta().isInteger() &amp;&amp; result.getNrSuccesses() &gt; 0 ) {</span>
+<span class="fc" id="L269">        return true;</span>
+      }
+<span class="fc" id="L271">    }</span>
+<span class="fc" id="L272">    return false;</span>
+  }
+
+  private boolean containsNumber() {
+<span class="fc bfc" id="L276" title="All 2 branches covered.">    for ( StringEvaluationResult result : evaluationResults ) {</span>
+<span class="pc bpc" id="L277" title="1 of 4 branches missed.">      if ( result.getConversionMeta().isNumber() &amp;&amp; result.getNrSuccesses() &gt; 0 ) {</span>
+<span class="fc" id="L278">        return true;</span>
+      }
+<span class="fc" id="L280">    }</span>
+<span class="fc" id="L281">    return false;</span>
+  }
+
+  private boolean containsDate() {
+<span class="fc bfc" id="L285" title="All 2 branches covered.">    for ( StringEvaluationResult result : evaluationResults ) {</span>
+<span class="pc bpc" id="L286" title="1 of 4 branches missed.">      if ( result.getConversionMeta().isDate() &amp;&amp; result.getNrSuccesses() &gt; 0 ) {</span>
+<span class="fc" id="L287">        return true;</span>
+      }
+<span class="fc" id="L289">    }</span>
+<span class="fc" id="L290">    return false;</span>
+  }
+
+  public StringEvaluationResult getAdvicedResult() {
+<span class="fc bfc" id="L294" title="All 2 branches covered.">    if ( evaluationResults.isEmpty() ) {</span>
+<span class="fc" id="L295">      IValueMeta adviced = new ValueMetaString( &quot;adviced&quot; );</span>
+<span class="fc" id="L296">      adviced.setLength( maxLength );</span>
+<span class="fc" id="L297">      int nrNulls = 0;</span>
+<span class="fc" id="L298">      String min = null;</span>
+<span class="fc" id="L299">      String max = null;</span>
+<span class="fc bfc" id="L300" title="All 2 branches covered.">      for ( String string : values ) {</span>
+<span class="pc bpc" id="L301" title="1 of 2 branches missed.">        if ( string != null ) {</span>
+<span class="fc bfc" id="L302" title="All 4 branches covered.">          if ( min == null || min.compareTo( string ) &gt; 0 ) {</span>
+<span class="fc" id="L303">            min = string;</span>
+          }
+<span class="fc bfc" id="L305" title="All 4 branches covered.">          if ( max == null || max.compareTo( string ) &lt; 0 ) {</span>
+<span class="fc" id="L306">            max = string;</span>
+          }
+        } else {
+<span class="nc" id="L309">          nrNulls++;</span>
+        }
+<span class="fc" id="L311">      }</span>
+
+<span class="fc" id="L313">      StringEvaluationResult result = new StringEvaluationResult( adviced );</span>
+<span class="fc" id="L314">      result.setNrNull( nrNulls );</span>
+<span class="fc" id="L315">      result.setMin( min );</span>
+<span class="fc" id="L316">      result.setMax( max );</span>
+<span class="fc" id="L317">      return result;</span>
+
+    } else {
+      // If there are Numbers and Integers, pick the integers...
+      //
+<span class="fc bfc" id="L322" title="All 4 branches covered.">      if ( containsInteger() &amp;&amp; containsNumber() ) {</span>
+<span class="fc bfc" id="L323" title="All 2 branches covered.">        for ( Iterator&lt;StringEvaluationResult&gt; iterator = evaluationResults.iterator(); iterator.hasNext(); ) {</span>
+<span class="fc" id="L324">          StringEvaluationResult result = iterator.next();</span>
+<span class="pc bpc" id="L325" title="1 of 4 branches missed.">          if ( maxPrecision == 0 &amp;&amp; result.getConversionMeta().isNumber() ) {</span>
+            // no precision, don't bother with a number
+<span class="fc" id="L327">            iterator.remove();</span>
+<span class="pc bpc" id="L328" title="3 of 4 branches missed.">          } else if ( maxPrecision &gt; 0 &amp;&amp; result.getConversionMeta().isInteger() ) {</span>
+            // precision is needed, can't use integer
+<span class="nc" id="L330">            iterator.remove();</span>
+          }
+<span class="fc" id="L332">        }</span>
+      }
+      // If there are Dates and Integers, pick the dates...
+      //
+<span class="pc bpc" id="L336" title="1 of 4 branches missed.">      if ( containsInteger() &amp;&amp; containsDate() ) {</span>
+<span class="nc bnc" id="L337" title="All 2 branches missed.">        for ( Iterator&lt;StringEvaluationResult&gt; iterator = evaluationResults.iterator(); iterator.hasNext(); ) {</span>
+<span class="nc" id="L338">          StringEvaluationResult result = iterator.next();</span>
+<span class="nc bnc" id="L339" title="All 2 branches missed.">          if ( result.getConversionMeta().isInteger() ) {</span>
+<span class="nc" id="L340">            iterator.remove();</span>
+          }
+<span class="nc" id="L342">        }</span>
+      }
+
+<span class="fc" id="L345">      Comparator&lt;StringEvaluationResult&gt; compare = null;</span>
+<span class="fc bfc" id="L346" title="All 2 branches covered.">      if ( containsDate() ) {</span>
+        // want the longest format for dates
+<span class="fc" id="L348">        compare = ( r1, r2 ) -&gt; {</span>
+<span class="fc" id="L349">          Integer length1 =</span>
+<span class="pc bpc" id="L350" title="1 of 2 branches missed.">            r1.getConversionMeta().getConversionMask() == null ? 0 : r1</span>
+<span class="fc" id="L351">              .getConversionMeta().getConversionMask().length();</span>
+<span class="fc" id="L352">          Integer length2 =</span>
+<span class="pc bpc" id="L353" title="1 of 2 branches missed.">            r2.getConversionMeta().getConversionMask() == null ? 0 : r2</span>
+<span class="fc" id="L354">              .getConversionMeta().getConversionMask().length();</span>
+<span class="fc" id="L355">          return length2.compareTo( length1 );</span>
+        };
+      } else {
+        // want the shortest format mask for numerics &amp; integers
+<span class="fc" id="L359">        compare = ( r1, r2 ) -&gt; {</span>
+<span class="fc" id="L360">          Integer length1 =</span>
+<span class="fc bfc" id="L361" title="All 2 branches covered.">            r1.getConversionMeta().getConversionMask() == null ? 0 : r1</span>
+<span class="fc" id="L362">              .getConversionMeta().getConversionMask().length();</span>
+<span class="fc" id="L363">          Integer length2 =</span>
+<span class="fc bfc" id="L364" title="All 2 branches covered.">            r2.getConversionMeta().getConversionMask() == null ? 0 : r2</span>
+<span class="fc" id="L365">              .getConversionMeta().getConversionMask().length();</span>
+<span class="fc" id="L366">          return length1.compareTo( length2 );</span>
+        };
+      }
+
+<span class="fc" id="L370">      Collections.sort( evaluationResults, compare );</span>
+
+<span class="fc" id="L372">      StringEvaluationResult result = evaluationResults.get( 0 );</span>
+<span class="fc" id="L373">      IValueMeta conversionMeta = result.getConversionMeta();</span>
+<span class="pc bpc" id="L374" title="1 of 4 branches missed.">      if ( conversionMeta.isNumber() &amp;&amp; conversionMeta.getCurrencySymbol() == null ) {</span>
+<span class="nc" id="L375">        conversionMeta.setPrecision( maxPrecision );</span>
+<span class="nc bnc" id="L376" title="All 4 branches missed.">        if ( maxPrecision &gt; 0 &amp;&amp; maxLength &gt; 0 ) {</span>
+<span class="nc" id="L377">          conversionMeta.setLength( maxLength );</span>
+        }
+      }
+
+<span class="fc" id="L381">      return result;</span>
+    }
+
+  }
+
+  public String[] getDateFormats() {
+<span class="fc" id="L387">    return dateFormats;</span>
+  }
+
+  public String[] getNumberFormats() {
+<span class="fc" id="L391">    return numberFormats;</span>
+  }
+
+  private void populateConversionMetaList() {
+
+    int[] trimTypes;
+<span class="pc bpc" id="L397" title="1 of 2 branches missed.">    if ( tryTrimming ) {</span>
+<span class="fc" id="L398">      trimTypes = new int[] { IValueMeta.TRIM_TYPE_NONE, IValueMeta.TRIM_TYPE_BOTH, };</span>
+    } else {
+<span class="nc" id="L400">      trimTypes = new int[] { IValueMeta.TRIM_TYPE_NONE, };</span>
+    }
+
+<span class="fc bfc" id="L403" title="All 2 branches covered.">    for ( int trimType : trimTypes ) {</span>
+<span class="fc bfc" id="L404" title="All 2 branches covered.">      for ( String format : getDateFormats() ) {</span>
+<span class="fc" id="L405">        IValueMeta conversionMeta = new ValueMetaDate( &quot;date&quot; );</span>
+<span class="fc" id="L406">        conversionMeta.setConversionMask( format );</span>
+<span class="fc" id="L407">        conversionMeta.setTrimType( trimType );</span>
+<span class="fc" id="L408">        conversionMeta.setDateFormatLenient( false );</span>
+<span class="fc" id="L409">        evaluationResults.add( new StringEvaluationResult( conversionMeta ) );</span>
+      }
+
+<span class="fc" id="L412">      EvalResultBuilder numberUsBuilder = new EvalResultBuilder( &quot;number-us&quot;, IValueMeta.TYPE_NUMBER, 15, trimType, &quot;.&quot;, &quot;,&quot; );</span>
+<span class="fc" id="L413">      EvalResultBuilder numberEuBuilder = new EvalResultBuilder( &quot;number-eu&quot;, IValueMeta.TYPE_NUMBER, 15, trimType, &quot;,&quot;, &quot;.&quot; );</span>
+
+<span class="fc bfc" id="L415" title="All 2 branches covered.">      for ( String format : getNumberFormats() ) {</span>
+
+<span class="pc bpc" id="L417" title="1 of 4 branches missed.">        if ( format.equals( &quot;#&quot; ) || format.equals( &quot;0&quot; ) ) {</span>
+          // skip the integer ones. we'll get those later
+<span class="nc" id="L419">          continue;</span>
+        }
+
+<span class="fc" id="L422">        int precision = determinePrecision( format );</span>
+<span class="fc" id="L423">        evaluationResults.add( numberUsBuilder.format( format, precision ).build() );</span>
+<span class="fc" id="L424">        evaluationResults.add( numberEuBuilder.format( format, precision ).build() );</span>
+      }
+
+      // Try the locale's Currency
+<span class="fc" id="L428">      DecimalFormat currencyFormat = ( (DecimalFormat) NumberFormat.getCurrencyInstance() );</span>
+
+<span class="fc" id="L430">      IValueMeta conversionMeta = new ValueMetaNumber( &quot;number-currency&quot; );</span>
+      // replace the universal currency symbol with the locale's currency symbol for user recognition
+<span class="fc" id="L432">      String currencyMask = currencyFormat.toLocalizedPattern().replace( &quot;\u00A4&quot;, currencyFormat.getCurrency().getSymbol() );</span>
+<span class="fc" id="L433">      conversionMeta.setConversionMask( currencyMask );</span>
+<span class="fc" id="L434">      conversionMeta.setTrimType( trimType );</span>
+<span class="fc" id="L435">      conversionMeta.setDecimalSymbol( String.valueOf( currencyFormat.getDecimalFormatSymbols().getDecimalSeparator() ) );</span>
+<span class="fc" id="L436">      conversionMeta.setGroupingSymbol( String.valueOf( currencyFormat.getDecimalFormatSymbols().getGroupingSeparator() ) );</span>
+<span class="fc" id="L437">      conversionMeta.setCurrencySymbol( currencyFormat.getCurrency().getSymbol() );</span>
+<span class="fc" id="L438">      conversionMeta.setLength( 15 );</span>
+<span class="fc" id="L439">      int currencyPrecision = currencyFormat.getCurrency().getDefaultFractionDigits();</span>
+<span class="fc" id="L440">      conversionMeta.setPrecision( currencyPrecision );</span>
+
+<span class="fc" id="L442">      evaluationResults.add( new StringEvaluationResult( conversionMeta ) );</span>
+
+      // add same mask w/o currency symbol
+<span class="fc" id="L445">      String currencyMaskAsNumeric = currencyMask.replaceAll( Pattern.quote( currencyFormat.getCurrency().getSymbol() ), &quot;&quot; );</span>
+<span class="fc" id="L446">      evaluationResults.add( numberUsBuilder.format( currencyMaskAsNumeric, currencyPrecision ).build() );</span>
+<span class="fc" id="L447">      evaluationResults.add( numberEuBuilder.format( currencyMaskAsNumeric, currencyPrecision ).build() );</span>
+
+      // Integer
+      //
+<span class="fc" id="L451">      conversionMeta = new ValueMetaInteger( &quot;integer&quot; );</span>
+<span class="fc" id="L452">      conversionMeta.setConversionMask( &quot;#&quot; );</span>
+<span class="fc" id="L453">      conversionMeta.setLength( 15 );</span>
+<span class="fc" id="L454">      evaluationResults.add( new StringEvaluationResult( conversionMeta ) );</span>
+
+<span class="fc" id="L456">      conversionMeta = new ValueMetaInteger( &quot;integer&quot; );</span>
+<span class="fc" id="L457">      conversionMeta.setConversionMask( &quot; #&quot; );</span>
+<span class="fc" id="L458">      conversionMeta.setLength( 15 );</span>
+<span class="fc" id="L459">      evaluationResults.add( new StringEvaluationResult( conversionMeta ) );</span>
+
+      // Add support for left zero padded integers
+      //
+<span class="fc bfc" id="L463" title="All 2 branches covered.">      for ( int i = 1; i &lt;= 15; i++ ) {</span>
+
+<span class="fc" id="L465">        String mask = &quot; &quot;;</span>
+<span class="fc bfc" id="L466" title="All 2 branches covered.">        for ( int x = 0; x &lt; i; x++ ) {</span>
+<span class="fc" id="L467">          mask += &quot;0&quot;;</span>
+        }
+<span class="fc" id="L469">        mask += &quot;;-&quot;;</span>
+<span class="fc bfc" id="L470" title="All 2 branches covered.">        for ( int x = 0; x &lt; i; x++ ) {</span>
+<span class="fc" id="L471">          mask += &quot;0&quot;;</span>
+        }
+
+<span class="fc" id="L474">        conversionMeta = new ValueMetaInteger( &quot;integer-zero-padded-&quot; + i );</span>
+<span class="fc" id="L475">        conversionMeta.setConversionMask( mask );</span>
+<span class="fc" id="L476">        conversionMeta.setLength( i );</span>
+<span class="fc" id="L477">        evaluationResults.add( new StringEvaluationResult( conversionMeta ) );</span>
+      }
+
+      // Boolean
+      //
+<span class="fc" id="L482">      conversionMeta = new ValueMetaBoolean( &quot;boolean&quot; );</span>
+<span class="fc" id="L483">      evaluationResults.add( new StringEvaluationResult( conversionMeta ) );</span>
+    }
+<span class="fc" id="L485">  }</span>
+
+  protected static int determinePrecision( String numericFormat ) {
+<span class="pc bpc" id="L488" title="1 of 2 branches missed.">    if ( numericFormat != null ) {</span>
+<span class="fc" id="L489">      char decimalSymbol = ( (DecimalFormat) NumberFormat.getInstance() ).getDecimalFormatSymbols().getDecimalSeparator();</span>
+<span class="fc" id="L490">      int loc = numericFormat.lastIndexOf( decimalSymbol );</span>
+<span class="pc bpc" id="L491" title="1 of 4 branches missed.">      if ( loc &gt;= 0 &amp;&amp; loc &lt; numericFormat.length() ) {</span>
+<span class="fc" id="L492">        Matcher m = PRECISION_PATTERN.matcher( numericFormat.substring( loc + 1 ) );</span>
+<span class="fc" id="L493">        int nonDigitLoc = numericFormat.length();</span>
+<span class="pc bpc" id="L494" title="1 of 2 branches missed.">        if ( m.find() ) {</span>
+<span class="nc" id="L495">          nonDigitLoc = loc + 1 + m.start();</span>
+        }
+<span class="fc" id="L497">        return numericFormat.substring( loc + 1, nonDigitLoc ).length();</span>
+      } else {
+<span class="fc" id="L499">        return 0;</span>
+      }
+    } else {
+<span class="nc" id="L502">      return 0;</span>
+    }
+  }
+
+  /**
+   * @return The distinct set of string values
+   */
+  public Set&lt;String&gt; getValues() {
+<span class="fc" id="L510">    return values;</span>
+  }
+
+  /**
+   * PDI-7736: Only list of successful evaluations returned.
+   *
+   * @return The list of string evaluation results
+   */
+  public List&lt;StringEvaluationResult&gt; getStringEvaluationResults() {
+<span class="fc" id="L519">    List&lt;StringEvaluationResult&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L520" title="All 2 branches covered.">    for ( StringEvaluationResult ev : evaluationResults ) {</span>
+<span class="fc bfc" id="L521" title="All 2 branches covered.">      if ( ev.getNrSuccesses() &gt; 0 ) {</span>
+<span class="fc" id="L522">        result.add( ev );</span>
+      }
+<span class="fc" id="L524">    }</span>
+<span class="fc" id="L525">    return result;</span>
+  }
+
+  /**
+   * @return the number of values analyzed
+   */
+  public int getCount() {
+<span class="fc" id="L532">    return count;</span>
+  }
+
+  /**
+   * @return The maximum string length encountered
+   */
+  public int getMaxLength() {
+<span class="fc" id="L539">    return maxLength;</span>
+  }
+
+
+  private static class EvalResultBuilder {
+    private final String name;
+    private final int type;
+    private final int length;
+    private final int trimType;
+    private final String decimalSymbol;
+    private final String groupingSymbol;
+
+    private String format;
+    private int precision;
+
+    public StringEvaluationResult build() {
+      try {
+<span class="fc" id="L556">        IValueMeta meta = ValueMetaFactory.createValueMeta( name, type );</span>
+<span class="fc" id="L557">        meta.setConversionMask( format );</span>
+<span class="fc" id="L558">        meta.setTrimType( trimType );</span>
+<span class="fc" id="L559">        meta.setDecimalSymbol( decimalSymbol );</span>
+<span class="fc" id="L560">        meta.setGroupingSymbol( groupingSymbol );</span>
+<span class="fc" id="L561">        meta.setLength( length );</span>
+<span class="fc" id="L562">        meta.setPrecision( precision );</span>
+<span class="fc" id="L563">        return new StringEvaluationResult( meta );</span>
+<span class="nc" id="L564">      } catch ( HopPluginException e ) {</span>
+<span class="nc" id="L565">        throw new RuntimeException( &quot;Unable to create a new value '&quot; + name + &quot;' of type '&quot; + type + &quot;'&quot;, e );</span>
+      }
+    }
+
+    public EvalResultBuilder( String name, int type, int length, int trimType, String decimalSymbol,
+<span class="fc" id="L570">                              String groupingSymbol ) {</span>
+<span class="fc" id="L571">      this.name = name;</span>
+<span class="fc" id="L572">      this.type = type;</span>
+<span class="fc" id="L573">      this.length = length;</span>
+<span class="fc" id="L574">      this.trimType = trimType;</span>
+<span class="fc" id="L575">      this.decimalSymbol = decimalSymbol;</span>
+<span class="fc" id="L576">      this.groupingSymbol = groupingSymbol;</span>
+<span class="fc" id="L577">    }</span>
+
+    public EvalResultBuilder format( String format, int precision ) {
+<span class="fc" id="L580">      this.format = format;</span>
+<span class="fc" id="L581">      this.precision = precision;</span>
+<span class="fc" id="L582">      return this;</span>
+    }
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

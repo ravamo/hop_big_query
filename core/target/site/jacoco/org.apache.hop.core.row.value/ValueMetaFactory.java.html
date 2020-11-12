@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ValueMetaFactory.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.row.value</a> &gt; <span class="el_source">ValueMetaFactory.java</span></div><h1>ValueMetaFactory.java</h1><pre class="source lang-java linenums">/********************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.row.value;
+
+import org.apache.hop.core.exception.HopPluginException;
+import org.apache.hop.core.plugins.IPlugin;
+import org.apache.hop.core.plugins.PluginRegistry;
+import org.apache.hop.core.row.IValueMeta;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
+/**
+ * This class will hand out value meta objects from the plugin registry.
+ *
+ * @author matt
+ */
+public class ValueMetaFactory {
+
+	private ValueMetaFactory() {
+		// Factory
+	}
+	
+<span class="fc" id="L46">  public static PluginRegistry pluginRegistry = PluginRegistry.getInstance();</span>
+
+  public static IValueMeta createValueMeta( String name, int type, int length, int precision ) throws HopPluginException {
+<span class="fc" id="L49">    IPlugin stringPlugin = pluginRegistry.getPlugin( ValueMetaPluginType.class, String.valueOf( type ) );</span>
+<span class="fc bfc" id="L50" title="All 2 branches covered.">    if ( stringPlugin == null ) {</span>
+<span class="fc" id="L51">      throw new HopPluginException( &quot;Unable to locate value meta plugin of type (id) &quot; + type );</span>
+    }
+<span class="fc" id="L53">    IValueMeta valueMeta = pluginRegistry.loadClass( stringPlugin, IValueMeta.class );</span>
+<span class="fc" id="L54">    valueMeta.setName( name );</span>
+<span class="fc" id="L55">    valueMeta.setLength( length, precision );</span>
+<span class="fc" id="L56">    return valueMeta;</span>
+  }
+
+  public static IValueMeta createValueMeta( String name, int type ) throws HopPluginException {
+<span class="fc" id="L60">    return createValueMeta( name, type, -1, -1 );</span>
+  }
+
+  public static IValueMeta createValueMeta( int type ) throws HopPluginException {
+<span class="fc" id="L64">    return createValueMeta( null, type, -1, -1 );</span>
+  }
+
+  public static IValueMeta cloneValueMeta( IValueMeta source ) throws HopPluginException {
+<span class="fc" id="L68">    return cloneValueMeta( source, source.getType() );</span>
+  }
+
+  public static IValueMeta cloneValueMeta( IValueMeta source, int targetType ) throws HopPluginException {
+<span class="fc" id="L72">    IValueMeta target = null;</span>
+
+    // If we're Cloneable and not changing types, call clone()
+<span class="pc bpc" id="L75" title="1 of 2 branches missed.">    if ( source.getType() == targetType ) {</span>
+<span class="fc" id="L76">      target = source.clone();</span>
+    } else {
+<span class="nc" id="L78">      target = createValueMeta( source.getName(), targetType, source.getLength(), source.getPrecision() );</span>
+    }
+
+<span class="fc" id="L81">    cloneInfo( source, target );</span>
+
+<span class="fc" id="L83">    return target;</span>
+  }
+
+  public static void cloneInfo( IValueMeta source, IValueMeta target ) throws HopPluginException {
+<span class="fc" id="L87">    target.setConversionMask( source.getConversionMask() );</span>
+<span class="fc" id="L88">    target.setDecimalSymbol( source.getDecimalSymbol() );</span>
+<span class="fc" id="L89">    target.setGroupingSymbol( source.getGroupingSymbol() );</span>
+<span class="fc" id="L90">    target.setStorageType( source.getStorageType() );</span>
+<span class="pc bpc" id="L91" title="1 of 2 branches missed.">    if ( source.getStorageMetadata() != null ) {</span>
+<span class="nc" id="L92">      target.setStorageMetadata( cloneValueMeta( source.getStorageMetadata(), source</span>
+<span class="nc" id="L93">        .getStorageMetadata().getType() ) );</span>
+    }
+<span class="fc" id="L95">    target.setStringEncoding( source.getStringEncoding() );</span>
+<span class="fc" id="L96">    target.setTrimType( source.getTrimType() );</span>
+<span class="fc" id="L97">    target.setDateFormatLenient( source.isDateFormatLenient() );</span>
+<span class="fc" id="L98">    target.setDateFormatLocale( source.getDateFormatLocale() );</span>
+<span class="fc" id="L99">    target.setDateFormatTimeZone( source.getDateFormatTimeZone() );</span>
+<span class="fc" id="L100">    target.setLenientStringToNumber( source.isLenientStringToNumber() );</span>
+<span class="fc" id="L101">    target.setLargeTextField( source.isLargeTextField() );</span>
+<span class="fc" id="L102">    target.setComments( source.getComments() );</span>
+<span class="fc" id="L103">    target.setCaseInsensitive( source.isCaseInsensitive() );</span>
+<span class="fc" id="L104">    target.setCollatorDisabled( source.isCollatorDisabled() );</span>
+<span class="fc" id="L105">    target.setCollatorStrength( source.getCollatorStrength() );</span>
+<span class="fc" id="L106">    target.setIndex( source.getIndex() );</span>
+
+<span class="fc" id="L108">    target.setOrigin( source.getOrigin() );</span>
+
+<span class="fc" id="L110">    target.setOriginalAutoIncrement( source.isOriginalAutoIncrement() );</span>
+<span class="fc" id="L111">    target.setOriginalColumnType( source.getOriginalColumnType() );</span>
+<span class="fc" id="L112">    target.setOriginalColumnTypeName( source.getOriginalColumnTypeName() );</span>
+<span class="fc" id="L113">    target.setOriginalNullable( source.isOriginalNullable() );</span>
+<span class="fc" id="L114">    target.setOriginalPrecision( source.getOriginalPrecision() );</span>
+<span class="fc" id="L115">    target.setOriginalScale( source.getOriginalScale() );</span>
+<span class="fc" id="L116">    target.setOriginalSigned( source.isOriginalSigned() );</span>
+<span class="fc" id="L117">  }</span>
+
+  public static String[] getValueMetaNames() {
+<span class="fc" id="L120">    List&lt;String&gt; strings = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L121">    List&lt;IPlugin&gt; plugins = pluginRegistry.getPlugins( ValueMetaPluginType.class );</span>
+<span class="fc bfc" id="L122" title="All 2 branches covered.">    for ( IPlugin plugin : plugins ) {</span>
+<span class="fc" id="L123">      int id = Integer.valueOf( plugin.getIds()[ 0 ] );</span>
+<span class="fc bfc" id="L124" title="All 4 branches covered.">      if ( id &gt; 0 &amp;&amp; id != IValueMeta.TYPE_SERIALIZABLE ) {</span>
+<span class="fc" id="L125">        strings.add( plugin.getName() );</span>
+      }
+<span class="fc" id="L127">    }</span>
+<span class="fc" id="L128">    return strings.toArray( new String[ strings.size() ] );</span>
+  }
+
+  public static String[] getAllValueMetaNames() {
+<span class="fc" id="L132">    List&lt;String&gt; strings = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L133">    List&lt;IPlugin&gt; plugins = pluginRegistry.getPlugins( ValueMetaPluginType.class );</span>
+<span class="fc bfc" id="L134" title="All 2 branches covered.">    for ( IPlugin plugin : plugins ) {</span>
+<span class="fc" id="L135">      String id = plugin.getIds()[ 0 ];</span>
+<span class="fc bfc" id="L136" title="All 2 branches covered.">      if ( !( &quot;0&quot;.equals( id ) ) ) {</span>
+<span class="fc" id="L137">        strings.add( plugin.getName() );</span>
+      }
+<span class="fc" id="L139">    }</span>
+<span class="fc" id="L140">    return strings.toArray( new String[ strings.size() ] );</span>
+  }
+
+  public static String getValueMetaName( int type ) {
+<span class="fc bfc" id="L144" title="All 2 branches covered.">    for ( IPlugin plugin : pluginRegistry.getPlugins( ValueMetaPluginType.class ) ) {</span>
+<span class="fc bfc" id="L145" title="All 2 branches covered.">      if ( Integer.toString( type ).equals( plugin.getIds()[ 0 ] ) ) {</span>
+<span class="fc" id="L146">        return plugin.getName();</span>
+      }
+<span class="fc" id="L148">    }</span>
+<span class="fc" id="L149">    return &quot;-&quot;;</span>
+  }
+
+  public static int getIdForValueMeta( String valueMetaName ) {
+<span class="fc bfc" id="L153" title="All 2 branches covered.">    for ( IPlugin plugin : pluginRegistry.getPlugins( ValueMetaPluginType.class ) ) {</span>
+<span class="fc bfc" id="L154" title="All 4 branches covered.">      if ( valueMetaName != null &amp;&amp; valueMetaName.equalsIgnoreCase( plugin.getName() ) ) {</span>
+<span class="fc" id="L155">        return Integer.valueOf( plugin.getIds()[ 0 ] );</span>
+      }
+<span class="fc" id="L157">    }</span>
+<span class="fc" id="L158">    return IValueMeta.TYPE_NONE;</span>
+  }
+
+  public static List&lt;IValueMeta&gt; getValueMetaPluginClasses() throws HopPluginException {
+
+<span class="fc" id="L163">    List&lt;IValueMeta&gt; list = new ArrayList&lt;&gt;();</span>
+
+<span class="fc" id="L165">    List&lt;IPlugin&gt; plugins = pluginRegistry.getPlugins( ValueMetaPluginType.class );</span>
+<span class="fc bfc" id="L166" title="All 2 branches covered.">    for ( IPlugin plugin : plugins ) {</span>
+<span class="fc" id="L167">      IValueMeta iValueMeta = (IValueMeta) pluginRegistry.loadClass( plugin );</span>
+<span class="fc" id="L168">      list.add( iValueMeta );</span>
+<span class="fc" id="L169">    }</span>
+
+<span class="fc" id="L171">    return list;</span>
+  }
+
+  /**
+   * &lt;p&gt;This method makes attempt to guess hop value meta interface based on Object class.
+   * This may be the case when we somehow obtain an Object as a result of any calculation,
+   * and we are trying to assign some ValueMeta for it.&lt;/p&gt;
+   *
+   * &lt;p&gt;As an example - we have target value meta Number (which is java Double under the hood)
+   * and value as a BigDecimal.&lt;br /&gt;
+   * This BigDecimal can be converted to a Double value.&lt;br /&gt;
+   * we have {@link IValueMeta#convertData(IValueMeta, Object)} call for this
+   * where is IValueMeta object is our target value meta, Object is a BigDecimal - so
+   * we need to pass ValueMetaBigNumber as a first parameter, value Object as a second and
+   * as the result we will have target Double (ValueMetaNumber) value so we can safely
+   * put it into output rowset.&lt;/p&gt;
+   *
+   * &lt;p&gt;Something similar we had for ValueMetaBase.getValueFromSQLType(...) to guess value meta
+   * for java sql type.&lt;/p&gt;
+   *
+   * &lt;p&gt;Currently this method does not have support for plugin value meta. Hope if this approach
+   * will be found usable this may be implemented later.&lt;/p&gt;
+   *
+   * @param object object to guess applicable IValueMeta.
+   * @return
+   * @see IValueMeta if the hop value meta is recognized, null otherwise.
+   */
+  public static IValueMeta guessValueMetaInterface( Object object ) {
+<span class="fc bfc" id="L199" title="All 2 branches covered.">    if ( object instanceof Number ) {</span>
+      // this is numeric object
+<span class="fc bfc" id="L201" title="All 2 branches covered.">      if ( object instanceof BigDecimal ) {</span>
+<span class="fc" id="L202">        return new ValueMetaBigNumber();</span>
+<span class="fc bfc" id="L203" title="All 2 branches covered.">      } else if ( object instanceof Double ) {</span>
+<span class="fc" id="L204">        return new ValueMetaNumber();</span>
+<span class="fc bfc" id="L205" title="All 2 branches covered.">      } else if ( object instanceof Long ) {</span>
+<span class="fc" id="L206">        return new ValueMetaInteger();</span>
+      }
+<span class="fc bfc" id="L208" title="All 2 branches covered.">    } else if ( object instanceof String ) {</span>
+<span class="fc" id="L209">      return new ValueMetaString();</span>
+<span class="fc bfc" id="L210" title="All 2 branches covered.">    } else if ( object instanceof Date ) {</span>
+<span class="fc" id="L211">      return new ValueMetaDate();</span>
+<span class="fc bfc" id="L212" title="All 2 branches covered.">    } else if ( object instanceof Boolean ) {</span>
+<span class="fc" id="L213">      return new ValueMetaBoolean();</span>
+<span class="fc bfc" id="L214" title="All 2 branches covered.">    } else if ( object instanceof byte[] ) {</span>
+<span class="fc" id="L215">      return new ValueMetaBinary();</span>
+    }
+    // ask someone else
+<span class="fc" id="L218">    return null;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

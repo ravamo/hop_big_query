@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RowDataUtil.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.row</a> &gt; <span class="el_source">RowDataUtil.java</span></div><h1>RowDataUtil.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.row;
+
+/**
+ * This class of static methods can be used to manipulate rows: add, delete, resize, etc... That way, when we want to go
+ * for a metadata driven system with hiding deletes, over sized arrays etc, we can change these methods to find
+ * occurrences.
+ * &lt;p&gt;
+ * For example, a transform adding a field to the row should always call
+ *
+ * &lt;pre&gt;
+ * &lt;a href=&quot;&quot;&gt;public static Object[] resizeArray(Object[] objects, int newSize)&lt;/a&gt;&lt;/i&gt;
+ * &lt;/pre&gt;
+ * &lt;p&gt;
+ * which will either physically resize the array or return the original row, in case it was over-allocated and has
+ * enough slots. If a transform needs to create new rows from scratch, it should use allocateRowData() which will return a
+ * somewhat over-allocated object array to fit the desired number of fields.
+ *
+ * @author Matt
+ */
+<span class="nc" id="L42">public class RowDataUtil {</span>
+<span class="fc" id="L43">  public static int OVER_ALLOCATE_SIZE = 10;</span>
+
+  /**
+   * Allocate a new Object array. However, over allocate by a constant factor to make adding values faster.
+   *
+   * @param size the minimum size to allocate.
+   * @return the newly allocated object array
+   */
+  public static Object[] allocateRowData( int size ) {
+<span class="fc" id="L52">    return new Object[ size + OVER_ALLOCATE_SIZE ];</span>
+  }
+
+  /**
+   * Resize an object array making it bigger, over allocate, return the original array if there's enough room.
+   *
+   * @param objects
+   * @param newSize
+   * @return A new object array, resized.
+   */
+  public static Object[] resizeArray( Object[] objects, int newSize ) {
+
+<span class="pc bpc" id="L64" title="1 of 4 branches missed.">    if ( objects != null &amp;&amp; objects.length &gt;= newSize ) {</span>
+<span class="fc" id="L65">      return objects;</span>
+    }
+
+<span class="fc" id="L68">    Object[] newObjects = new Object[ newSize + OVER_ALLOCATE_SIZE ];</span>
+<span class="pc bpc" id="L69" title="1 of 2 branches missed.">    if ( objects != null ) {</span>
+<span class="fc" id="L70">      System.arraycopy( objects, 0, newObjects, 0, objects.length );</span>
+    }
+<span class="fc" id="L72">    return newObjects;</span>
+  }
+
+  /**
+   * Resize an object array making it bigger, over allocate, always create a copy of the original array, even if there's
+   * enough room in the old one.
+   *
+   * @param objects the original row
+   * @param newSize the new size
+   * @return A new object array, resized.
+   */
+  public static Object[] createResizedCopy( Object[] objects, int newSize ) {
+
+    Object[] newObjects;
+<span class="nc bnc" id="L86" title="All 2 branches missed.">    if ( objects.length &lt; newSize ) {</span>
+<span class="nc" id="L87">      newObjects = new Object[ newSize + OVER_ALLOCATE_SIZE ];</span>
+    } else {
+<span class="nc" id="L89">      newObjects = new Object[ objects.length ];</span>
+    }
+
+<span class="nc bnc" id="L92" title="All 2 branches missed.">    if ( objects != null ) {</span>
+<span class="nc" id="L93">      System.arraycopy( objects, 0, newObjects, 0, objects.length );</span>
+    }
+<span class="nc" id="L95">    return newObjects;</span>
+  }
+
+  /**
+   * This method concatenates data from an array of rows, each with their own specific length.
+   *
+   * @param objects
+   * @param lengths
+   * @return The concatenated array of objects.
+   */
+  public static Object[] createResizedCopy( Object[][] objects, int[] lengths ) {
+<span class="nc" id="L106">    int size = 0;</span>
+<span class="nc bnc" id="L107" title="All 2 branches missed.">    if ( objects != null ) {</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">      for ( int i = 0; i &lt; objects.length; i++ ) {</span>
+<span class="nc" id="L109">        size += lengths[ i ];</span>
+      }
+    }
+<span class="nc" id="L112">    Object[] newObjects = allocateRowData( size );</span>
+
+<span class="nc bnc" id="L114" title="All 2 branches missed.">    if ( objects != null ) {</span>
+<span class="nc" id="L115">      size = 0;</span>
+<span class="nc bnc" id="L116" title="All 2 branches missed.">      for ( int i = 0; i &lt; lengths.length; i++ ) {</span>
+<span class="nc" id="L117">        System.arraycopy( objects[ i ], 0, newObjects, size, lengths[ i ] );</span>
+<span class="nc" id="L118">        size += lengths[ i ];</span>
+      }
+    }
+
+<span class="nc" id="L122">    return newObjects;</span>
+  }
+
+  /**
+   * Remove an item from an Object array. This is a slow operation, later we want to just flag this object and discard
+   * it at the next resize. The question is of-course if it makes that much of a difference in the end.
+   *
+   * @param objects
+   * @param index
+   * @return
+   */
+  public static Object[] removeItem( Object[] objects, int index ) {
+<span class="fc" id="L134">    Object[] newObjects = new Object[ objects.length - 1 ];</span>
+<span class="fc" id="L135">    System.arraycopy( objects, 0, newObjects, 0, index );</span>
+<span class="fc" id="L136">    System.arraycopy( objects, index + 1, newObjects, index, objects.length - index - 1 );</span>
+<span class="fc" id="L137">    return newObjects;</span>
+  }
+
+  /**
+   * Add two arrays and make one new one.
+   *
+   * @param one The first array
+   * @param the length of the row data or of it's longer, the location of the new extra value in the returned data row
+   * @param two The second array
+   * @return a new Array containing all elements from one and two after one another
+   */
+  public static Object[] addRowData( Object[] one, int sourceLength, Object[] two ) {
+<span class="fc" id="L149">    Object[] result = resizeArray( one, sourceLength + two.length );</span>
+
+<span class="fc" id="L151">    System.arraycopy( two, 0, result, sourceLength, two.length );</span>
+
+<span class="fc" id="L153">    return result;</span>
+  }
+
+  /**
+   * Add a single value to a row of data
+   *
+   * @param rowData The original row of data
+   * @param the     length of the row data or of it's longer, the location of the new extra value in the returned data row
+   * @param extra   The extra value to add
+   * @return a new Array containing all elements, including the extra one
+   */
+  public static Object[] addValueData( Object[] rowData, int length, Object extra ) {
+
+<span class="fc" id="L166">    Object[] result = resizeArray( rowData, length + 1 );</span>
+<span class="fc" id="L167">    result[ length ] = extra;</span>
+<span class="fc" id="L168">    return result;</span>
+  }
+
+  /**
+   * Remove a number of items in a row of data.
+   *
+   * @param rowData the row of data to remove from
+   * @param index   the index of all the items in the source table to remove. We don't check if the same index gets deleted
+   *                twice!
+   */
+  public static Object[] removeItems( Object[] rowData, int[] index ) {
+<span class="fc" id="L179">    Object[] data = new Object[ rowData.length - index.length ];</span>
+
+<span class="fc" id="L181">    int count = data.length - 1;</span>
+<span class="fc" id="L182">    int removenr = index.length - 1;</span>
+<span class="fc bfc" id="L183" title="All 2 branches covered.">    for ( int i = rowData.length - 1; i &gt;= 0; i-- ) {</span>
+<span class="fc bfc" id="L184" title="All 4 branches covered.">      if ( removenr &gt;= 0 &amp;&amp; i == index[ removenr ] ) {</span>
+<span class="fc" id="L185">        removenr--;</span>
+      } else {
+<span class="fc" id="L187">        data[ count ] = rowData[ i ];</span>
+<span class="fc" id="L188">        count--;</span>
+      }
+    }
+
+<span class="fc" id="L192">    return data;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

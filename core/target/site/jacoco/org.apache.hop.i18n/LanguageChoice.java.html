@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LanguageChoice.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.i18n</a> &gt; <span class="el_source">LanguageChoice.java</span></div><h1>LanguageChoice.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.i18n;
+
+import org.apache.hop.core.config.HopConfig;
+import org.apache.hop.core.util.EnvUtil;
+
+import java.util.Locale;
+
+public class LanguageChoice {
+  private static final String STRING_DEFAULT_LOCALE = &quot;LocaleDefault&quot;;
+
+  private static LanguageChoice choice;
+
+  private Locale defaultLocale;
+
+<span class="fc" id="L37">  private LanguageChoice() {</span>
+<span class="fc" id="L38">    String defaultLocaleString = HopConfig.readOptionString( STRING_DEFAULT_LOCALE, null );</span>
+<span class="pc bpc" id="L39" title="1 of 2 branches missed.">    if ( defaultLocaleString == null ) {</span>
+<span class="fc" id="L40">      defaultLocale = Locale.getDefault();</span>
+<span class="fc" id="L41">      HopConfig.getInstance().saveOption( STRING_DEFAULT_LOCALE, defaultLocale.toString() );</span>
+    } else {
+<span class="nc" id="L43">      defaultLocale = EnvUtil.createLocale( defaultLocaleString );</span>
+    }
+<span class="fc" id="L45">  }</span>
+
+  public static final LanguageChoice getInstance()  {
+<span class="fc bfc" id="L48" title="All 2 branches covered.">    if ( choice == null ) {</span>
+<span class="fc" id="L49">      choice = new LanguageChoice();</span>
+    }
+<span class="fc" id="L51">    return choice;</span>
+  }
+
+  /**
+   * @return Returns the defaultLocale.
+   */
+  public Locale getDefaultLocale() {
+<span class="fc" id="L58">    return defaultLocale;</span>
+  }
+
+  /**
+   * @param defaultLocale The defaultLocale to set.
+   */
+  public void setDefaultLocale( Locale defaultLocale ) {
+<span class="fc" id="L65">    this.defaultLocale = defaultLocale;</span>
+<span class="fc" id="L66">    HopConfig.getInstance().saveOption( STRING_DEFAULT_LOCALE, defaultLocale.toString() );</span>
+<span class="fc" id="L67">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

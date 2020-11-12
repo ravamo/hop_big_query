@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StreamLogger.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.util</a> &gt; <span class="el_source">StreamLogger.java</span></div><h1>StreamLogger.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.util;
+
+import org.apache.hop.core.Const;
+import org.apache.hop.core.logging.ILogChannel;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+
+public class StreamLogger implements Runnable {
+  private InputStream is;
+
+  private String type;
+
+  private ILogChannel log;
+
+  private Boolean errorStream;
+
+  private String lastLine;
+
+  public StreamLogger( ILogChannel log, InputStream is, String type ) {
+<span class="nc" id="L45">    this( log, is, type, false );</span>
+<span class="nc" id="L46">  }</span>
+
+<span class="nc" id="L48">  public StreamLogger( ILogChannel log, InputStream is, String type, Boolean errorStream ) {</span>
+<span class="nc" id="L49">    this.log = log;</span>
+<span class="nc" id="L50">    this.is = is;</span>
+<span class="nc" id="L51">    this.type = type;</span>
+<span class="nc" id="L52">    this.errorStream = errorStream;</span>
+<span class="nc" id="L53">  }</span>
+
+  @Override
+  public void run() {
+    try {
+<span class="nc" id="L58">      InputStreamReader isr = new InputStreamReader( is );</span>
+<span class="nc" id="L59">      BufferedReader br = new BufferedReader( isr );</span>
+<span class="nc" id="L60">      String line = null;</span>
+<span class="nc bnc" id="L61" title="All 2 branches missed.">      while ( ( line = br.readLine() ) != null ) {</span>
+<span class="nc" id="L62">        lastLine = line;</span>
+<span class="nc bnc" id="L63" title="All 2 branches missed.">        if ( errorStream ) {</span>
+<span class="nc" id="L64">          log.logError( type + &quot; &quot; + line );</span>
+        } else {
+<span class="nc" id="L66">          log.logBasic( type + &quot; &quot; + line );</span>
+        }
+
+      }
+<span class="nc" id="L70">    } catch ( IOException ioe ) {</span>
+<span class="nc" id="L71">      log.logError( type + &quot; &quot; + Const.getStackTracker( ioe ) );</span>
+<span class="nc" id="L72">    }</span>
+
+<span class="nc" id="L74">  }</span>
+
+  public String getLastLine() {
+<span class="nc" id="L77">    return lastLine;</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

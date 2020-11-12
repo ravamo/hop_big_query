@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PluginFolder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.plugins</a> &gt; <span class="el_source">PluginFolder.java</span></div><h1>PluginFolder.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.plugins;
+
+import org.apache.commons.lang.builder.EqualsBuilder;
+import org.apache.commons.lang.builder.HashCodeBuilder;
+import org.apache.hop.core.Const;
+import org.apache.hop.core.exception.HopFileException;
+import org.apache.hop.core.util.EnvUtil;
+import org.apache.hop.core.util.Utils;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+/**
+ * A folder to search plugins in.
+ *
+ * @author matt
+ */
+public class PluginFolder implements IPluginFolder {
+
+  private String folder;
+  private boolean pluginXmlFolder;
+  private boolean pluginAnnotationsFolder;
+  private boolean searchLibDir;
+
+  /**
+   * @param folder                  The folder location
+   * @param pluginXmlFolder         set to true if the folder needs to be searched for plugin.xml appearances
+   * @param pluginAnnotationsFolder set to true if the folder needs to be searched for jar files with plugin annotations
+   */
+  public PluginFolder( String folder, boolean pluginXmlFolder, boolean pluginAnnotationsFolder ) {
+<span class="fc" id="L56">    this( folder, pluginXmlFolder, pluginAnnotationsFolder, false );</span>
+<span class="fc" id="L57">  }</span>
+
+  /**
+   * @param folder                  The folder location
+   * @param pluginXmlFolder         set to true if the folder needs to be searched for plugin.xml appearances
+   * @param pluginAnnotationsFolder set to true if the folder needs to be searched for jar files with plugin annotations
+   * @param searchLibDir            look inside the plugins lib dir for additional plugins
+   */
+  public PluginFolder( String folder, boolean pluginXmlFolder, boolean pluginAnnotationsFolder,
+<span class="fc" id="L66">                       boolean searchLibDir ) {</span>
+<span class="fc" id="L67">    this.folder = folder;</span>
+<span class="fc" id="L68">    this.pluginXmlFolder = pluginXmlFolder;</span>
+<span class="fc" id="L69">    this.pluginAnnotationsFolder = pluginAnnotationsFolder;</span>
+<span class="fc" id="L70">    this.searchLibDir = searchLibDir;</span>
+<span class="fc" id="L71">  }</span>
+
+  @Override
+  public String toString() {
+<span class="fc" id="L75">    return folder;</span>
+  }
+
+  /**
+   * Create a list of plugin folders based on the specified xml sub folder
+   *
+   * @param xmlSubfolder the sub-folder to consider for XML plugin files or null if it's not applicable.
+   * @return The list of plugin folders found
+   */
+  public static List&lt;IPluginFolder&gt; populateFolders( String xmlSubfolder ) {
+<span class="fc" id="L85">    List&lt;IPluginFolder&gt; pluginFolders = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L86">    String folderPaths = EnvUtil.getSystemProperty( &quot;HOP_PLUGIN_BASE_FOLDERS&quot; );</span>
+<span class="pc bpc" id="L87" title="1 of 2 branches missed.">    if ( folderPaths == null ) {</span>
+<span class="fc" id="L88">      folderPaths = Const.DEFAULT_PLUGIN_BASE_FOLDERS;</span>
+    }
+<span class="fc" id="L90">    String[] folders = folderPaths.split( &quot;,&quot; );</span>
+    // for each folder in the list of plugin base folders
+    // add an annotation and xml path for searching
+    // trim the folder - we don't need leading and trailing spaces
+<span class="fc bfc" id="L94" title="All 2 branches covered.">    for ( String folder : folders ) {</span>
+<span class="fc" id="L95">      folder = folder.trim();</span>
+<span class="fc" id="L96">      pluginFolders.add( new PluginFolder( folder, false, true ) );</span>
+<span class="fc bfc" id="L97" title="All 2 branches covered.">      if ( !Utils.isEmpty( xmlSubfolder ) ) {</span>
+<span class="fc" id="L98">        pluginFolders.add( new PluginFolder( folder + File.separator + xmlSubfolder, true, false ) );</span>
+      }
+    }
+<span class="fc" id="L101">    return pluginFolders;</span>
+  }
+
+  @Override
+  public File[] findJarFiles() throws HopFileException {
+<span class="fc" id="L106">    return findJarFiles( searchLibDir );</span>
+  }
+
+  public File[] findJarFiles( final boolean includeLibJars ) throws HopFileException {
+
+    try {
+      // Find all the jar files in this folder...
+      //
+<span class="fc" id="L114">      File folderFile = new File( this.getFolder() );</span>
+
+<span class="fc" id="L116">      Set&lt;File&gt; pluginJarFiles = findFiles(folderFile);</span>
+
+<span class="fc" id="L118">      return pluginJarFiles.toArray(new File[0]);</span>
+<span class="fc" id="L119">    } catch ( Exception e ) {</span>
+<span class="fc" id="L120">      throw new HopFileException( &quot;Unable to list jar files in plugin folder '&quot; + toString() + &quot;'&quot;, e );</span>
+    }
+  }
+
+  private Set&lt;File&gt; findFiles( File folder ) {
+<span class="fc" id="L125">    Set&lt;File&gt; files = new HashSet&lt;&gt;();</span>
+<span class="fc" id="L126">    File[] children = folder.listFiles();</span>
+<span class="fc bfc" id="L127" title="All 2 branches covered.">    if (children!=null) {</span>
+<span class="fc bfc" id="L128" title="All 2 branches covered.">      for ( File child : children ) {</span>
+<span class="fc bfc" id="L129" title="All 2 branches covered.">        if ( child.isFile() ) {</span>
+<span class="fc bfc" id="L130" title="All 2 branches covered.">          if ( child.getName().endsWith( &quot;.jar&quot; ) ) {</span>
+<span class="fc" id="L131">            files.add( child );</span>
+          }
+        }
+<span class="fc bfc" id="L134" title="All 2 branches covered.">        if ( child.isDirectory() ) {</span>
+<span class="fc bfc" id="L135" title="All 2 branches covered.">          if ( !&quot;lib&quot;.equals( child.getName() ) ) {</span>
+<span class="fc" id="L136">            files.addAll( findFiles( child ) );</span>
+          }
+        }
+      }
+    }
+
+<span class="fc" id="L142">    return files;</span>
+  }
+
+  /**
+   * @return the folder
+   */
+  @Override
+  public String getFolder() {
+<span class="fc" id="L150">    return folder;</span>
+  }
+
+  /**
+   * @param folder the folder to set
+   */
+  public void setFolder( String folder ) {
+<span class="fc" id="L157">    this.folder = folder;</span>
+<span class="fc" id="L158">  }</span>
+
+  /**
+   * @return the pluginXmlFolder
+   */
+  @Override
+  public boolean isPluginXmlFolder() {
+<span class="fc" id="L165">    return pluginXmlFolder;</span>
+  }
+
+  /**
+   * @param pluginXmlFolder the pluginXmlFolder to set
+   */
+  public void setPluginXmlFolder( boolean pluginXmlFolder ) {
+<span class="fc" id="L172">    this.pluginXmlFolder = pluginXmlFolder;</span>
+<span class="fc" id="L173">  }</span>
+
+  /**
+   * @return the pluginAnnotationsFolder
+   */
+  @Override
+  public boolean isPluginAnnotationsFolder() {
+<span class="fc" id="L180">    return pluginAnnotationsFolder;</span>
+  }
+
+  /**
+   * @param pluginAnnotationsFolder the pluginAnnotationsFolder to set
+   */
+  public void setPluginAnnotationsFolder( boolean pluginAnnotationsFolder ) {
+<span class="fc" id="L187">    this.pluginAnnotationsFolder = pluginAnnotationsFolder;</span>
+<span class="fc" id="L188">  }</span>
+
+  @Override public int hashCode() {
+<span class="fc" id="L191">    return new HashCodeBuilder()</span>
+<span class="fc" id="L192">      .append( folder )</span>
+<span class="fc" id="L193">      .append( pluginAnnotationsFolder )</span>
+<span class="fc" id="L194">      .append( pluginXmlFolder )</span>
+<span class="fc" id="L195">      .append( searchLibDir )</span>
+<span class="fc" id="L196">      .hashCode();</span>
+  }
+
+  @Override public boolean equals( Object obj ) {
+<span class="pc bpc" id="L200" title="1 of 2 branches missed.">    if ( obj == null ) {</span>
+<span class="nc" id="L201">      return false;</span>
+    }
+<span class="pc bpc" id="L203" title="1 of 2 branches missed.">    if ( obj == this ) {</span>
+<span class="nc" id="L204">      return true;</span>
+    }
+<span class="pc bpc" id="L206" title="1 of 2 branches missed.">    if ( obj.getClass() != getClass() ) {</span>
+<span class="nc" id="L207">      return false;</span>
+    }
+
+<span class="fc" id="L210">    PluginFolder other = (PluginFolder) obj;</span>
+<span class="fc" id="L211">    return new EqualsBuilder()</span>
+<span class="fc" id="L212">      .append( folder, other.getFolder() )</span>
+<span class="fc" id="L213">      .append( pluginAnnotationsFolder, other.isPluginAnnotationsFolder() )</span>
+<span class="fc" id="L214">      .append( pluginXmlFolder, other.isPluginXmlFolder() )</span>
+<span class="fc" id="L215">      .append( searchLibDir, other.searchLibDir )</span>
+<span class="fc" id="L216">      .isEquals();</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

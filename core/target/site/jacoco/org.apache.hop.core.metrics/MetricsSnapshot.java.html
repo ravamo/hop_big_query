@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MetricsSnapshot.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.metrics</a> &gt; <span class="el_source">MetricsSnapshot.java</span></div><h1>MetricsSnapshot.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.metrics;
+
+import org.apache.hop.core.logging.ILoggingObject;
+import org.apache.hop.core.logging.LoggingRegistry;
+import org.apache.hop.core.logging.IMetrics;
+import org.apache.hop.core.util.StringUtil;
+
+import java.util.Date;
+
+public class MetricsSnapshot implements IMetricsSnapshot {
+
+  private Date date;
+  private MetricsSnapshotType type;
+  private IMetrics metric;
+  private String subject;
+  private String logChannelId;
+  private Long value;
+
+  /**
+   * Create a new metrics snapshot
+   *
+   * @param type
+   * @param metric       the metric to use (ex. Connect to database)
+   * @param subject      the name of the metric subject (ex. the name of the database we're connecting to)
+   * @param logChannelId
+   */
+<span class="fc" id="L49">  public MetricsSnapshot( MetricsSnapshotType type, IMetrics metric, String subject, String logChannelId ) {</span>
+<span class="fc" id="L50">    this.date = new Date();</span>
+<span class="fc" id="L51">    this.type = type;</span>
+<span class="fc" id="L52">    this.metric = metric;</span>
+<span class="fc" id="L53">    this.subject = subject;</span>
+<span class="fc" id="L54">    this.logChannelId = logChannelId;</span>
+<span class="fc" id="L55">  }</span>
+
+  /**
+   * Create a new metrics snapshot without a subject
+   *
+   * @param type
+   * @param description
+   * @param logChannelId
+   */
+  public MetricsSnapshot( MetricsSnapshotType type, IMetrics metric, String logChannelId ) {
+<span class="nc" id="L65">    this( type, metric, null, logChannelId );</span>
+<span class="nc" id="L66">  }</span>
+
+  /**
+   * Create a snapshot metric with a value.
+   *
+   * @param type         The type. For metrics with a value it is usually MIN, MAX, SUM, COUNT, ...
+   * @param metric       The metric to use
+   * @param subject      The subject
+   * @param value        The value
+   * @param logChannelId The logging channel to reference.
+   */
+  public MetricsSnapshot( MetricsSnapshotType type, IMetrics metric, String subject, long value,
+                          String logChannelId ) {
+<span class="fc" id="L79">    this( type, metric, subject, logChannelId );</span>
+<span class="fc" id="L80">    this.value = value;</span>
+<span class="fc" id="L81">  }</span>
+
+  /**
+   * Create a snapshot metric with a value.
+   *
+   * @param type         The type. For metrics with a value it is usually MIN, MAX, SUM, COUNT, ...
+   * @param description  The description
+   * @param value        The value
+   * @param logChannelId The logging channel to reference.
+   */
+  public MetricsSnapshot( MetricsSnapshotType type, IMetrics metric, long value, String logChannelId ) {
+<span class="nc" id="L92">    this( type, metric, null, value, logChannelId );</span>
+<span class="nc" id="L93">  }</span>
+
+  @Override
+  public String getKey() {
+<span class="nc bnc" id="L97" title="All 2 branches missed.">    if ( subject == null ) {</span>
+<span class="nc" id="L98">      return metric.getCode();</span>
+    } else {
+<span class="nc" id="L100">      return metric.getCode() + &quot; / &quot; + subject;</span>
+    }
+  }
+
+  public static String getKey( IMetrics metric, String subject ) {
+<span class="fc bfc" id="L105" title="All 2 branches covered.">    if ( subject == null ) {</span>
+<span class="fc" id="L106">      return metric.getCode();</span>
+    } else {
+<span class="fc" id="L108">      return metric.getCode() + &quot; / &quot; + subject;</span>
+    }
+  }
+
+  @Override
+  public String toString() {
+<span class="nc" id="L114">    ILoggingObject loggingObject = LoggingRegistry.getInstance().getLoggingObject( logChannelId );</span>
+<span class="nc" id="L115">    String subject = null;</span>
+<span class="nc bnc" id="L116" title="All 2 branches missed.">    if ( loggingObject != null ) {</span>
+<span class="nc" id="L117">      subject = loggingObject.getObjectName() + &quot;(&quot; + loggingObject.getObjectType() + &quot;)&quot;;</span>
+    } else {
+<span class="nc" id="L119">      subject = &quot;-&quot;;</span>
+    }
+
+<span class="nc" id="L122">    return subject</span>
+<span class="nc" id="L123">      + &quot; - &quot; + getKey() + &quot; @ &quot; + StringUtil.getFormattedDateTime( date, true ) + &quot; : &quot; + type.toString();</span>
+
+  }
+
+  /**
+   * @return the date
+   */
+  @Override
+  public Date getDate() {
+<span class="nc" id="L132">    return date;</span>
+  }
+
+  /**
+   * @param date the date to set
+   */
+  @Override
+  public void setDate( Date date ) {
+<span class="nc" id="L140">    this.date = date;</span>
+<span class="nc" id="L141">  }</span>
+
+  /**
+   * @return the type
+   */
+  public MetricsSnapshotType getType() {
+<span class="nc" id="L147">    return type;</span>
+  }
+
+  /**
+   * @param type the type to set
+   */
+  public void setType( MetricsSnapshotType type ) {
+<span class="nc" id="L154">    this.type = type;</span>
+<span class="nc" id="L155">  }</span>
+
+  /**
+   * @return the subject
+   */
+  @Override
+  public String getSubject() {
+<span class="nc" id="L162">    return subject;</span>
+  }
+
+  /**
+   * @param subject the subject to set
+   */
+  public void setSubject( String subject ) {
+<span class="nc" id="L169">    this.subject = subject;</span>
+<span class="nc" id="L170">  }</span>
+
+  /**
+   * @return the value
+   */
+  @Override
+  public Long getValue() {
+<span class="nc" id="L177">    return value;</span>
+  }
+
+  /**
+   * @param value the value to set
+   */
+  @Override
+  public void setValue( Long value ) {
+<span class="nc" id="L185">    this.value = value;</span>
+<span class="nc" id="L186">  }</span>
+
+  /**
+   * @return the logChannelId
+   */
+  @Override
+  public String getLogChannelId() {
+<span class="nc" id="L193">    return logChannelId;</span>
+  }
+
+  /**
+   * @param logChannelId the logChannelId to set
+   */
+  public void setLogChannelId( String logChannelId ) {
+<span class="nc" id="L200">    this.logChannelId = logChannelId;</span>
+<span class="nc" id="L201">  }</span>
+
+  /**
+   * @return the metric
+   */
+  @Override
+  public IMetrics getMetric() {
+<span class="nc" id="L208">    return metric;</span>
+  }
+
+  /**
+   * @param metric the metric to set
+   */
+  public void setMetric( IMetrics metric ) {
+<span class="nc" id="L215">    this.metric = metric;</span>
+<span class="nc" id="L216">  }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

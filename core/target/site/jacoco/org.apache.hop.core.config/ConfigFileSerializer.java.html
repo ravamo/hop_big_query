@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ConfigFileSerializer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.config</a> &gt; <span class="el_source">ConfigFileSerializer.java</span></div><h1>ConfigFileSerializer.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.config;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.hop.core.exception.HopException;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.util.HashMap;
+import java.util.Map;
+
+<span class="nc" id="L34">public class ConfigFileSerializer implements IHopConfigSerializer {</span>
+  @Override public void writeToFile( String filename, Map&lt;String, Object&gt; configMap ) throws HopException {
+    try {
+<span class="nc" id="L37">      ObjectMapper objectMapper = new ObjectMapper();</span>
+<span class="nc" id="L38">      String niceJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString( configMap );</span>
+
+      // Write to a new new file...
+      //
+<span class="nc" id="L42">      File newFile = new File( filename + &quot;.new&quot; );</span>
+<span class="nc bnc" id="L43" title="All 2 branches missed.">      if ( newFile.exists() ) {</span>
+<span class="nc bnc" id="L44" title="All 2 branches missed.">        if ( !newFile.delete() ) {</span>
+<span class="nc" id="L45">          throw new HopException( &quot;Unable to delete new config file &quot; + newFile.getPath() );</span>
+        }
+      }
+
+      // Write to the new file (hop.config.new)
+      //
+<span class="nc" id="L51">      FileOutputStream fos = new FileOutputStream( newFile );</span>
+<span class="nc" id="L52">      fos.write( niceJson.getBytes( &quot;UTF-8&quot; ) );</span>
+<span class="nc" id="L53">      fos.close();</span>
+
+      // if this worked, delete the old file  (hop.config.old)
+      //
+<span class="nc" id="L57">      File oldFile = new File( filename + &quot;.old&quot; );</span>
+<span class="nc bnc" id="L58" title="All 2 branches missed.">      if ( oldFile.exists() ) {</span>
+<span class="nc bnc" id="L59" title="All 2 branches missed.">        if ( !oldFile.delete() ) {</span>
+<span class="nc" id="L60">          throw new HopException( &quot;Unable to delete old config file &quot; + oldFile.getPath() );</span>
+        }
+      }
+
+      // If this worked, rename the file to the old file  (hop.config -&gt; hop.config.old)
+      //
+<span class="nc" id="L66">      File file = new File( filename );</span>
+<span class="nc bnc" id="L67" title="All 2 branches missed.">      if (file.exists()) { // could be a new file</span>
+<span class="nc bnc" id="L68" title="All 2 branches missed.">        if ( !file.renameTo( oldFile ) ) {</span>
+<span class="nc" id="L69">          throw new HopException( &quot;Unable to rename config file to .old : &quot; + file.getPath() );</span>
+        }
+      }
+
+      // Now rename the new file to the final value...
+      //
+<span class="nc bnc" id="L75" title="All 2 branches missed.">      if ( !newFile.renameTo( file ) ) {</span>
+<span class="nc" id="L76">        throw new HopException( &quot;Unable to rename config .new file to : &quot; + file.getPath() );</span>
+      }
+<span class="nc" id="L78">    } catch ( Exception e ) {</span>
+<span class="nc" id="L79">      throw new HopException( &quot;Error writing to Hop configuration file : &quot; + filename, e );</span>
+<span class="nc" id="L80">    }</span>
+<span class="nc" id="L81">  }</span>
+
+  @Override public Map&lt;String, Object&gt; readFromFile( String filename ) throws HopException {
+    try {
+<span class="nc" id="L85">      File file = new File( filename );</span>
+<span class="nc bnc" id="L86" title="All 2 branches missed.">      if (!file.exists()) {</span>
+        // Just an empty config map.
+        //
+<span class="nc" id="L89">        return new HashMap&lt;&gt;();</span>
+      }
+<span class="nc" id="L91">      ObjectMapper objectMapper = new ObjectMapper();</span>
+<span class="nc" id="L92">      TypeReference&lt;HashMap&lt;String, Object&gt;&gt; typeRef = new TypeReference&lt;HashMap&lt;String, Object&gt;&gt;() {};</span>
+<span class="nc" id="L93">      HashMap&lt;String, Object&gt; configMap = objectMapper.readValue( new File( filename ), typeRef );</span>
+<span class="nc" id="L94">      return configMap;</span>
+<span class="nc" id="L95">    } catch ( Exception e ) {</span>
+<span class="nc" id="L96">      throw new HopException( &quot;Error reading Hop configuration file &quot; + filename, e );</span>
+    }
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

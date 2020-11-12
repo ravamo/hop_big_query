@@ -1,0 +1,335 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Utils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.util</a> &gt; <span class="el_source">Utils.java</span></div><h1>Utils.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.util;
+
+import org.apache.hop.core.encryption.Encr;
+import org.apache.hop.core.variables.IVariables;
+
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+/* Levenshtein in Java, originally from Josh Drew's code at
+ * http://joshdrew.com/
+ * Code from http://blog.lolyco.com
+ *
+ */
+<span class="nc" id="L36">public class Utils {</span>
+<span class="fc" id="L37">  private static final int[] ZERO_LENGTH_INT_ARRAY = new int[ 0 ];</span>
+
+  private static int damerauLevenshteinDistance( String s, String t, int[] workspace ) {
+<span class="nc" id="L40">    int lenS = s.length();</span>
+<span class="nc" id="L41">    int lenT = t.length();</span>
+<span class="nc" id="L42">    int lenS1 = lenS + 1;</span>
+<span class="nc" id="L43">    int lenT1 = lenT + 1;</span>
+<span class="nc bnc" id="L44" title="All 2 branches missed.">    if ( lenT1 == 1 ) {</span>
+<span class="nc" id="L45">      return lenS1 - 1;</span>
+    }
+<span class="nc bnc" id="L47" title="All 2 branches missed.">    if ( lenS1 == 1 ) {</span>
+<span class="nc" id="L48">      return lenT1 - 1;</span>
+    }
+<span class="nc" id="L50">    int[] dl = workspace;</span>
+<span class="nc" id="L51">    int dlIndex = 0;</span>
+<span class="nc" id="L52">    int sPrevIndex = 0, tPrevIndex = 0, rowBefore = 0, min = 0, cost = 0, tmp = 0;</span>
+<span class="nc" id="L53">    int tri = lenS1 + 2;</span>
+    // start row with constant
+<span class="nc" id="L55">    dlIndex = 0;</span>
+<span class="nc bnc" id="L56" title="All 2 branches missed.">    for ( tmp = 0; tmp &lt; lenT1; tmp++ ) {</span>
+<span class="nc" id="L57">      dl[ dlIndex ] = tmp;</span>
+<span class="nc" id="L58">      dlIndex += lenS1;</span>
+    }
+<span class="nc bnc" id="L60" title="All 2 branches missed.">    for ( int sIndex = 0; sIndex &lt; lenS; sIndex++ ) {</span>
+<span class="nc" id="L61">      dlIndex = sIndex + 1;</span>
+<span class="nc" id="L62">      dl[ dlIndex ] = dlIndex; // start column with constant</span>
+<span class="nc bnc" id="L63" title="All 2 branches missed.">      for ( int tIndex = 0; tIndex &lt; lenT; tIndex++ ) {</span>
+<span class="nc" id="L64">        rowBefore = dlIndex;</span>
+<span class="nc" id="L65">        dlIndex += lenS1;</span>
+        // deletion
+<span class="nc" id="L67">        min = dl[ rowBefore ] + 1;</span>
+        // insertion
+<span class="nc" id="L69">        tmp = dl[ dlIndex - 1 ] + 1;</span>
+<span class="nc bnc" id="L70" title="All 2 branches missed.">        if ( tmp &lt; min ) {</span>
+<span class="nc" id="L71">          min = tmp;</span>
+        }
+<span class="nc" id="L73">        cost = 1;</span>
+<span class="nc bnc" id="L74" title="All 2 branches missed.">        if ( s.charAt( sIndex ) == t.charAt( tIndex ) ) {</span>
+<span class="nc" id="L75">          cost = 0;</span>
+        }
+<span class="nc bnc" id="L77" title="All 4 branches missed.">        if ( sIndex &gt; 0 &amp;&amp; tIndex &gt; 0 ) {</span>
+<span class="nc bnc" id="L78" title="All 4 branches missed.">          if ( s.charAt( sIndex ) == t.charAt( tPrevIndex ) &amp;&amp; s.charAt( sPrevIndex ) == t.charAt( tIndex ) ) {</span>
+<span class="nc" id="L79">            tmp = dl[ rowBefore - tri ] + cost;</span>
+            // transposition
+<span class="nc bnc" id="L81" title="All 2 branches missed.">            if ( tmp &lt; min ) {</span>
+<span class="nc" id="L82">              min = tmp;</span>
+            }
+          }
+        }
+        // substitution
+<span class="nc" id="L87">        tmp = dl[ rowBefore - 1 ] + cost;</span>
+<span class="nc bnc" id="L88" title="All 2 branches missed.">        if ( tmp &lt; min ) {</span>
+<span class="nc" id="L89">          min = tmp;</span>
+        }
+<span class="nc" id="L91">        dl[ dlIndex ] = min;</span>
+<span class="nc" id="L92">        tPrevIndex = tIndex;</span>
+      }
+<span class="nc" id="L94">      sPrevIndex = sIndex;</span>
+    }
+<span class="nc" id="L96">    return dl[ dlIndex ];</span>
+  }
+
+  private static int[] getWorkspace( int sl, int tl ) {
+<span class="nc" id="L100">    return new int[ ( sl + 1 ) * ( tl + 1 ) ];</span>
+  }
+
+  public static int getDamerauLevenshteinDistance( String s, String t ) {
+<span class="nc bnc" id="L104" title="All 4 branches missed.">    if ( s != null &amp;&amp; t != null ) {</span>
+<span class="nc" id="L105">      return damerauLevenshteinDistance( s, t, getWorkspace( s.length(), t.length() ) );</span>
+    } else {
+<span class="nc" id="L107">      return damerauLevenshteinDistance( s, t, ZERO_LENGTH_INT_ARRAY );</span>
+    }
+  }
+
+  /**
+   * Check if the CharSequence supplied is empty. A CharSequence is empty when it is null or when the length is 0
+   *
+   * @param val The string to check
+   * @return true if the string supplied is empty
+   */
+  public static boolean isEmpty( CharSequence val ) {
+<span class="fc bfc" id="L118" title="All 4 branches covered.">    return val == null || val.length() == 0;</span>
+  }
+
+  /**
+   * Check if the CharSequence array supplied is empty. A CharSequence array is empty when it is null or when the number of elements
+   * is 0
+   *
+   * @param strings The string array to check
+   * @return true if the string array supplied is empty
+   */
+  public static boolean isEmpty( CharSequence[] strings ) {
+<span class="fc bfc" id="L129" title="All 4 branches covered.">    return strings == null || strings.length == 0;</span>
+  }
+
+  /**
+   * Check if the array supplied is empty. An array is empty when it is null or when the length is 0
+   *
+   * @param array The array to check
+   * @return true if the array supplied is empty
+   */
+  public static boolean isEmpty( Object[] array ) {
+<span class="fc bfc" id="L139" title="All 4 branches covered.">    return array == null || array.length == 0;</span>
+  }
+
+  /**
+   * Check if the list supplied is empty. An array is empty when it is null or when the length is 0
+   *
+   * @param list the list to check
+   * @return true if the supplied list is empty
+   */
+  public static boolean isEmpty( List&lt;?&gt; list ) {
+<span class="fc bfc" id="L149" title="All 4 branches covered.">    return list == null || list.size() == 0;</span>
+  }
+
+  /**
+   * Resolves password from variable if it's necessary and decrypts if the password was encrypted
+   *
+   * @param variables IVariables is used for resolving
+   * @param password  the password for resolving and decrypting
+   * @return resolved decrypted password
+   */
+  public static String resolvePassword( IVariables variables, String password ) {
+<span class="fc" id="L160">    String resolvedPassword = variables.environmentSubstitute( password );</span>
+<span class="fc bfc" id="L161" title="All 2 branches covered.">    if ( resolvedPassword != null ) {</span>
+      // returns resolved decrypted password
+<span class="fc" id="L163">      return Encr.decryptPasswordOptionallyEncrypted( resolvedPassword );</span>
+    } else {
+      // actually null
+<span class="fc" id="L166">      return resolvedPassword;</span>
+    }
+  }
+
+  /**
+   * Normalize String array lengths for synchronization of arrays within transforms
+   */
+
+  public static String[][] normalizeArrays( int normalizeToLength, String[]... arraysToNormalize ) {
+<span class="pc bpc" id="L175" title="1 of 2 branches missed.">    if ( arraysToNormalize == null ) {</span>
+<span class="nc" id="L176">      return null;</span>
+    }
+<span class="fc" id="L178">    int arraysToProcess = arraysToNormalize.length;</span>
+<span class="fc" id="L179">    String[][] rtn = new String[ arraysToProcess ][];</span>
+<span class="fc bfc" id="L180" title="All 2 branches covered.">    for ( int i = 0; i &lt; arraysToNormalize.length; i++ ) {</span>
+<span class="fc" id="L181">      String[] nextArray = arraysToNormalize[ i ];</span>
+<span class="fc bfc" id="L182" title="All 2 branches covered.">      if ( nextArray != null ) {</span>
+<span class="fc bfc" id="L183" title="All 2 branches covered.">        if ( nextArray.length &lt; normalizeToLength ) {</span>
+<span class="fc" id="L184">          String[] newArray = new String[ normalizeToLength ];</span>
+<span class="fc" id="L185">          System.arraycopy( nextArray, 0, newArray, 0, nextArray.length );</span>
+<span class="fc" id="L186">          rtn[ i ] = newArray;</span>
+<span class="fc" id="L187">        } else {</span>
+<span class="fc" id="L188">          rtn[ i ] = nextArray;</span>
+        }
+      } else {
+<span class="fc" id="L191">        rtn[ i ] = new String[ normalizeToLength ];</span>
+      }
+    }
+<span class="fc" id="L194">    return rtn;</span>
+  }
+
+  /**
+   * Normalize long array lengths for synchronization of arrays within transforms
+   */
+
+  public static long[][] normalizeArrays( int normalizeToLength, long[]... arraysToNormalize ) {
+<span class="pc bpc" id="L202" title="1 of 2 branches missed.">    if ( arraysToNormalize == null ) {</span>
+<span class="nc" id="L203">      return null;</span>
+    }
+<span class="fc" id="L205">    int arraysToProcess = arraysToNormalize.length;</span>
+<span class="fc" id="L206">    long[][] rtn = new long[ arraysToProcess ][];</span>
+<span class="fc bfc" id="L207" title="All 2 branches covered.">    for ( int i = 0; i &lt; arraysToNormalize.length; i++ ) {</span>
+<span class="fc" id="L208">      long[] nextArray = arraysToNormalize[ i ];</span>
+<span class="fc bfc" id="L209" title="All 2 branches covered.">      if ( nextArray != null ) {</span>
+<span class="fc bfc" id="L210" title="All 2 branches covered.">        if ( nextArray.length &lt; normalizeToLength ) {</span>
+<span class="fc" id="L211">          long[] newArray = new long[ normalizeToLength ];</span>
+<span class="fc" id="L212">          System.arraycopy( nextArray, 0, newArray, 0, nextArray.length );</span>
+<span class="fc" id="L213">          rtn[ i ] = newArray;</span>
+<span class="fc" id="L214">        } else {</span>
+<span class="fc" id="L215">          rtn[ i ] = nextArray;</span>
+        }
+      } else {
+<span class="fc" id="L218">        rtn[ i ] = new long[ normalizeToLength ];</span>
+      }
+    }
+<span class="fc" id="L221">    return rtn;</span>
+  }
+
+  /**
+   * Normalize int array lengths for synchronization of arrays within transforms
+   */
+
+  public static int[][] normalizeArrays( int normalizeToLength, int[]... arraysToNormalize ) {
+<span class="pc bpc" id="L229" title="1 of 2 branches missed.">    if ( arraysToNormalize == null ) {</span>
+<span class="nc" id="L230">      return null;</span>
+    }
+<span class="fc" id="L232">    int arraysToProcess = arraysToNormalize.length;</span>
+<span class="fc" id="L233">    int[][] rtn = new int[ arraysToProcess ][];</span>
+<span class="fc bfc" id="L234" title="All 2 branches covered.">    for ( int i = 0; i &lt; arraysToNormalize.length; i++ ) {</span>
+<span class="fc" id="L235">      int[] nextArray = arraysToNormalize[ i ];</span>
+<span class="fc bfc" id="L236" title="All 2 branches covered.">      if ( nextArray != null ) {</span>
+<span class="fc bfc" id="L237" title="All 2 branches covered.">        if ( nextArray.length &lt; normalizeToLength ) {</span>
+<span class="fc" id="L238">          int[] newArray = new int[ normalizeToLength ];</span>
+<span class="fc" id="L239">          System.arraycopy( nextArray, 0, newArray, 0, nextArray.length );</span>
+<span class="fc" id="L240">          rtn[ i ] = newArray;</span>
+<span class="fc" id="L241">        } else {</span>
+<span class="fc" id="L242">          rtn[ i ] = nextArray;</span>
+        }
+      } else {
+<span class="fc" id="L245">        rtn[ i ] = new int[ normalizeToLength ];</span>
+      }
+    }
+<span class="fc" id="L248">    return rtn;</span>
+  }
+
+  /**
+   * Normalize boolean array lengths for synchronization of arrays within transforms
+   */
+
+  public static boolean[][] normalizeArrays( int normalizeToLength, boolean[]... arraysToNormalize ) {
+<span class="pc bpc" id="L256" title="1 of 2 branches missed.">    if ( arraysToNormalize == null ) {</span>
+<span class="nc" id="L257">      return null;</span>
+    }
+<span class="fc" id="L259">    int arraysToProcess = arraysToNormalize.length;</span>
+<span class="fc" id="L260">    boolean[][] rtn = new boolean[ arraysToProcess ][];</span>
+<span class="fc bfc" id="L261" title="All 2 branches covered.">    for ( int i = 0; i &lt; arraysToNormalize.length; i++ ) {</span>
+<span class="fc" id="L262">      boolean[] nextArray = arraysToNormalize[ i ];</span>
+<span class="fc bfc" id="L263" title="All 2 branches covered.">      if ( nextArray != null ) {</span>
+<span class="fc bfc" id="L264" title="All 2 branches covered.">        if ( nextArray.length &lt; normalizeToLength ) {</span>
+<span class="fc" id="L265">          boolean[] newArray = new boolean[ normalizeToLength ];</span>
+<span class="fc" id="L266">          System.arraycopy( nextArray, 0, newArray, 0, nextArray.length );</span>
+<span class="fc" id="L267">          rtn[ i ] = newArray;</span>
+<span class="fc" id="L268">        } else {</span>
+<span class="fc" id="L269">          rtn[ i ] = nextArray;</span>
+        }
+      } else {
+<span class="fc" id="L272">        rtn[ i ] = new boolean[ normalizeToLength ];</span>
+      }
+    }
+<span class="fc" id="L275">    return rtn;</span>
+  }
+
+  /**
+   * Normalize short array lengths for synchronization of arrays within transforms
+   */
+
+  public static short[][] normalizeArrays( int normalizeToLength, short[]... arraysToNormalize ) {
+<span class="pc bpc" id="L283" title="1 of 2 branches missed.">    if ( arraysToNormalize == null ) {</span>
+<span class="nc" id="L284">      return null;</span>
+    }
+<span class="fc" id="L286">    int arraysToProcess = arraysToNormalize.length;</span>
+<span class="fc" id="L287">    short[][] rtn = new short[ arraysToProcess ][];</span>
+<span class="fc bfc" id="L288" title="All 2 branches covered.">    for ( int i = 0; i &lt; arraysToNormalize.length; i++ ) {</span>
+<span class="fc" id="L289">      short[] nextArray = arraysToNormalize[ i ];</span>
+<span class="fc bfc" id="L290" title="All 2 branches covered.">      if ( nextArray != null ) {</span>
+<span class="fc bfc" id="L291" title="All 2 branches covered.">        if ( nextArray.length &lt; normalizeToLength ) {</span>
+<span class="fc" id="L292">          short[] newArray = new short[ normalizeToLength ];</span>
+<span class="fc" id="L293">          System.arraycopy( nextArray, 0, newArray, 0, nextArray.length );</span>
+<span class="fc" id="L294">          rtn[ i ] = newArray;</span>
+<span class="fc" id="L295">        } else {</span>
+<span class="fc" id="L296">          rtn[ i ] = nextArray;</span>
+        }
+      } else {
+<span class="fc" id="L299">        rtn[ i ] = new short[ normalizeToLength ];</span>
+      }
+    }
+<span class="fc" id="L302">    return rtn;</span>
+  }
+
+  public static String getDurationHMS(double seconds) {
+<span class="nc" id="L306">    int day = (int) TimeUnit.SECONDS.toDays((long)seconds);</span>
+<span class="nc" id="L307">    long hours = TimeUnit.SECONDS.toHours((long)seconds) - (day *24);</span>
+<span class="nc" id="L308">    long minute = TimeUnit.SECONDS.toMinutes((long)seconds) - (TimeUnit.SECONDS.toHours((long)seconds)* 60);</span>
+<span class="nc" id="L309">    long second = TimeUnit.SECONDS.toSeconds((long)seconds) - (TimeUnit.SECONDS.toMinutes((long)seconds) *60);</span>
+<span class="nc" id="L310">    long ms = (long)((seconds - ((long)seconds))*1000);</span>
+
+<span class="nc" id="L312">    StringBuilder hms = new StringBuilder();</span>
+<span class="nc bnc" id="L313" title="All 2 branches missed.">    if (day&gt;0) {</span>
+<span class="nc" id="L314">      hms.append( day + &quot;d &quot; );</span>
+    }
+<span class="nc bnc" id="L316" title="All 4 branches missed.">    if (day&gt;0 || hours&gt;0) {</span>
+<span class="nc" id="L317">      hms.append(hours + &quot;h &quot;);</span>
+    }
+<span class="nc bnc" id="L319" title="All 6 branches missed.">    if (day&gt;0 || hours&gt;0 || minute&gt;0) {</span>
+<span class="nc" id="L320">      hms.append(String.format( &quot;%2d&quot;, minute ) + &quot;' &quot;);</span>
+    }
+<span class="nc" id="L322">    hms.append(String.format( &quot;%2d&quot;, second ));</span>
+
+    // After a few minutes we don't need the microseconds
+    //
+<span class="nc bnc" id="L326" title="All 6 branches missed.">    if (day==0 &amp;&amp; hours==0 &amp;&amp; minute&lt;3) {</span>
+<span class="nc" id="L327">      hms.append('.').append(String.format(&quot;%03d&quot;, ms));</span>
+    }
+<span class="nc" id="L329">    hms.append('&quot;');</span>
+
+
+<span class="nc" id="L332">    return hms.toString();</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HttpClientManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.util</a> &gt; <span class="el_source">HttpClientManager.java</span></div><h1>HttpClientManager.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.util;
+
+import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.RedirectStrategy;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+
+/**
+ * Single entry point for all {@link org.apache.http.client.HttpClient HttpClient instances} usages in Hop projects.
+ * Contains {@link org.apache.http.impl.conn.PoolingHttpClientConnectionManager Connection pool} of 200 connections.
+ * Maximum connections per one route is 100.
+ * Provides inner builder class for creating {@link org.apache.http.client.HttpClient HttpClients}.
+ *
+ * @author Yury_Bakhmutski
+ * @since 06-23-2017
+ */
+public class HttpClientManager {
+  private static final int CONNECTIONS_PER_ROUTE = 100;
+  private static final int TOTAL_CONNECTIONS = 200;
+
+  private static HttpClientManager httpClientManager;
+  private static PoolingHttpClientConnectionManager manager;
+
+<span class="nc" id="L53">  private HttpClientManager() {</span>
+<span class="nc" id="L54">    manager = new PoolingHttpClientConnectionManager();</span>
+<span class="nc" id="L55">    manager.setDefaultMaxPerRoute( CONNECTIONS_PER_ROUTE );</span>
+<span class="nc" id="L56">    manager.setMaxTotal( TOTAL_CONNECTIONS );</span>
+<span class="nc" id="L57">  }</span>
+
+  public static HttpClientManager getInstance() {
+<span class="nc bnc" id="L60" title="All 2 branches missed.">    if ( httpClientManager == null ) {</span>
+<span class="nc" id="L61">      httpClientManager = new HttpClientManager();</span>
+    }
+<span class="nc" id="L63">    return httpClientManager;</span>
+  }
+
+  public CloseableHttpClient createDefaultClient() {
+<span class="nc" id="L67">    return HttpClients.custom().setConnectionManager( manager )</span>
+<span class="nc" id="L68">      .build();</span>
+  }
+
+  public HttpClientBuilderFacade createBuilder() {
+<span class="nc" id="L72">    return new HttpClientBuilderFacade();</span>
+  }
+
+<span class="nc" id="L75">  public class HttpClientBuilderFacade {</span>
+    private RedirectStrategy redirectStrategy;
+    private CredentialsProvider provider;
+    private int connectionTimeout;
+    private int socketTimeout;
+    private HttpHost proxy;
+
+    public HttpClientBuilderFacade setConnectionTimeout( int connectionTimeout ) {
+<span class="nc" id="L83">      this.connectionTimeout = connectionTimeout;</span>
+<span class="nc" id="L84">      return this;</span>
+    }
+
+    public HttpClientBuilderFacade setSocketTimeout( int socketTimeout ) {
+<span class="nc" id="L88">      this.socketTimeout = socketTimeout;</span>
+<span class="nc" id="L89">      return this;</span>
+    }
+
+    public HttpClientBuilderFacade setCredentials( String user, String password, AuthScope authScope ) {
+<span class="nc" id="L93">      CredentialsProvider provider = new BasicCredentialsProvider();</span>
+<span class="nc" id="L94">      UsernamePasswordCredentials credentials = new UsernamePasswordCredentials( user, password );</span>
+<span class="nc" id="L95">      provider.setCredentials( authScope, credentials );</span>
+<span class="nc" id="L96">      this.provider = provider;</span>
+<span class="nc" id="L97">      return this;</span>
+    }
+
+    public HttpClientBuilderFacade setCredentials( String user, String password ) {
+<span class="nc" id="L101">      return setCredentials( user, password, AuthScope.ANY );</span>
+    }
+
+    public HttpClientBuilderFacade setProxy( String proxyHost, int proxyPort ) {
+<span class="nc" id="L105">      setProxy( proxyHost, proxyPort, &quot;http&quot; );</span>
+<span class="nc" id="L106">      return this;</span>
+    }
+
+    public HttpClientBuilderFacade setProxy( String proxyHost, int proxyPort, String scheme ) {
+<span class="nc" id="L110">      this.proxy = new HttpHost( proxyHost, proxyPort, scheme );</span>
+<span class="nc" id="L111">      return this;</span>
+    }
+
+    public HttpClientBuilderFacade setRedirect( RedirectStrategy redirectStrategy ) {
+<span class="nc" id="L115">      this.redirectStrategy = redirectStrategy;</span>
+<span class="nc" id="L116">      return this;</span>
+    }
+
+    public CloseableHttpClient build() {
+<span class="nc" id="L120">      HttpClientBuilder httpClientBuilder = HttpClientBuilder.create();</span>
+<span class="nc" id="L121">      httpClientBuilder.setConnectionManager( manager );</span>
+
+<span class="nc" id="L123">      RequestConfig.Builder requestConfigBuilder = RequestConfig.custom();</span>
+<span class="nc bnc" id="L124" title="All 2 branches missed.">      if ( socketTimeout &gt; 0 ) {</span>
+<span class="nc" id="L125">        requestConfigBuilder.setSocketTimeout( socketTimeout );</span>
+      }
+<span class="nc bnc" id="L127" title="All 2 branches missed.">      if ( connectionTimeout &gt; 0 ) {</span>
+<span class="nc" id="L128">        requestConfigBuilder.setConnectTimeout( socketTimeout );</span>
+      }
+<span class="nc bnc" id="L130" title="All 2 branches missed.">      if ( proxy != null ) {</span>
+<span class="nc" id="L131">        requestConfigBuilder.setProxy( proxy );</span>
+      }
+<span class="nc" id="L133">      httpClientBuilder.setDefaultRequestConfig( requestConfigBuilder.build() );</span>
+
+<span class="nc bnc" id="L135" title="All 2 branches missed.">      if ( provider != null ) {</span>
+<span class="nc" id="L136">        httpClientBuilder.setDefaultCredentialsProvider( provider );</span>
+      }
+<span class="nc bnc" id="L138" title="All 2 branches missed.">      if ( redirectStrategy != null ) {</span>
+<span class="nc" id="L139">        httpClientBuilder.setRedirectStrategy( redirectStrategy );</span>
+      }
+
+<span class="nc" id="L142">      return httpClientBuilder.build();</span>
+    }
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

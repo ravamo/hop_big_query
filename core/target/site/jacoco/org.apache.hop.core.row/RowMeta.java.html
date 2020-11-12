@@ -1,0 +1,1304 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RowMeta.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.row</a> &gt; <span class="el_source">RowMeta.java</span></div><h1>RowMeta.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.row;
+
+import com.google.common.annotations.VisibleForTesting;
+import org.apache.hop.core.Const;
+import org.apache.hop.core.exception.HopEofException;
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.exception.HopFileException;
+import org.apache.hop.core.exception.HopPluginException;
+import org.apache.hop.core.exception.HopValueException;
+import org.apache.hop.core.row.value.ValueMetaBase;
+import org.apache.hop.core.row.value.ValueMetaFactory;
+import org.apache.hop.core.util.Utils;
+import org.apache.hop.core.xml.XmlHandler;
+import org.w3c.dom.Node;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.EOFException;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.net.SocketTimeoutException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+public class RowMeta implements IRowMeta {
+  public static final String XML_META_TAG = &quot;row-meta&quot;;
+  public static final String XML_DATA_TAG = &quot;row-data&quot;;
+
+  private final ReentrantReadWriteLock lock;
+  private final RowMetaCache cache;
+  List&lt;IValueMeta&gt; valueMetaList;
+  List&lt;Integer&gt; needRealClone;
+
+  public RowMeta() {
+<span class="fc" id="L65">    this( new ArrayList&lt;IValueMeta&gt;(), new RowMetaCache() );</span>
+<span class="fc" id="L66">  }</span>
+
+  /**
+   * Copy constructor for clone
+   *
+   * @param rowMeta
+   * @throws HopPluginException
+   */
+  private RowMeta( RowMeta rowMeta, Integer targetType ) throws HopPluginException {
+<span class="nc" id="L75">    this( new ArrayList&lt;IValueMeta&gt;( rowMeta.valueMetaList.size() ), new RowMetaCache( rowMeta.cache ) );</span>
+<span class="nc bnc" id="L76" title="All 2 branches missed.">    for ( IValueMeta iValueMeta : rowMeta.valueMetaList ) {</span>
+<span class="nc bnc" id="L77" title="All 2 branches missed.">      valueMetaList.add( ValueMetaFactory</span>
+<span class="nc" id="L78">        .cloneValueMeta( iValueMeta, targetType == null ? iValueMeta.getType() : targetType ) );</span>
+<span class="nc" id="L79">    }</span>
+<span class="nc" id="L80">    this.needRealClone = rowMeta.needRealClone;</span>
+<span class="nc" id="L81">  }</span>
+
+<span class="fc" id="L83">  private RowMeta( List&lt;IValueMeta&gt; valueMetaList, RowMetaCache rowMetaCache ) {</span>
+<span class="fc" id="L84">    lock = new ReentrantReadWriteLock();</span>
+<span class="fc" id="L85">    this.cache = rowMetaCache;</span>
+<span class="fc" id="L86">    this.valueMetaList = valueMetaList;</span>
+<span class="fc" id="L87">    this.needRealClone = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L88">  }</span>
+
+  @Override
+  public RowMeta clone() {
+<span class="nc" id="L92">    lock.readLock().lock();</span>
+    try {
+<span class="nc" id="L94">      return new RowMeta( this, null );</span>
+<span class="nc" id="L95">    } catch ( Exception e ) {</span>
+<span class="nc" id="L96">      throw new RuntimeException( e );</span>
+    } finally {
+<span class="nc" id="L98">      lock.readLock().unlock();</span>
+    }
+  }
+
+  /**
+   * This method copies the row metadata and sets all values to the specified type (usually String)
+   *
+   * @param targetType The target type
+   * @return The cloned metadata
+   * @throws if the target type could not be loaded from the plugin registry
+   */
+  @Override
+  public IRowMeta cloneToType( int targetType ) throws HopValueException {
+<span class="nc" id="L111">    lock.readLock().lock();</span>
+    try {
+<span class="nc" id="L113">      return new RowMeta( this, targetType );</span>
+<span class="nc" id="L114">    } catch ( HopPluginException e ) {</span>
+<span class="nc" id="L115">      throw new HopValueException( e );</span>
+    } finally {
+<span class="nc" id="L117">      lock.readLock().unlock();</span>
+    }
+  }
+
+  @Override
+  public String toString() {
+<span class="nc" id="L123">    StringBuilder buffer = new StringBuilder();</span>
+<span class="nc" id="L124">    lock.readLock().lock();</span>
+    try {
+<span class="nc" id="L126">      boolean notFirst = false;</span>
+<span class="nc bnc" id="L127" title="All 2 branches missed.">      for ( IValueMeta valueMeta : valueMetaList ) {</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">        if ( notFirst ) {</span>
+<span class="nc" id="L129">          buffer.append( &quot;, &quot; );</span>
+        } else {
+<span class="nc" id="L131">          notFirst = true;</span>
+        }
+<span class="nc" id="L133">        buffer.append( &quot;[&quot; ).append( valueMeta.toString() ).append( &quot;]&quot; );</span>
+<span class="nc" id="L134">      }</span>
+<span class="nc" id="L135">      return buffer.toString();</span>
+    } finally {
+<span class="nc" id="L137">      lock.readLock().unlock();</span>
+    }
+  }
+
+  /**
+   * @return the list of value metadata
+   */
+  @Override
+  public List&lt;IValueMeta&gt; getValueMetaList() {
+    List&lt;IValueMeta&gt; copy;
+
+<span class="fc" id="L148">    lock.readLock().lock();</span>
+    try {
+<span class="fc" id="L150">      copy = new ArrayList&lt;&gt;( valueMetaList );</span>
+    } finally {
+<span class="fc" id="L152">      lock.readLock().unlock();</span>
+    }
+    // kept for backward compatibility
+<span class="fc" id="L155">    return Collections.unmodifiableList( copy );</span>
+  }
+
+  /**
+   * @param valueMetaList the list of valueMeta to set
+   */
+  @Override
+  public void setValueMetaList( List&lt;IValueMeta&gt; valueMetaList ) {
+<span class="fc" id="L163">    lock.writeLock().lock();</span>
+    try {
+<span class="fc" id="L165">      this.valueMetaList = valueMetaList;</span>
+<span class="fc" id="L166">      this.cache.invalidate();</span>
+<span class="fc bfc" id="L167" title="All 2 branches covered.">      for ( int i = 0, len = valueMetaList.size(); i &lt; len; i++ ) {</span>
+<span class="fc" id="L168">        IValueMeta valueMeta = valueMetaList.get( i );</span>
+<span class="fc" id="L169">        cache.storeMapping( valueMeta.getName(), i );</span>
+      }
+<span class="fc" id="L171">      this.needRealClone = null;</span>
+    } finally {
+<span class="fc" id="L173">      lock.writeLock().unlock();</span>
+    }
+<span class="fc" id="L175">  }</span>
+
+  /**
+   * @return the number of values in the row
+   */
+  @Override
+  public int size() {
+<span class="fc" id="L182">    lock.readLock().lock();</span>
+    try {
+<span class="fc" id="L184">      return valueMetaList.size();</span>
+    } finally {
+<span class="fc" id="L186">      lock.readLock().unlock();</span>
+    }
+  }
+
+  /**
+   * @return true if there are no elements in the row metadata
+   */
+  @Override
+  public boolean isEmpty() {
+<span class="fc" id="L195">    lock.readLock().lock();</span>
+    try {
+<span class="fc" id="L197">      return valueMetaList.isEmpty();</span>
+    } finally {
+<span class="fc" id="L199">      lock.readLock().unlock();</span>
+    }
+  }
+
+  @Override
+  public boolean exists( IValueMeta meta ) {
+<span class="pc bpc" id="L205" title="2 of 4 branches missed.">    return ( meta != null ) &amp;&amp; searchValueMeta( meta.getName() ) != null;</span>
+  }
+
+  /**
+   * Add a metadata value. If a value with the same name already exists, it gets renamed.
+   *
+   * @param meta The metadata value to add
+   */
+  @Override
+  public void addValueMeta( IValueMeta meta ) {
+<span class="pc bpc" id="L215" title="1 of 2 branches missed.">    if ( meta != null ) {</span>
+<span class="fc" id="L216">      lock.writeLock().lock();</span>
+      try {
+        IValueMeta newMeta;
+<span class="fc" id="L219">        Integer existsIdx = cache.findAndCompare( meta.getName(), valueMetaList );</span>
+<span class="fc bfc" id="L220" title="All 2 branches covered.">        if ( existsIdx == null ) {</span>
+<span class="fc" id="L221">          newMeta = meta;</span>
+        } else {
+<span class="fc" id="L223">          newMeta = renameValueMetaIfInRow( meta, null );</span>
+        }
+<span class="fc" id="L225">        int sz = valueMetaList.size();</span>
+<span class="fc" id="L226">        valueMetaList.add( newMeta );</span>
+<span class="fc" id="L227">        cache.storeMapping( newMeta.getName(), sz );</span>
+<span class="fc" id="L228">        needRealClone = null;</span>
+      } finally {
+<span class="fc" id="L230">        lock.writeLock().unlock();</span>
+      }
+    }
+<span class="fc" id="L233">  }</span>
+
+  /**
+   * Add a metadata value on a certain location in the row. If a value with the same name already exists, it gets
+   * renamed. Remember to change the data row according to this.
+   *
+   * @param index The index where the metadata value needs to be put in the row
+   * @param meta  The metadata value to add to the row
+   */
+  @Override
+  public void addValueMeta( int index, IValueMeta meta ) {
+<span class="pc bpc" id="L244" title="1 of 2 branches missed.">    if ( meta != null ) {</span>
+<span class="fc" id="L245">      lock.writeLock().lock();</span>
+      try {
+        IValueMeta newMeta;
+<span class="fc" id="L248">        Integer existsIdx = cache.findAndCompare( meta.getName(), valueMetaList );</span>
+<span class="fc bfc" id="L249" title="All 2 branches covered.">        if ( existsIdx == null ) {</span>
+<span class="fc" id="L250">          newMeta = meta;</span>
+        } else {
+<span class="fc" id="L252">          newMeta = renameValueMetaIfInRow( meta, null );</span>
+        }
+<span class="fc" id="L254">        valueMetaList.add( index, newMeta );</span>
+<span class="fc" id="L255">        cache.invalidate();</span>
+<span class="fc" id="L256">        needRealClone = null;</span>
+      } finally {
+<span class="fc" id="L258">        lock.writeLock().unlock();</span>
+      }
+    }
+<span class="fc" id="L261">  }</span>
+
+  /**
+   * Get the value metadata on the specified index.
+   *
+   * @param index The index to get the value metadata from
+   * @return The value metadata specified by the index.
+   */
+  @Override
+  public IValueMeta getValueMeta( int index ) {
+<span class="fc" id="L271">    lock.readLock().lock();</span>
+    try {
+<span class="pc bpc" id="L273" title="2 of 4 branches missed.">      if ( ( index &gt;= 0 ) &amp;&amp; ( index &lt; valueMetaList.size() ) ) {</span>
+<span class="fc" id="L274">        return valueMetaList.get( index );</span>
+      } else {
+<span class="nc" id="L276">        return null;</span>
+      }
+    } finally {
+<span class="fc" id="L279">      lock.readLock().unlock();</span>
+    }
+  }
+
+  /**
+   * Replaces a value meta entry in the row metadata with another one
+   *
+   * @param index     The index in the row to replace at
+   * @param valueMeta the metadata to replace with
+   */
+  @Override
+  public void setValueMeta( int index, IValueMeta valueMeta ) {
+<span class="pc bpc" id="L291" title="1 of 2 branches missed.">    if ( valueMeta != null ) {</span>
+<span class="fc" id="L292">      lock.writeLock().lock();</span>
+      try {
+<span class="fc" id="L294">        IValueMeta old = valueMetaList.get( index );</span>
+<span class="fc" id="L295">        IValueMeta newMeta = valueMeta;</span>
+
+        // try to check if a ValueMeta with the same name already exists
+<span class="fc" id="L298">        int existsIndex = indexOfValue( valueMeta.getName() );</span>
+        // if it exists and it's not in the requested position
+        // we need to take care of renaming
+<span class="fc bfc" id="L301" title="All 4 branches covered.">        if ( existsIndex &gt;= 0 &amp;&amp; existsIndex != index ) {</span>
+<span class="fc" id="L302">          newMeta = renameValueMetaIfInRow( valueMeta, null );</span>
+        }
+<span class="fc" id="L304">        valueMetaList.set( index, newMeta );</span>
+<span class="fc" id="L305">        cache.replaceMapping( old.getName(), newMeta.getName(), index );</span>
+<span class="fc" id="L306">        needRealClone = null;</span>
+      } finally {
+<span class="fc" id="L308">        lock.writeLock().unlock();</span>
+      }
+    }
+<span class="fc" id="L311">  }</span>
+
+  /**
+   * Get a String value from a row of data. Convert data if this needed.
+   *
+   * @param dataRow the row of data
+   * @param index   the index
+   * @return The string found on that position in the row
+   * @throws HopValueException in case there was a problem converting the data.
+   */
+  @Override
+  public String getString( Object[] dataRow, int index ) throws HopValueException {
+<span class="pc bpc" id="L323" title="1 of 2 branches missed.">    if ( dataRow == null ) {</span>
+<span class="nc" id="L324">      return null;</span>
+    }
+<span class="fc" id="L326">    IValueMeta meta = getValueMeta( index );</span>
+<span class="fc" id="L327">    return meta.getString( dataRow[ index ] );</span>
+  }
+
+  /**
+   * Get an Integer value from a row of data. Convert data if this needed.
+   *
+   * @param dataRow the row of data
+   * @param index   the index
+   * @return The integer found on that position in the row
+   * @throws HopValueException in case there was a problem converting the data.
+   */
+  @Override
+  public Long getInteger( Object[] dataRow, int index ) throws HopValueException {
+<span class="pc bpc" id="L340" title="1 of 2 branches missed.">    if ( dataRow == null ) {</span>
+<span class="nc" id="L341">      return null;</span>
+    }
+<span class="fc" id="L343">    IValueMeta meta = getValueMeta( index );</span>
+<span class="fc" id="L344">    return meta.getInteger( dataRow[ index ] );</span>
+  }
+
+  /**
+   * Get a Number value from a row of data. Convert data if this needed.
+   *
+   * @param dataRow the row of data
+   * @param index   the index
+   * @return The number found on that position in the row
+   * @throws HopValueException in case there was a problem converting the data.
+   */
+  @Override
+  public Double getNumber( Object[] dataRow, int index ) throws HopValueException {
+<span class="pc bpc" id="L357" title="1 of 2 branches missed.">    if ( dataRow == null ) {</span>
+<span class="nc" id="L358">      return null;</span>
+    }
+<span class="fc" id="L360">    IValueMeta meta = getValueMeta( index );</span>
+<span class="fc" id="L361">    return meta.getNumber( dataRow[ index ] );</span>
+  }
+
+  /**
+   * Get a Date value from a row of data. Convert data if this needed.
+   *
+   * @param dataRow the row of data
+   * @param index   the index
+   * @return The date found on that position in the row
+   * @throws HopValueException in case there was a problem converting the data.
+   */
+  @Override
+  public Date getDate( Object[] dataRow, int index ) throws HopValueException {
+<span class="pc bpc" id="L374" title="1 of 2 branches missed.">    if ( dataRow == null ) {</span>
+<span class="nc" id="L375">      return null;</span>
+    }
+<span class="fc" id="L377">    IValueMeta meta = getValueMeta( index );</span>
+<span class="fc" id="L378">    return meta.getDate( dataRow[ index ] );</span>
+  }
+
+  /**
+   * Get a BigNumber value from a row of data. Convert data if this needed.
+   *
+   * @param dataRow the row of data
+   * @param index   the index
+   * @return The bignumber found on that position in the row
+   * @throws HopValueException in case there was a problem converting the data.
+   */
+  @Override
+  public BigDecimal getBigNumber( Object[] dataRow, int index ) throws HopValueException {
+<span class="pc bpc" id="L391" title="1 of 2 branches missed.">    if ( dataRow == null ) {</span>
+<span class="nc" id="L392">      return null;</span>
+    }
+<span class="fc" id="L394">    IValueMeta meta = getValueMeta( index );</span>
+<span class="fc" id="L395">    return meta.getBigNumber( dataRow[ index ] );</span>
+  }
+
+  /**
+   * Get a Boolean value from a row of data. Convert data if this needed.
+   *
+   * @param dataRow the row of data
+   * @param index   the index
+   * @return The boolean found on that position in the row
+   * @throws HopValueException in case there was a problem converting the data.
+   */
+  @Override
+  public Boolean getBoolean( Object[] dataRow, int index ) throws HopValueException {
+<span class="pc bpc" id="L408" title="1 of 2 branches missed.">    if ( dataRow == null ) {</span>
+<span class="nc" id="L409">      return null;</span>
+    }
+<span class="fc" id="L411">    IValueMeta meta = getValueMeta( index );</span>
+<span class="fc" id="L412">    return meta.getBoolean( dataRow[ index ] );</span>
+  }
+
+  /**
+   * Get a Binary value from a row of data. Convert data if this needed.
+   *
+   * @param dataRow the row of data
+   * @param index   the index
+   * @return The binary found on that position in the row
+   * @throws HopValueException in case there was a problem converting the data.
+   */
+  @Override
+  public byte[] getBinary( Object[] dataRow, int index ) throws HopValueException {
+<span class="pc bpc" id="L425" title="1 of 2 branches missed.">    if ( dataRow == null ) {</span>
+<span class="nc" id="L426">      return null;</span>
+    }
+<span class="fc" id="L428">    IValueMeta meta = getValueMeta( index );</span>
+<span class="fc" id="L429">    return meta.getBinary( dataRow[ index ] );</span>
+  }
+
+  /**
+   * Determines whether a value in a row is null. A value is null when the object is null or when it's an empty String
+   *
+   * @param dataRow The row of data
+   * @param index   the index to reference
+   * @return true if the value on the index is null.
+   * @throws HopValueException in case there is a conversion error (only thrown in case of lazy conversion)
+   */
+  @Override
+  public boolean isNull( Object[] dataRow, int index ) throws HopValueException {
+<span class="nc bnc" id="L442" title="All 2 branches missed.">    if ( dataRow == null ) {</span>
+      // I guess so...
+<span class="nc" id="L444">      return true;</span>
+    }
+<span class="nc" id="L446">    return getValueMeta( index ).isNull( dataRow[ index ] );</span>
+  }
+
+  /**
+   * @return a cloned Object[] object.
+   * @throws HopValueException in case something is not quite right with the expected data
+   */
+  @Override
+  public Object[] cloneRow( Object[] objects ) throws HopValueException {
+<span class="nc" id="L455">    return cloneRow( objects, objects.clone() );</span>
+  }
+
+  /**
+   * @return a cloned Object[] object.
+   * @throws HopValueException in case something is not quite right with the expected data
+   */
+  @Override
+  public Object[] cloneRow( Object[] objects, Object[] newObjects ) throws HopValueException {
+<span class="nc" id="L464">    List&lt;Integer&gt; list = getOrCreateValuesThatNeedRealClone( valueMetaList );</span>
+<span class="nc" id="L465">    lock.readLock().lock();</span>
+    try {
+<span class="nc bnc" id="L467" title="All 2 branches missed.">      for ( Integer i : list ) {</span>
+<span class="nc" id="L468">        IValueMeta valueMeta = valueMetaList.get( i );</span>
+<span class="nc" id="L469">        newObjects[ i ] = valueMeta.cloneValueData( objects[ i ] );</span>
+<span class="nc" id="L470">      }</span>
+<span class="nc" id="L471">      return newObjects;</span>
+    } finally {
+<span class="nc" id="L473">      lock.readLock().unlock();</span>
+    }
+  }
+
+  @VisibleForTesting
+  List&lt;Integer&gt; getOrCreateValuesThatNeedRealClone( List&lt;IValueMeta&gt; values ) {
+<span class="fc" id="L479">    lock.writeLock().lock();</span>
+    try {
+<span class="pc bpc" id="L481" title="1 of 2 branches missed.">      if ( needRealClone == null ) {</span>
+<span class="fc" id="L482">        int len = values.size();</span>
+<span class="fc" id="L483">        needRealClone = new ArrayList&lt;&gt;( len );</span>
+<span class="fc bfc" id="L484" title="All 2 branches covered.">        for ( int i = 0; i &lt; len; i++ ) {</span>
+<span class="fc" id="L485">          IValueMeta valueMeta = values.get( i );</span>
+<span class="fc bfc" id="L486" title="All 2 branches covered.">          if ( valueMeta.requiresRealClone() ) {</span>
+<span class="fc" id="L487">            needRealClone.add( i );</span>
+          }
+        }
+      }
+    } finally {
+<span class="fc" id="L492">      lock.writeLock().unlock();</span>
+    }
+<span class="fc" id="L494">    return needRealClone;</span>
+  }
+
+  @Override
+  public String getString( Object[] dataRow, String valueName, String defaultValue ) throws HopValueException {
+<span class="nc" id="L499">    int index = indexOfValue( valueName );</span>
+<span class="nc bnc" id="L500" title="All 2 branches missed.">    if ( index &lt; 0 ) {</span>
+<span class="nc" id="L501">      return defaultValue;</span>
+    }
+<span class="nc" id="L503">    return getString( dataRow, index );</span>
+  }
+
+  @Override
+  public Long getInteger( Object[] dataRow, String valueName, Long defaultValue ) throws HopValueException {
+<span class="nc" id="L508">    int index = indexOfValue( valueName );</span>
+<span class="nc bnc" id="L509" title="All 2 branches missed.">    if ( index &lt; 0 ) {</span>
+<span class="nc" id="L510">      return defaultValue;</span>
+    }
+<span class="nc" id="L512">    return getInteger( dataRow, index );</span>
+  }
+
+  @Override
+  public Date getDate( Object[] dataRow, String valueName, Date defaultValue ) throws HopValueException {
+<span class="nc" id="L517">    int index = indexOfValue( valueName );</span>
+<span class="nc bnc" id="L518" title="All 2 branches missed.">    if ( index &lt; 0 ) {</span>
+<span class="nc" id="L519">      return defaultValue;</span>
+    }
+<span class="nc" id="L521">    return getDate( dataRow, index );</span>
+  }
+
+  /**
+   * Searches the index of a value meta with a given name
+   *
+   * @param valueName the name of the value metadata to look for
+   * @return the index or -1 in case we didn't find the value
+   */
+  @Override
+  public int indexOfValue( String valueName ) {
+<span class="fc bfc" id="L532" title="All 2 branches covered.">    if ( valueName == null ) {</span>
+<span class="fc" id="L533">      return -1;</span>
+    }
+
+<span class="fc" id="L536">    lock.readLock().lock();</span>
+    try {
+<span class="fc" id="L538">      Integer index = cache.findAndCompare( valueName, valueMetaList );</span>
+<span class="fc bfc" id="L539" title="All 4 branches covered.">      for ( int i = 0; ( index == null ) &amp;&amp; ( i &lt; valueMetaList.size() ); i++ ) {</span>
+<span class="fc bfc" id="L540" title="All 2 branches covered.">        if ( valueName.equalsIgnoreCase( valueMetaList.get( i ).getName() ) ) {</span>
+<span class="fc" id="L541">          index = i;</span>
+          // it is possible, that several threads can call storing simultaneously
+          // but it makes no harm as they will put the same value,
+          // because valueMetaList is defended from modifications by read lock
+<span class="fc" id="L545">          cache.storeMapping( valueName, index );</span>
+<span class="fc" id="L546">          needRealClone = null;</span>
+        }
+      }
+<span class="fc bfc" id="L549" title="All 2 branches covered.">      if ( index == null ) {</span>
+<span class="fc" id="L550">        return -1;</span>
+      }
+<span class="fc" id="L552">      return index;</span>
+    } finally {
+<span class="fc" id="L554">      lock.readLock().unlock();</span>
+    }
+  }
+
+  /**
+   * Searches for a value with a certain name in the value meta list
+   *
+   * @param valueName The value name to search for
+   * @return The value metadata or null if nothing was found
+   */
+  @Override
+  public IValueMeta searchValueMeta( String valueName ) {
+<span class="fc" id="L566">    lock.readLock().lock();</span>
+    try {
+<span class="fc" id="L568">      Integer index = indexOfValue( valueName );</span>
+<span class="fc bfc" id="L569" title="All 2 branches covered.">      if ( index &lt; 0 ) {</span>
+<span class="fc" id="L570">        return null;</span>
+      }
+<span class="fc" id="L572">      return valueMetaList.get( index );</span>
+    } finally {
+<span class="fc" id="L574">      lock.readLock().unlock();</span>
+    }
+  }
+
+  @Override
+  public void addRowMeta( IRowMeta rowMeta ) {
+<span class="fc bfc" id="L580" title="All 2 branches covered.">    for ( int i = 0; i &lt; rowMeta.size(); i++ ) {</span>
+<span class="fc" id="L581">      addValueMeta( rowMeta.getValueMeta( i ) );</span>
+    }
+<span class="fc" id="L583">  }</span>
+
+  /**
+   * Merge the values of row r to this Row. The values that are not yet in the row are added unchanged. The values that
+   * are in the row are renamed to name_2, name_3, etc.
+   *
+   * @param r The row to be merged with this row
+   */
+  @Override
+  public void mergeRowMeta( IRowMeta r ) {
+<span class="fc" id="L593">    mergeRowMeta( r, null );</span>
+<span class="fc" id="L594">  }</span>
+
+  /**
+   * Merge the values of row r to this Row. The fields that are not yet in the row are added unchanged. The fields that
+   * are in the row are renamed to name_2, name_3, etc. If the fields are renamed, the provided originTransformName will be
+   * assigned as the origin transform for those fields.
+   *
+   * @param r              The row to be merged with this row
+   * @param originTransformName The name to use as the origin transform
+   */
+  @Override
+  public void mergeRowMeta( IRowMeta r, String originTransformName ) {
+<span class="fc" id="L606">    lock.writeLock().lock();</span>
+    try {
+<span class="fc bfc" id="L608" title="All 2 branches covered.">      for ( int x = 0; x &lt; r.size(); x++ ) {</span>
+<span class="fc" id="L609">        IValueMeta field = r.getValueMeta( x );</span>
+<span class="fc bfc" id="L610" title="All 2 branches covered.">        if ( searchValueMeta( field.getName() ) == null ) {</span>
+<span class="fc" id="L611">          addValueMeta( field ); // Not in list yet: add</span>
+        } else {
+          // We want to rename the field to Name[2], Name[3], ...
+          //
+<span class="fc" id="L615">          addValueMeta( renameValueMetaIfInRow( field, originTransformName ) );</span>
+        }
+      }
+    } finally {
+<span class="fc" id="L619">      lock.writeLock().unlock();</span>
+    }
+<span class="fc" id="L621">  }</span>
+
+  private IValueMeta renameValueMetaIfInRow( IValueMeta valueMeta, String originTransform ) {
+    // We want to rename the field to Name[2], Name[3], ...
+    //
+<span class="fc" id="L626">    int index = 1;</span>
+<span class="fc" id="L627">    String name = valueMeta.getName() + &quot;_&quot; + index;</span>
+<span class="fc bfc" id="L628" title="All 2 branches covered.">    while ( searchValueMeta( name ) != null ) {</span>
+<span class="fc" id="L629">      index++;</span>
+<span class="fc" id="L630">      name = valueMeta.getName() + &quot;_&quot; + index;</span>
+    }
+
+    // Create a copy of the valueMeta object to make sure we don't rename any other value meta objects.
+    // It's only being renamed because of the addition to THIS row metadata object, not another.
+    //
+<span class="fc" id="L636">    IValueMeta copy = valueMeta.clone();</span>
+
+    // OK, this is the new name and origin to pick
+    //
+<span class="fc" id="L640">    copy.setName( name );</span>
+<span class="fc bfc" id="L641" title="All 2 branches covered.">    if ( originTransform != null ) {</span>
+<span class="fc" id="L642">      copy.setOrigin( originTransform );</span>
+    }
+<span class="fc" id="L644">    return copy;</span>
+  }
+
+  /**
+   * Get an array of the names of all the Values in the Row.
+   *
+   * @return an array of Strings: the names of all the Values in the Row.
+   */
+  @Override
+  public String[] getFieldNames() {
+<span class="fc" id="L654">    lock.readLock().lock();</span>
+    try {
+<span class="fc" id="L656">      String[] retval = new String[ size() ];</span>
+
+<span class="fc bfc" id="L658" title="All 2 branches covered.">      for ( int i = 0; i &lt; size(); i++ ) {</span>
+<span class="fc" id="L659">        String valueName = getValueMeta( i ).getName();</span>
+<span class="fc bfc" id="L660" title="All 2 branches covered.">        retval[ i ] = valueName == null ? &quot;&quot; : valueName;</span>
+      }
+
+<span class="fc" id="L663">      return retval;</span>
+    } finally {
+<span class="fc" id="L665">      lock.readLock().unlock();</span>
+    }
+  }
+
+  /**
+   * Write ONLY the specified data to the outputStream
+   *
+   * @throws HopFileException in case things go awry
+   */
+  @Override
+  public void writeData( DataOutputStream outputStream, Object[] data ) throws HopFileException {
+<span class="fc" id="L676">    lock.readLock().lock();</span>
+    try {
+      // Write all values in the row
+<span class="fc bfc" id="L679" title="All 2 branches covered.">      for ( int i = 0; i &lt; size(); i++ ) {</span>
+<span class="fc" id="L680">        getValueMeta( i ).writeData( outputStream, data[ i ] );</span>
+      }
+
+      // If there are 0 values in the row, we write a marker flag to be able to detect an EOF on the other end (sockets
+      // etc)
+      //
+<span class="pc bpc" id="L686" title="1 of 2 branches missed.">      if ( size() == 0 ) {</span>
+        try {
+<span class="nc" id="L688">          outputStream.writeBoolean( true );</span>
+<span class="nc" id="L689">        } catch ( IOException e ) {</span>
+<span class="nc" id="L690">          throw new HopFileException( &quot;Error writing marker flag&quot;, e );</span>
+<span class="nc" id="L691">        }</span>
+      }
+    } finally {
+<span class="fc" id="L694">      lock.readLock().unlock();</span>
+    }
+<span class="fc" id="L696">  }</span>
+
+  /**
+   * Write ONLY the specified metadata to the outputStream
+   *
+   * @throws HopFileException in case things go awry
+   */
+  @Override
+  public void writeMeta( DataOutputStream outputStream ) throws HopFileException {
+<span class="nc" id="L705">    lock.readLock().lock();</span>
+    try {
+      // First handle the number of fields in a row
+      try {
+<span class="nc" id="L709">        outputStream.writeInt( size() );</span>
+<span class="nc" id="L710">      } catch ( IOException e ) {</span>
+<span class="nc" id="L711">        throw new HopFileException( &quot;Unable to write nr of metadata values&quot;, e );</span>
+<span class="nc" id="L712">      }</span>
+
+      // Write all values in the row
+<span class="nc bnc" id="L715" title="All 2 branches missed.">      for ( int i = 0; i &lt; size(); i++ ) {</span>
+<span class="nc" id="L716">        getValueMeta( i ).writeMeta( outputStream );</span>
+      }
+    } finally {
+<span class="nc" id="L719">      lock.readLock().unlock();</span>
+    }
+
+<span class="nc" id="L722">  }</span>
+
+  public RowMeta( DataInputStream inputStream ) throws HopFileException, SocketTimeoutException {
+<span class="nc" id="L725">    this();</span>
+
+    int nr;
+    try {
+<span class="nc" id="L729">      nr = inputStream.readInt();</span>
+<span class="nc" id="L730">    } catch ( SocketTimeoutException e ) {</span>
+<span class="nc" id="L731">      throw e;</span>
+<span class="nc" id="L732">    } catch ( EOFException e ) {</span>
+<span class="nc" id="L733">      throw new HopEofException(</span>
+        &quot;End of file while reading the number of metadata values in the row metadata&quot;, e );
+<span class="nc" id="L735">    } catch ( IOException e ) {</span>
+<span class="nc" id="L736">      throw new HopFileException( &quot;Unable to read nr of metadata values: &quot; + e.toString(), e );</span>
+<span class="nc" id="L737">    }</span>
+
+<span class="nc bnc" id="L739" title="All 2 branches missed.">    for ( int i = 0; i &lt; nr; i++ ) {</span>
+      try {
+<span class="nc" id="L741">        int type = inputStream.readInt();</span>
+<span class="nc" id="L742">        IValueMeta valueMeta = ValueMetaFactory.createValueMeta( type );</span>
+<span class="nc" id="L743">        valueMeta.readMetaData( inputStream );</span>
+<span class="nc" id="L744">        addValueMeta( valueMeta );</span>
+<span class="nc" id="L745">      } catch ( EOFException e ) {</span>
+<span class="nc" id="L746">        throw new HopEofException( e );</span>
+<span class="nc" id="L747">      } catch ( Exception e ) {</span>
+<span class="nc" id="L748">        throw new HopFileException( toString() + &quot; : Unable to read row metadata from input stream&quot;, e );</span>
+<span class="nc" id="L749">      }</span>
+
+    }
+<span class="nc" id="L752">  }</span>
+
+  @Override
+  public Object[] readData( DataInputStream inputStream ) throws HopFileException, SocketTimeoutException {
+<span class="fc" id="L756">    lock.readLock().lock();</span>
+    try {
+<span class="fc" id="L758">      Object[] data = new Object[ size() ];</span>
+<span class="pc bpc" id="L759" title="1 of 2 branches missed.">      for ( int i = 0; i &lt; size(); i++ ) {</span>
+<span class="nc" id="L760">        data[ i ] = getValueMeta( i ).readData( inputStream );</span>
+      }
+<span class="pc bpc" id="L762" title="1 of 2 branches missed.">      if ( size() == 0 ) {</span>
+        try {
+<span class="fc" id="L764">          inputStream.readBoolean();</span>
+<span class="nc" id="L765">        } catch ( EOFException e ) {</span>
+<span class="nc" id="L766">          throw new HopEofException( e );</span>
+<span class="nc" id="L767">        } catch ( SocketTimeoutException e ) {</span>
+<span class="nc" id="L768">          throw e;</span>
+<span class="nc" id="L769">        } catch ( IOException e ) {</span>
+<span class="nc" id="L770">          throw new HopFileException( toString() + &quot; : Unable to read the marker flag data from input stream&quot;, e );</span>
+<span class="fc" id="L771">        }</span>
+
+      }
+<span class="fc" id="L774">      return data;</span>
+    } finally {
+<span class="fc" id="L776">      lock.readLock().unlock();</span>
+    }
+  }
+
+  @Override
+  public void clear() {
+<span class="fc" id="L782">    lock.writeLock().lock();</span>
+    try {
+<span class="fc" id="L784">      valueMetaList.clear();</span>
+<span class="fc" id="L785">      cache.invalidate();</span>
+<span class="fc" id="L786">      needRealClone = null;</span>
+    } finally {
+<span class="fc" id="L788">      lock.writeLock().unlock();</span>
+    }
+<span class="fc" id="L790">  }</span>
+
+  @Override
+  public void removeValueMeta( String valueName ) throws HopValueException {
+<span class="fc" id="L794">    lock.writeLock().lock();</span>
+    try {
+<span class="fc" id="L796">      int index = indexOfValue( valueName );</span>
+<span class="pc bpc" id="L797" title="1 of 2 branches missed.">      if ( index &lt; 0 ) {</span>
+<span class="nc" id="L798">        throw new HopValueException( &quot;Unable to find value metadata with name '&quot;</span>
+          + valueName + &quot;', so I can't delete it.&quot; );
+      }
+<span class="fc" id="L801">      removeValueMeta( index );</span>
+    } finally {
+<span class="fc" id="L803">      lock.writeLock().unlock();</span>
+    }
+<span class="fc" id="L805">  }</span>
+
+  @Override
+  public void removeValueMeta( int index ) {
+<span class="fc" id="L809">    lock.writeLock().lock();</span>
+    try {
+<span class="fc" id="L811">      valueMetaList.remove( index );</span>
+<span class="fc" id="L812">      cache.invalidate();</span>
+<span class="fc" id="L813">      needRealClone = null;</span>
+    } finally {
+<span class="fc" id="L815">      lock.writeLock().unlock();</span>
+    }
+<span class="fc" id="L817">  }</span>
+
+  /**
+   * @return a string with a description of all the metadata values of the complete row of metadata
+   */
+  @Override
+  public String toStringMeta() {
+<span class="nc" id="L824">    StringBuilder buffer = new StringBuilder();</span>
+<span class="nc" id="L825">    lock.readLock().lock();</span>
+    try {
+<span class="nc" id="L827">      boolean notFirst = false;</span>
+<span class="nc bnc" id="L828" title="All 2 branches missed.">      for ( IValueMeta valueMeta : valueMetaList ) {</span>
+<span class="nc bnc" id="L829" title="All 2 branches missed.">        if ( notFirst ) {</span>
+<span class="nc" id="L830">          buffer.append( &quot;, &quot; );</span>
+        } else {
+<span class="nc" id="L832">          notFirst = true;</span>
+        }
+<span class="nc" id="L834">        buffer.append( &quot;[&quot; ).append( valueMeta.toStringMeta() ).append( &quot;]&quot; );</span>
+<span class="nc" id="L835">      }</span>
+<span class="nc" id="L836">      return buffer.toString();</span>
+    } finally {
+<span class="nc" id="L838">      lock.readLock().unlock();</span>
+    }
+  }
+
+  /**
+   * Get the string representation of the data in a row of data
+   *
+   * @param row the row of data to convert to string
+   * @return the row of data in string form
+   * @throws HopValueException in case of a conversion error
+   */
+  @Override
+  public String getString( Object[] row ) throws HopValueException {
+<span class="nc" id="L851">    lock.readLock().lock();</span>
+    try {
+<span class="nc" id="L853">      StringBuilder buffer = new StringBuilder();</span>
+<span class="nc bnc" id="L854" title="All 2 branches missed.">      for ( int i = 0; i &lt; size(); i++ ) {</span>
+<span class="nc bnc" id="L855" title="All 2 branches missed.">        if ( i &gt; 0 ) {</span>
+<span class="nc" id="L856">          buffer.append( &quot;, &quot; );</span>
+        }
+<span class="nc" id="L858">        buffer.append( &quot;[&quot; );</span>
+<span class="nc" id="L859">        buffer.append( getString( row, i ) );</span>
+<span class="nc" id="L860">        buffer.append( &quot;]&quot; );</span>
+      }
+<span class="nc" id="L862">      return buffer.toString();</span>
+    } finally {
+<span class="nc" id="L864">      lock.readLock().unlock();</span>
+    }
+  }
+
+  /**
+   * Get an array of strings showing the name of the values in the row padded to a maximum length, followed by the types
+   * of the values.
+   *
+   * @param maxlen The length to which the name will be padded.
+   * @return an array of strings: the names and the types of the fieldnames in the row.
+   */
+  @Override
+  public String[] getFieldNamesAndTypes( int maxlen ) {
+<span class="nc" id="L877">    lock.readLock().lock();</span>
+    try {
+<span class="nc" id="L879">      final int size = size();</span>
+<span class="nc" id="L880">      String[] retval = new String[ size ];</span>
+
+<span class="nc bnc" id="L882" title="All 2 branches missed.">      for ( int i = 0; i &lt; size; i++ ) {</span>
+<span class="nc" id="L883">        IValueMeta v = getValueMeta( i );</span>
+<span class="nc" id="L884">        retval[ i ] = Const.rightPad( v.getName(), maxlen ) + &quot;   (&quot; + v.getTypeDesc() + &quot;)&quot;;</span>
+      }
+
+<span class="nc" id="L887">      return retval;</span>
+    } finally {
+<span class="nc" id="L889">      lock.readLock().unlock();</span>
+    }
+  }
+
+  /**
+   * Compare 2 rows with each other using certain values in the rows and also considering the specified ascending
+   * clauses of the value metadata.
+   *
+   * @param rowData1 The first row of data
+   * @param rowData2 The second row of data
+   * @param fieldnrs the fields to compare on (in that order)
+   * @return 0 if the rows are considered equal, -1 is data1 is smaller, 1 if data2 is smaller.
+   * @throws HopValueException
+   */
+  @Override
+  public int compare( Object[] rowData1, Object[] rowData2, int[] fieldnrs ) throws HopValueException {
+<span class="nc" id="L905">    lock.readLock().lock();</span>
+    try {
+<span class="nc bnc" id="L907" title="All 2 branches missed.">      for ( int fieldnr : fieldnrs ) {</span>
+<span class="nc" id="L908">        IValueMeta valueMeta = getValueMeta( fieldnr );</span>
+
+<span class="nc" id="L910">        int cmp = valueMeta.compare( rowData1[ fieldnr ], rowData2[ fieldnr ] );</span>
+<span class="nc bnc" id="L911" title="All 2 branches missed.">        if ( cmp != 0 ) {</span>
+<span class="nc" id="L912">          return cmp;</span>
+        }
+      }
+
+<span class="nc" id="L916">      return 0;</span>
+    } finally {
+<span class="nc" id="L918">      lock.readLock().unlock();</span>
+    }
+  }
+
+  /**
+   * Compare 2 rows with each other for equality using certain values in the rows and also considering the case
+   * sensitivity flag.
+   *
+   * @param rowData1 The first row of data
+   * @param rowData2 The second row of data
+   * @param fieldnrs the fields to compare on (in that order)
+   * @return true if the rows are considered equal, false if they are not.
+   * @throws HopValueException
+   */
+  @Override
+  public boolean equals( Object[] rowData1, Object[] rowData2, int[] fieldnrs ) throws HopValueException {
+<span class="nc" id="L934">    lock.readLock().lock();</span>
+    try {
+<span class="nc bnc" id="L936" title="All 2 branches missed.">      for ( int fieldnr : fieldnrs ) {</span>
+<span class="nc" id="L937">        IValueMeta valueMeta = getValueMeta( fieldnr );</span>
+
+<span class="nc" id="L939">        int cmp = valueMeta.compare( rowData1[ fieldnr ], rowData2[ fieldnr ] );</span>
+<span class="nc bnc" id="L940" title="All 2 branches missed.">        if ( cmp != 0 ) {</span>
+<span class="nc" id="L941">          return false;</span>
+        }
+      }
+
+<span class="nc" id="L945">      return true;</span>
+    } finally {
+<span class="nc" id="L947">      lock.readLock().unlock();</span>
+    }
+  }
+
+  /**
+   * Compare 2 rows with each other using certain values in the rows and also considering the specified ascending
+   * clauses of the value metadata.
+   *
+   * @param rowData1  The first row of data
+   * @param rowData2  The second row of data
+   * @param fieldnrs1 The indexes of the values to compare in the first row
+   * @param fieldnrs2 The indexes of the values to compare with in the second row
+   * @return 0 if the rows are considered equal, -1 is data1 is smaller, 1 if data2 is smaller.
+   * @throws HopValueException
+   */
+  @Override
+  public int compare( Object[] rowData1, Object[] rowData2, int[] fieldnrs1, int[] fieldnrs2 )
+    throws HopValueException {
+<span class="nc bnc" id="L965" title="All 2 branches missed.">    int len = ( fieldnrs1.length &lt; fieldnrs2.length ) ? fieldnrs1.length : fieldnrs2.length;</span>
+<span class="nc" id="L966">    lock.readLock().lock();</span>
+    try {
+<span class="nc bnc" id="L968" title="All 2 branches missed.">      for ( int i = 0; i &lt; len; i++ ) {</span>
+<span class="nc" id="L969">        IValueMeta valueMeta = getValueMeta( fieldnrs1[ i ] );</span>
+
+<span class="nc" id="L971">        int cmp = valueMeta.compare( rowData1[ fieldnrs1[ i ] ], rowData2[ fieldnrs2[ i ] ] );</span>
+<span class="nc bnc" id="L972" title="All 2 branches missed.">        if ( cmp != 0 ) {</span>
+<span class="nc" id="L973">          return cmp;</span>
+        }
+      }
+
+<span class="nc" id="L977">      return 0;</span>
+    } finally {
+<span class="nc" id="L979">      lock.readLock().unlock();</span>
+    }
+  }
+
+  /**
+   * Compare 2 rows with each other using certain values in the rows and also considering the specified ascending
+   * clauses of the value metadata.
+   *
+   * @param rowData1  The first row of data
+   * @param rowMeta2  the metadata of the second row of data
+   * @param rowData2  The second row of data
+   * @param fieldnrs1 The indexes of the values to compare in the first row
+   * @param fieldnrs2 The indexes of the values to compare with in the second row
+   * @return 0 if the rows are considered equal, -1 is data1 is smaller, 1 if data2 is smaller.
+   * @throws HopValueException
+   */
+  @Override
+  public int compare( Object[] rowData1, IRowMeta rowMeta2, Object[] rowData2, int[] fieldnrs1,
+                      int[] fieldnrs2 ) throws HopValueException {
+<span class="nc bnc" id="L998" title="All 2 branches missed.">    int len = ( fieldnrs1.length &lt; fieldnrs2.length ) ? fieldnrs1.length : fieldnrs2.length;</span>
+<span class="nc" id="L999">    lock.readLock().lock();</span>
+    try {
+<span class="nc bnc" id="L1001" title="All 2 branches missed.">      for ( int i = 0; i &lt; len; i++ ) {</span>
+<span class="nc" id="L1002">        IValueMeta valueMeta1 = getValueMeta( fieldnrs1[ i ] );</span>
+<span class="nc" id="L1003">        IValueMeta valueMeta2 = rowMeta2.getValueMeta( fieldnrs2[ i ] );</span>
+
+<span class="nc" id="L1005">        int cmp = valueMeta1.compare( rowData1[ fieldnrs1[ i ] ], valueMeta2, rowData2[ fieldnrs2[ i ] ] );</span>
+<span class="nc bnc" id="L1006" title="All 2 branches missed.">        if ( cmp != 0 ) {</span>
+<span class="nc" id="L1007">          return cmp;</span>
+        }
+      }
+
+<span class="nc" id="L1011">      return 0;</span>
+    } finally {
+<span class="nc" id="L1013">      lock.readLock().unlock();</span>
+    }
+  }
+
+  /**
+   * Compare 2 rows with each other using all values in the rows and also considering the specified ascending clauses of
+   * the value metadata.
+   *
+   * @param rowData1 The first row of data
+   * @param rowData2 The second row of data
+   * @return 0 if the rows are considered equal, -1 is data1 is smaller, 1 if data2 is smaller.
+   * @throws HopValueException
+   */
+  @Override
+  public int compare( Object[] rowData1, Object[] rowData2 ) throws HopValueException {
+<span class="nc" id="L1028">    lock.readLock().lock();</span>
+    try {
+<span class="nc bnc" id="L1030" title="All 2 branches missed.">      for ( int i = 0; i &lt; size(); i++ ) {</span>
+<span class="nc" id="L1031">        IValueMeta valueMeta = getValueMeta( i );</span>
+
+<span class="nc" id="L1033">        int cmp = valueMeta.compare( rowData1[ i ], rowData2[ i ] );</span>
+<span class="nc bnc" id="L1034" title="All 2 branches missed.">        if ( cmp != 0 ) {</span>
+<span class="nc" id="L1035">          return cmp;</span>
+        }
+      }
+
+<span class="nc" id="L1039">      return 0;</span>
+    } finally {
+<span class="nc" id="L1041">      lock.readLock().unlock();</span>
+    }
+  }
+
+  /**
+   * Calculate a hashCode of the content (not the index) of the data specified NOTE: This method uses a simple XOR of
+   * the individual hashCodes which can result in a lot of collisions for similar types of data (e.g. [A,B] == [B,A] and
+   * is not suitable for normal use. It is kept to provide backward compatibility with CombinationLookup.lookupValues()
+   *
+   * @param rowData The data to calculate a hashCode with
+   * @return the calculated hashCode
+   * @throws HopValueException in case there is a data conversion error
+   * @deprecated
+   */
+  @Override
+  @Deprecated
+  public int oldXORHashCode( Object[] rowData ) throws HopValueException {
+<span class="nc" id="L1058">    int hash = 0;</span>
+<span class="nc" id="L1059">    lock.readLock().lock();</span>
+    try {
+<span class="nc bnc" id="L1061" title="All 2 branches missed.">      for ( int i = 0; i &lt; size(); i++ ) {</span>
+<span class="nc" id="L1062">        IValueMeta valueMeta = getValueMeta( i );</span>
+<span class="nc" id="L1063">        hash ^= valueMeta.hashCode( rowData[ i ] );</span>
+      }
+
+<span class="nc" id="L1066">      return hash;</span>
+    } finally {
+<span class="nc" id="L1068">      lock.readLock().unlock();</span>
+    }
+  }
+
+  /**
+   * Calculates a simple hashCode of all the native data objects in the supplied row. This method will return a better
+   * distribution of values for rows of numbers or rows with the same values in different positions. NOTE: This method
+   * performs against the native values, not the values returned by ValueMeta. This means that if you have two rows with
+   * different primitive values ['2008-01-01:12:30'] and ['2008-01-01:00:00'] that use a format object to change the
+   * value (as Date yyyy-MM-dd), the hashCodes will be different resulting in the two rows not being considered equal
+   * via the hashCode even though compare() or equals() might consider them to be.
+   *
+   * @param rowData The data to calculate a hashCode with
+   * @return the calculated hashCode
+   * @throws HopValueException in case there is a data conversion error
+   */
+  @Override
+  public int hashCode( Object[] rowData ) throws HopValueException {
+<span class="fc" id="L1086">    return Arrays.deepHashCode( rowData );</span>
+  }
+
+  /**
+   * Calculates a hashcode of the converted value of all objects in the supplied row. This method returns distinct
+   * values for nulls of different data types and will return the same hashCode for different native values that have a
+   * ValueMeta converting them into the same value (e.g. ['2008-01-01:12:30'] and ['2008-01-01:00:00'] as Date
+   * yyyy-MM-dd)
+   *
+   * @param rowData The data to calculate a hashCode with
+   * @return the calculated hashCode
+   * @throws HopValueException in case there is a data conversion error
+   */
+  @Override
+  public int convertedValuesHashCode( Object[] rowData ) throws HopValueException {
+<span class="nc bnc" id="L1101" title="All 2 branches missed.">    if ( rowData == null ) {</span>
+<span class="nc" id="L1102">      return 0;</span>
+    }
+
+<span class="nc" id="L1105">    int result = 1;</span>
+<span class="nc" id="L1106">    lock.readLock().lock();</span>
+    try {
+<span class="nc bnc" id="L1108" title="All 2 branches missed.">      for ( int i = 0; i &lt; rowData.length; i++ ) {</span>
+<span class="nc" id="L1109">        result = 31 * result + getValueMeta( i ).hashCode();</span>
+      }
+<span class="nc" id="L1111">      return result;</span>
+    } finally {
+<span class="nc" id="L1113">      lock.readLock().unlock();</span>
+    }
+  }
+
+  /**
+   * Serialize a row of data to byte[]
+   *
+   * @param metadata the metadata to use
+   * @param row      the row of data
+   * @return a serialized form of the data as a byte array
+   */
+  public static byte[] extractData( IRowMeta metadata, Object[] row ) {
+    try {
+<span class="fc" id="L1126">      ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();</span>
+<span class="fc" id="L1127">      DataOutputStream dataOutputStream = new DataOutputStream( byteArrayOutputStream );</span>
+<span class="fc" id="L1128">      metadata.writeData( dataOutputStream, row );</span>
+<span class="fc" id="L1129">      dataOutputStream.close();</span>
+<span class="fc" id="L1130">      byteArrayOutputStream.close();</span>
+<span class="fc" id="L1131">      return byteArrayOutputStream.toByteArray();</span>
+<span class="nc" id="L1132">    } catch ( Exception e ) {</span>
+<span class="nc" id="L1133">      throw new RuntimeException( &quot;Error serializing row to byte array&quot;, e );</span>
+    }
+  }
+
+  /**
+   * Create a row of data bases on a serialized format (byte[])
+   *
+   * @param data     the serialized data
+   * @param metadata the metadata to use
+   * @return a new row of data
+   */
+  public static Object[] getRow( IRowMeta metadata, byte[] data ) {
+    try {
+<span class="fc" id="L1146">      ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream( data );</span>
+<span class="fc" id="L1147">      DataInputStream dataInputStream = new DataInputStream( byteArrayInputStream );</span>
+<span class="fc" id="L1148">      return metadata.readData( dataInputStream );</span>
+<span class="nc" id="L1149">    } catch ( Exception e ) {</span>
+<span class="nc" id="L1150">      throw new RuntimeException( &quot;Error de-serializing row of data from byte array&quot;, e );</span>
+    }
+  }
+
+  /**
+   * @return an XML representation of the row metadata
+   * @throws IOException Thrown in case there is an (Base64/GZip) encoding problem
+   */
+  @Override
+  public String getMetaXml() throws IOException {
+<span class="fc" id="L1160">    StringBuilder xml = new StringBuilder();</span>
+
+<span class="fc" id="L1162">    xml.append( &quot;&lt;&quot; ).append( XML_META_TAG ).append( &quot;&gt;&quot; );</span>
+
+<span class="fc" id="L1164">    lock.readLock().lock();</span>
+    try {
+<span class="fc bfc" id="L1166" title="All 2 branches covered.">      for ( int i = 0; i &lt; size(); i++ ) {</span>
+<span class="fc" id="L1167">        xml.append( getValueMeta( i ).getMetaXml() );</span>
+      }
+    } finally {
+<span class="fc" id="L1170">      lock.readLock().unlock();</span>
+    }
+
+<span class="fc" id="L1173">    xml.append( &quot;&lt;/&quot; ).append( XML_META_TAG ).append( &quot;&gt;&quot; );</span>
+
+<span class="fc" id="L1175">    return xml.toString();</span>
+  }
+
+  /**
+   * Create a new row metadata object from XML
+   *
+   * @param node the XML node to deserialize from
+   * @throws IOException Thrown in case there is an (Base64/GZip) decoding problem
+   */
+  public RowMeta( Node node ) throws HopException {
+<span class="fc" id="L1185">    this();</span>
+
+<span class="fc" id="L1187">    int nrValues = XmlHandler.countNodes( node, ValueMetaBase.XML_META_TAG );</span>
+<span class="fc bfc" id="L1188" title="All 2 branches covered.">    for ( int i = 0; i &lt; nrValues; i++ ) {</span>
+<span class="fc" id="L1189">      IValueMeta valueMetaSource = new ValueMetaBase( XmlHandler.getSubNodeByNr( node, ValueMetaBase.XML_META_TAG, i ) );</span>
+<span class="fc" id="L1190">      IValueMeta valueMeta = ValueMetaFactory.createValueMeta( valueMetaSource.getName(), valueMetaSource.getType(),</span>
+<span class="fc" id="L1191">        valueMetaSource.getLength(), valueMetaSource.getPrecision() );</span>
+<span class="fc" id="L1192">      ValueMetaFactory.cloneInfo( valueMetaSource, valueMeta );</span>
+<span class="fc" id="L1193">      addValueMeta( valueMeta );</span>
+    }
+<span class="fc" id="L1195">  }</span>
+
+  /**
+   * @param rowData the row of data to serialize as XML
+   * @return an XML representation of the row data
+   * @throws IOException Thrown in case there is an (Base64/GZip) encoding problem
+   */
+  @Override
+  public String getDataXml(Object[] rowData ) throws IOException {
+<span class="nc" id="L1204">    StringBuilder xml = new StringBuilder();</span>
+
+<span class="nc" id="L1206">    xml.append( &quot;&lt;&quot; ).append( XML_DATA_TAG ).append( &quot;&gt;&quot; );</span>
+
+<span class="nc" id="L1208">    lock.readLock().lock();</span>
+    try {
+<span class="nc bnc" id="L1210" title="All 2 branches missed.">      for ( int i = 0; i &lt; size(); i++ ) {</span>
+<span class="nc" id="L1211">        xml.append( getValueMeta( i ).getDataXml( rowData[ i ] ) );</span>
+      }
+    } finally {
+<span class="nc" id="L1214">      lock.readLock().unlock();</span>
+    }
+
+<span class="nc" id="L1217">    xml.append( &quot;&lt;/&quot; ).append( XML_DATA_TAG ).append( &quot;&gt;&quot; );</span>
+
+<span class="nc" id="L1219">    return xml.toString();</span>
+  }
+
+  /**
+   * Convert an XML node into binary data using the row metadata supplied.
+   *
+   * @param node The data row node
+   * @return a row of data, converted from XML
+   * @throws IOException Thrown in case there is an (Base64/GZip) decoding problem
+   */
+  @Override
+  public Object[] getRow( Node node ) throws HopException {
+<span class="nc" id="L1231">    lock.readLock().lock();</span>
+    try {
+<span class="nc" id="L1233">      Object[] rowData = RowDataUtil.allocateRowData( size() );</span>
+
+<span class="nc bnc" id="L1235" title="All 2 branches missed.">      for ( int i = 0; i &lt; size(); i++ ) {</span>
+<span class="nc" id="L1236">        Node valueDataNode = XmlHandler.getSubNodeByNr( node, ValueMetaBase.XML_DATA_TAG, i );</span>
+<span class="nc" id="L1237">        rowData[ i ] = getValueMeta( i ).getValue( valueDataNode );</span>
+      }
+<span class="nc" id="L1239">      return rowData;</span>
+    } finally {
+<span class="nc" id="L1241">      lock.readLock().unlock();</span>
+    }
+  }
+
+  @VisibleForTesting
+  static class RowMetaCache {
+    @VisibleForTesting final Map&lt;String, Integer&gt; mapping;
+
+    RowMetaCache() {
+<span class="fc" id="L1250">      this( new ConcurrentHashMap&lt;String, Integer&gt;() );</span>
+<span class="fc" id="L1251">    }</span>
+
+    /**
+     * Copy constructor for clone
+     *
+     * @param rowMetaCache
+     */
+    RowMetaCache( RowMetaCache rowMetaCache ) {
+<span class="fc" id="L1259">      this( new ConcurrentHashMap&lt;&gt;( rowMetaCache.mapping ) );</span>
+<span class="fc" id="L1260">    }</span>
+
+<span class="fc" id="L1262">    RowMetaCache( Map&lt;String, Integer&gt; mapping ) {</span>
+<span class="fc" id="L1263">      this.mapping = mapping;</span>
+<span class="fc" id="L1264">    }</span>
+
+    void invalidate() {
+<span class="fc" id="L1267">      mapping.clear();</span>
+<span class="fc" id="L1268">    }</span>
+
+    void storeMapping( String name, int index ) {
+<span class="fc bfc" id="L1271" title="All 2 branches covered.">      if ( Utils.isEmpty( name ) ) {</span>
+<span class="fc" id="L1272">        return;</span>
+      }
+<span class="fc" id="L1274">      mapping.put( name.toLowerCase(), index );</span>
+<span class="fc" id="L1275">    }</span>
+
+    void replaceMapping( String old, String current, int index ) {
+<span class="pc bpc" id="L1278" title="1 of 2 branches missed.">      if ( !Utils.isEmpty( old ) ) {</span>
+<span class="fc" id="L1279">        mapping.remove( old.toLowerCase() );</span>
+      }
+<span class="fc" id="L1281">      storeMapping( current, index );</span>
+<span class="fc" id="L1282">    }</span>
+
+    Integer findAndCompare( String name, List&lt;? extends IValueMeta&gt; metas ) {
+<span class="fc bfc" id="L1285" title="All 2 branches covered.">      if ( Utils.isEmpty( name ) ) {</span>
+<span class="fc" id="L1286">        return null;</span>
+      }
+
+<span class="fc" id="L1289">      name = name.toLowerCase();</span>
+<span class="fc" id="L1290">      Integer index = mapping.get( name );</span>
+<span class="fc bfc" id="L1291" title="All 2 branches covered.">      if ( index != null ) {</span>
+<span class="fc" id="L1292">        IValueMeta value = metas.get( index );</span>
+<span class="fc bfc" id="L1293" title="All 2 branches covered.">        if ( !name.equalsIgnoreCase( value.getName() ) ) {</span>
+<span class="fc" id="L1294">          mapping.remove( name );</span>
+<span class="fc" id="L1295">          index = null;</span>
+        }
+      }
+<span class="fc" id="L1298">      return index;</span>
+    }
+
+  }
+}
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

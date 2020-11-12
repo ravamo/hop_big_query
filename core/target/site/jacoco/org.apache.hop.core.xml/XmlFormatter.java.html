@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>XmlFormatter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.xml</a> &gt; <span class="el_source">XmlFormatter.java</span></div><h1>XmlFormatter.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+package org.apache.hop.core.xml;
+
+import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLOutputFactory;
+import javax.xml.stream.XMLStreamConstants;
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamReader;
+import javax.xml.stream.XMLStreamWriter;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * XML formatting for better VCS diff.
+ * &lt;p&gt;
+ * It preserve formatting only in cases: 1) inside one tag if there are only characters, 2) in comments, 3) if there are
+ * some characters outside tags
+ *
+ * @author Alexander Buloichik
+ */
+<span class="nc" id="L43">public class XmlFormatter {</span>
+  private static final String TRANSFORM_PREFIX = &quot;  &quot;;
+
+<span class="fc" id="L46">  private static XMLInputFactory INPUT_FACTORY = XMLInputFactory.newInstance();</span>
+<span class="fc" id="L47">  private static XMLOutputFactory OUTPUT_FACTORY = XMLOutputFactory.newInstance();</span>
+
+  static {
+<span class="fc" id="L50">    INPUT_FACTORY.setProperty( XMLInputFactory.IS_COALESCING, false );</span>
+<span class="fc" id="L51">  }</span>
+
+  public static String format( String xml ) {
+<span class="fc" id="L54">    XMLStreamReader rd = null;</span>
+<span class="fc" id="L55">    XMLStreamWriter wr = null;</span>
+
+<span class="fc" id="L57">    StringWriter result = new StringWriter();</span>
+    try {
+<span class="fc" id="L59">      rd = INPUT_FACTORY.createXMLStreamReader( new StringReader( xml ) );</span>
+
+<span class="fc" id="L61">      synchronized ( OUTPUT_FACTORY ) {</span>
+        // BACKLOG-18743: This object was not thread safe in some scenarios
+        // causing the `result` variable to have data from other concurrent executions
+        // and making the final output invalid.
+<span class="fc" id="L65">        wr = OUTPUT_FACTORY.createXMLStreamWriter( result );</span>
+<span class="fc" id="L66">      }</span>
+
+<span class="fc" id="L68">      StartElementBuffer startElementBuffer = null;</span>
+<span class="fc" id="L69">      StringBuilder str = new StringBuilder();</span>
+<span class="fc" id="L70">      StringBuilder prefix = new StringBuilder();</span>
+<span class="fc" id="L71">      StringBuilder cdata = new StringBuilder();</span>
+<span class="fc" id="L72">      boolean wasStart = false;</span>
+<span class="fc" id="L73">      boolean wasSomething = false;</span>
+<span class="fc bfc" id="L74" title="All 2 branches covered.">      while ( rd.hasNext() ) {</span>
+<span class="fc" id="L75">        int event = rd.next();</span>
+<span class="fc bfc" id="L76" title="All 4 branches covered.">        if ( event != XMLStreamConstants.CDATA &amp;&amp; cdata.length() &gt; 0 ) {</span>
+          // was CDATA
+<span class="fc" id="L78">          wr.writeCData( cdata.toString() );</span>
+<span class="fc" id="L79">          cdata.setLength( 0 );</span>
+        }
+
+<span class="fc bfc" id="L82" title="All 2 branches covered.">        if ( startElementBuffer != null ) {</span>
+<span class="fc bfc" id="L83" title="All 2 branches covered.">          if ( event == XMLStreamConstants.END_ELEMENT ) {</span>
+<span class="fc" id="L84">            startElementBuffer.writeTo( wr, true );</span>
+<span class="fc" id="L85">            startElementBuffer = null;</span>
+<span class="fc" id="L86">            prefix.setLength( prefix.length() - TRANSFORM_PREFIX.length() );</span>
+<span class="fc" id="L87">            wasStart = false;</span>
+<span class="fc" id="L88">            continue;</span>
+          } else {
+<span class="fc" id="L90">            startElementBuffer.writeTo( wr, false );</span>
+<span class="fc" id="L91">            startElementBuffer = null;</span>
+          }
+        }
+
+<span class="pc bpc" id="L95" title="1 of 7 branches missed.">        switch ( event ) {</span>
+          case XMLStreamConstants.START_ELEMENT:
+<span class="pc bpc" id="L97" title="1 of 2 branches missed.">            if ( !whitespacesOnly( str ) ) {</span>
+<span class="nc" id="L98">              wr.writeCharacters( str.toString() );</span>
+<span class="fc bfc" id="L99" title="All 2 branches covered.">            } else if ( wasSomething ) {</span>
+<span class="fc" id="L100">              wr.writeCharacters( &quot;\n&quot; + prefix );</span>
+            }
+<span class="fc" id="L102">            str.setLength( 0 );</span>
+<span class="fc" id="L103">            prefix.append( TRANSFORM_PREFIX );</span>
+<span class="fc" id="L104">            startElementBuffer = new StartElementBuffer( rd );</span>
+<span class="fc" id="L105">            wasStart = true;</span>
+<span class="fc" id="L106">            wasSomething = true;</span>
+<span class="fc" id="L107">            break;</span>
+          case XMLStreamConstants.END_ELEMENT:
+<span class="fc" id="L109">            prefix.setLength( prefix.length() - TRANSFORM_PREFIX.length() );</span>
+<span class="fc bfc" id="L110" title="All 2 branches covered.">            if ( wasStart ) {</span>
+<span class="fc" id="L111">              wr.writeCharacters( str.toString() );</span>
+            } else {
+<span class="pc bpc" id="L113" title="1 of 2 branches missed.">              if ( !whitespacesOnly( str ) ) {</span>
+<span class="nc" id="L114">                wr.writeCharacters( str.toString() );</span>
+              } else {
+<span class="fc" id="L116">                wr.writeCharacters( &quot;\n&quot; + prefix );</span>
+              }
+            }
+<span class="fc" id="L119">            str.setLength( 0 );</span>
+<span class="fc" id="L120">            wr.writeEndElement();</span>
+<span class="fc" id="L121">            wasStart = false;</span>
+<span class="fc" id="L122">            break;</span>
+          case XMLStreamConstants.SPACE:
+          case XMLStreamConstants.CHARACTERS:
+<span class="fc" id="L125">            str.append( rd.getText() );</span>
+<span class="fc" id="L126">            break;</span>
+          case XMLStreamConstants.CDATA:
+<span class="pc bpc" id="L128" title="1 of 2 branches missed.">            if ( !whitespacesOnly( str ) ) {</span>
+<span class="nc" id="L129">              wr.writeCharacters( str.toString() );</span>
+            }
+<span class="fc" id="L131">            str.setLength( 0 );</span>
+<span class="fc" id="L132">            cdata.append( rd.getText() );</span>
+<span class="fc" id="L133">            wasSomething = true;</span>
+<span class="fc" id="L134">            break;</span>
+          case XMLStreamConstants.COMMENT:
+<span class="pc bpc" id="L136" title="1 of 2 branches missed.">            if ( !whitespacesOnly( str ) ) {</span>
+<span class="nc" id="L137">              wr.writeCharacters( str.toString() );</span>
+<span class="pc bpc" id="L138" title="1 of 2 branches missed.">            } else if ( wasSomething ) {</span>
+<span class="fc" id="L139">              wr.writeCharacters( &quot;\n&quot; + prefix );</span>
+            }
+<span class="fc" id="L141">            str.setLength( 0 );</span>
+<span class="fc" id="L142">            wr.writeComment( rd.getText() );</span>
+<span class="fc" id="L143">            wasSomething = true;</span>
+<span class="fc" id="L144">            break;</span>
+          case XMLStreamConstants.END_DOCUMENT:
+<span class="fc" id="L146">            wr.writeCharacters( &quot;\n&quot; );</span>
+<span class="fc" id="L147">            wr.writeEndDocument();</span>
+<span class="fc" id="L148">            break;</span>
+          default:
+<span class="nc" id="L150">            throw new RuntimeException( &quot;Unknown XML event: &quot; + event );</span>
+        }
+<span class="fc" id="L152">      }</span>
+
+<span class="fc" id="L154">      wr.flush();</span>
+
+<span class="fc" id="L156">      return result.toString();</span>
+<span class="nc" id="L157">    } catch ( XMLStreamException ex ) {</span>
+<span class="nc" id="L158">      throw new RuntimeException( ex );</span>
+    } finally {
+      try {
+<span class="pc bpc" id="L161" title="1 of 2 branches missed.">        if ( wr != null ) {</span>
+<span class="fc" id="L162">          wr.close();</span>
+        }
+<span class="nc" id="L164">      } catch ( Exception ex ) {</span>
+<span class="fc" id="L165">      }</span>
+      try {
+<span class="pc bpc" id="L167" title="1 of 2 branches missed.">        if ( rd != null ) {</span>
+<span class="fc" id="L168">          rd.close();</span>
+        }
+<span class="nc" id="L170">      } catch ( Exception ex ) {</span>
+<span class="fc" id="L171">      }</span>
+    }
+  }
+
+  /**
+   * Storage for start element info. It required since elements can be empty, i.e. we should call writeEmptyElement for
+   * writer instead writeStartElement.
+   */
+  private static class StartElementBuffer {
+    String prefix;
+    String namespace;
+    String localName;
+<span class="fc" id="L183">    List&lt;AttrBuffer&gt; attrBuffer = new ArrayList&lt;&gt;();</span>
+
+<span class="fc" id="L185">    public StartElementBuffer( XMLStreamReader rd ) {</span>
+<span class="fc" id="L186">      prefix = rd.getPrefix();</span>
+<span class="fc" id="L187">      namespace = rd.getNamespaceURI();</span>
+<span class="fc" id="L188">      localName = rd.getLocalName();</span>
+<span class="fc bfc" id="L189" title="All 2 branches covered.">      for ( int i = 0; i &lt; rd.getAttributeCount(); i++ ) {</span>
+<span class="fc" id="L190">        attrBuffer.add( new AttrBuffer( rd, i ) );</span>
+      }
+<span class="fc" id="L192">    }</span>
+
+    public void writeTo( XMLStreamWriter wr, boolean empty ) throws XMLStreamException {
+<span class="fc bfc" id="L195" title="All 2 branches covered.">      if ( empty ) {</span>
+<span class="pc bpc" id="L196" title="1 of 2 branches missed.">        if ( namespace != null ) {</span>
+<span class="fc" id="L197">          wr.writeEmptyElement( prefix, localName, namespace );</span>
+        } else {
+<span class="nc" id="L199">          wr.writeEmptyElement( localName );</span>
+        }
+      } else {
+<span class="pc bpc" id="L202" title="1 of 2 branches missed.">        if ( namespace != null ) {</span>
+<span class="fc" id="L203">          wr.writeStartElement( prefix, localName, namespace );</span>
+        } else {
+<span class="nc" id="L205">          wr.writeStartElement( localName );</span>
+        }
+      }
+<span class="fc bfc" id="L208" title="All 2 branches covered.">      for ( AttrBuffer a : attrBuffer ) {</span>
+<span class="fc" id="L209">        a.writeTo( wr );</span>
+<span class="fc" id="L210">      }</span>
+<span class="fc" id="L211">    }</span>
+  }
+
+  private static class AttrBuffer {
+    String prefix;
+    String namespace;
+    String localName;
+    String value;
+
+<span class="fc" id="L220">    public AttrBuffer( XMLStreamReader rd, int attrIndex ) {</span>
+<span class="fc" id="L221">      prefix = rd.getAttributePrefix( attrIndex );</span>
+<span class="fc" id="L222">      namespace = rd.getAttributeNamespace( attrIndex );</span>
+<span class="fc" id="L223">      localName = rd.getAttributeLocalName( attrIndex );</span>
+<span class="fc" id="L224">      value = rd.getAttributeValue( attrIndex );</span>
+<span class="fc" id="L225">    }</span>
+
+    public void writeTo( XMLStreamWriter wr ) throws XMLStreamException {
+<span class="pc bpc" id="L228" title="1 of 2 branches missed.">      if ( namespace != null ) {</span>
+<span class="fc" id="L229">        wr.writeAttribute( prefix, namespace, localName, value );</span>
+      } else {
+<span class="nc" id="L231">        wr.writeAttribute( localName, value );</span>
+      }
+<span class="fc" id="L233">    }</span>
+  }
+
+  private static boolean whitespacesOnly( StringBuilder str ) {
+<span class="fc bfc" id="L237" title="All 2 branches covered.">    for ( int i = 0; i &lt; str.length(); i++ ) {</span>
+<span class="pc bpc" id="L238" title="1 of 2 branches missed.">      if ( !Character.isWhitespace( str.charAt( i ) ) ) {</span>
+<span class="nc" id="L239">        return false;</span>
+      }
+    }
+<span class="fc" id="L242">    return true;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

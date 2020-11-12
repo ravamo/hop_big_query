@@ -1,0 +1,452 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FileInputList.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.fileinput</a> &gt; <span class="el_source">FileInputList.java</span></div><h1>FileInputList.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.fileinput;
+
+import org.apache.commons.vfs2.AllFileSelector;
+import org.apache.commons.vfs2.FileObject;
+import org.apache.commons.vfs2.FileSelectInfo;
+import org.apache.commons.vfs2.FileType;
+import org.apache.commons.vfs2.provider.compressed.CompressedFileFileObject;
+import org.apache.hop.core.Const;
+import org.apache.hop.core.logging.LogChannel;
+import org.apache.hop.core.logging.ILogChannel;
+import org.apache.hop.core.util.Utils;
+import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.core.vfs.HopVfs;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.regex.Pattern;
+
+<span class="fc" id="L46">public class FileInputList {</span>
+<span class="fc" id="L47">  private List&lt;FileObject&gt; files = new ArrayList&lt;FileObject&gt;();</span>
+<span class="fc" id="L48">  private List&lt;FileObject&gt; nonExistantFiles = new ArrayList&lt;FileObject&gt;( 1 );</span>
+<span class="fc" id="L49">  private List&lt;FileObject&gt; nonAccessibleFiles = new ArrayList&lt;FileObject&gt;( 1 );</span>
+
+<span class="fc" id="L51">  private static ILogChannel log = new LogChannel( &quot;FileInputList&quot; );</span>
+
+<span class="nc" id="L53">  public enum FileTypeFilter {</span>
+<span class="nc" id="L54">    FILES_AND_FOLDERS( &quot;all_files&quot;, FileType.FILE, FileType.FOLDER ), ONLY_FILES( &quot;only_files&quot;, FileType.FILE ),</span>
+<span class="nc" id="L55">    ONLY_FOLDERS( &quot;only_folders&quot;, FileType.FOLDER );</span>
+
+    private String name;
+    private final Collection&lt;FileType&gt; allowedFileTypes;
+
+<span class="nc" id="L60">    private FileTypeFilter( String name, FileType... allowedFileTypes ) {</span>
+<span class="nc" id="L61">      this.name = name;</span>
+<span class="nc" id="L62">      this.allowedFileTypes = Collections.unmodifiableCollection( Arrays.asList( allowedFileTypes ) );</span>
+<span class="nc" id="L63">    }</span>
+
+    public boolean isFileTypeAllowed( FileType fileType ) {
+<span class="nc" id="L66">      return allowedFileTypes.contains( fileType );</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L71">      return name;</span>
+    }
+
+    public static FileTypeFilter getByOrdinal( int ordinal ) {
+<span class="nc bnc" id="L75" title="All 2 branches missed.">      for ( FileTypeFilter filter : FileTypeFilter.values() ) {</span>
+<span class="nc bnc" id="L76" title="All 2 branches missed.">        if ( filter.ordinal() == ordinal ) {</span>
+<span class="nc" id="L77">          return filter;</span>
+        }
+      }
+<span class="nc" id="L80">      return ONLY_FILES;</span>
+    }
+
+    public static FileTypeFilter getByName( String name ) {
+<span class="nc bnc" id="L84" title="All 2 branches missed.">      for ( FileTypeFilter filter : FileTypeFilter.values() ) {</span>
+<span class="nc bnc" id="L85" title="All 2 branches missed.">        if ( filter.name.equals( name ) ) {</span>
+<span class="nc" id="L86">          return filter;</span>
+        }
+      }
+<span class="nc" id="L89">      return ONLY_FILES;</span>
+    }
+  }
+
+  private static final String YES = &quot;Y&quot;;
+
+  public static String getRequiredFilesDescription( List&lt;FileObject&gt; nonExistantFiles ) {
+<span class="nc" id="L96">    StringBuilder buffer = new StringBuilder();</span>
+<span class="nc bnc" id="L97" title="All 2 branches missed.">    for ( Iterator&lt;FileObject&gt; iter = nonExistantFiles.iterator(); iter.hasNext(); ) {</span>
+<span class="nc" id="L98">      FileObject file = iter.next();</span>
+<span class="nc" id="L99">      buffer.append( file.getName().getURI() );</span>
+<span class="nc" id="L100">      buffer.append( Const.CR );</span>
+<span class="nc" id="L101">    }</span>
+<span class="nc" id="L102">    return buffer.toString();</span>
+  }
+
+  private static boolean[] includeSubdirsFalse( int iLength ) {
+<span class="nc" id="L106">    boolean[] includeSubdirs = new boolean[ iLength ];</span>
+<span class="nc bnc" id="L107" title="All 2 branches missed.">    for ( int i = 0; i &lt; iLength; i++ ) {</span>
+<span class="nc" id="L108">      includeSubdirs[ i ] = false;</span>
+    }
+<span class="nc" id="L110">    return includeSubdirs;</span>
+  }
+
+  public static String[] createFilePathList( IVariables variables, String[] fileName, String[] fileMask,
+                                             String[] excludeFileMask, String[] fileRequired ) {
+<span class="nc" id="L115">    boolean[] includeSubdirs = includeSubdirsFalse( fileName.length );</span>
+<span class="nc" id="L116">    return createFilePathList( variables, fileName, fileMask, excludeFileMask, fileRequired, includeSubdirs, null );</span>
+  }
+
+  public static String[] createFilePathList( IVariables variables, String[] fileName, String[] fileMask,
+                                             String[] excludeFileMask, String[] fileRequired,
+                                             boolean[] includeSubdirs ) {
+<span class="nc" id="L122">    return createFilePathList( variables, fileName, fileMask, excludeFileMask, fileRequired, includeSubdirs, null );</span>
+  }
+
+  public static String[] createFilePathList( IVariables variables, String[] fileName, String[] fileMask,
+                                             String[] excludeFileMask, String[] fileRequired, boolean[] includeSubdirs,
+                                             FileTypeFilter[] filters ) {
+<span class="nc" id="L128">    List&lt;FileObject&gt; fileList =</span>
+<span class="nc" id="L129">      createFileList( variables, fileName, fileMask, excludeFileMask, fileRequired, includeSubdirs, filters )</span>
+<span class="nc" id="L130">        .getFiles();</span>
+<span class="nc" id="L131">    String[] filePaths = new String[ fileList.size() ];</span>
+<span class="nc bnc" id="L132" title="All 2 branches missed.">    for ( int i = 0; i &lt; filePaths.length; i++ ) {</span>
+<span class="nc" id="L133">      filePaths[ i ] = fileList.get( i ).getName().getURI();</span>
+    }
+<span class="nc" id="L135">    return filePaths;</span>
+  }
+
+  public static FileInputList createFileList( IVariables variables, String[] fileName, String[] fileMask,
+                                              String[] excludeFileMask, String[] fileRequired ) {
+<span class="nc" id="L140">    boolean[] includeSubdirs = includeSubdirsFalse( fileName.length );</span>
+<span class="nc" id="L141">    return createFileList( variables, fileName, fileMask, excludeFileMask, fileRequired, includeSubdirs, null );</span>
+  }
+
+  public static FileInputList createFileList( IVariables variables, String[] fileName, String[] fileMask,
+                                              String[] excludeFileMask, String[] fileRequired,
+                                              boolean[] includeSubdirs ) {
+<span class="nc" id="L147">    return createFileList( variables, fileName, fileMask, excludeFileMask, fileRequired, includeSubdirs, null );</span>
+  }
+
+  public static FileInputList createFileList( IVariables variables, String[] fileName, String[] fileMask,
+                                              String[] excludeFileMask, String[] fileRequired, boolean[] includeSubdirs,
+                                              FileTypeFilter[] fileTypeFilters ) {
+<span class="nc" id="L153">    FileInputList fileInputList = new FileInputList();</span>
+
+    // Replace possible environment variables...
+<span class="nc" id="L156">    final String[] realfile = variables.environmentSubstitute( fileName );</span>
+<span class="nc" id="L157">    final String[] realmask = variables.environmentSubstitute( fileMask );</span>
+<span class="nc" id="L158">    final String[] realExcludeMask = variables.environmentSubstitute( excludeFileMask );</span>
+
+<span class="nc bnc" id="L160" title="All 2 branches missed.">    for ( int i = 0; i &lt; realfile.length; i++ ) {</span>
+<span class="nc" id="L161">      final String onefile = realfile[ i ];</span>
+<span class="nc" id="L162">      final String onemask = realmask[ i ];</span>
+<span class="nc" id="L163">      final String excludeonemask = realExcludeMask[ i ];</span>
+<span class="nc" id="L164">      final boolean onerequired = YES.equalsIgnoreCase( fileRequired[ i ] );</span>
+<span class="nc" id="L165">      final boolean subdirs = includeSubdirs[ i ];</span>
+<span class="nc bnc" id="L166" title="All 4 branches missed.">      final FileTypeFilter filter =</span>
+        ( ( fileTypeFilters == null || fileTypeFilters[ i ] == null )
+          ? FileTypeFilter.ONLY_FILES : fileTypeFilters[ i ] );
+
+<span class="nc bnc" id="L170" title="All 2 branches missed.">      if ( Utils.isEmpty( onefile ) ) {</span>
+<span class="nc" id="L171">        continue;</span>
+      }
+
+      try {
+<span class="nc" id="L175">        FileObject directoryFileObject = HopVfs.getFileObject( onefile );</span>
+<span class="nc" id="L176">        boolean processFolder = true;</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">        if ( onerequired ) {</span>
+<span class="nc bnc" id="L178" title="All 2 branches missed.">          if ( !directoryFileObject.exists() ) {</span>
+            // if we don't find folder..no need to continue
+<span class="nc" id="L180">            fileInputList.addNonExistantFile( directoryFileObject );</span>
+<span class="nc" id="L181">            processFolder = false;</span>
+          } else {
+<span class="nc bnc" id="L183" title="All 2 branches missed.">            if ( !directoryFileObject.isReadable() ) {</span>
+<span class="nc" id="L184">              fileInputList.addNonAccessibleFile( directoryFileObject );</span>
+<span class="nc" id="L185">              processFolder = false;</span>
+            }
+          }
+        }
+
+        // Find all file names that match the wildcard in this directory
+        //
+<span class="nc bnc" id="L192" title="All 2 branches missed.">        if ( processFolder ) {</span>
+<span class="nc bnc" id="L193" title="All 4 branches missed.">          if ( directoryFileObject != null &amp;&amp; directoryFileObject.getType() == FileType.FOLDER ) { // it's a directory</span>
+<span class="nc" id="L194">            FileObject[] fileObjects = directoryFileObject.findFiles( new AllFileSelector() {</span>
+              @Override
+              public boolean traverseDescendents( FileSelectInfo info ) {
+<span class="nc bnc" id="L197" title="All 4 branches missed.">                return info.getDepth() == 0 || subdirs;</span>
+              }
+
+              @Override
+              public boolean includeFile( FileSelectInfo info ) {
+                // Never return the parent directory of a file list.
+<span class="nc bnc" id="L203" title="All 2 branches missed.">                if ( info.getDepth() == 0 ) {</span>
+<span class="nc" id="L204">                  return false;</span>
+                }
+
+<span class="nc" id="L207">                FileObject fileObject = info.getFile();</span>
+                try {
+<span class="nc bnc" id="L209" title="All 4 branches missed.">                  if ( fileObject != null &amp;&amp; filter.isFileTypeAllowed( fileObject.getType() ) ) {</span>
+<span class="nc" id="L210">                    String name = info.getFile().getName().getBaseName();</span>
+<span class="nc" id="L211">                    boolean matches = true;</span>
+<span class="nc bnc" id="L212" title="All 2 branches missed.">                    if ( !Utils.isEmpty( onemask ) ) {</span>
+<span class="nc" id="L213">                      matches = Pattern.matches( onemask, name );</span>
+                    }
+<span class="nc" id="L215">                    boolean excludematches = false;</span>
+<span class="nc bnc" id="L216" title="All 2 branches missed.">                    if ( !Utils.isEmpty( excludeonemask ) ) {</span>
+<span class="nc" id="L217">                      excludematches = Pattern.matches( excludeonemask, name );</span>
+                    }
+<span class="nc bnc" id="L219" title="All 4 branches missed.">                    return ( matches &amp;&amp; !excludematches );</span>
+                  }
+<span class="nc" id="L221">                  return false;</span>
+<span class="nc" id="L222">                } catch ( IOException ex ) {</span>
+                  // Upon error don't process the file.
+<span class="nc" id="L224">                  return false;</span>
+                }
+              }
+            } );
+<span class="nc bnc" id="L228" title="All 2 branches missed.">            if ( fileObjects != null ) {</span>
+<span class="nc bnc" id="L229" title="All 2 branches missed.">              for ( int j = 0; j &lt; fileObjects.length; j++ ) {</span>
+<span class="nc" id="L230">                FileObject fileObject = fileObjects[ j ];</span>
+<span class="nc bnc" id="L231" title="All 2 branches missed.">                if ( fileObject.exists() ) {</span>
+<span class="nc" id="L232">                  fileInputList.addFile( fileObject );</span>
+                }
+              }
+            }
+<span class="nc bnc" id="L236" title="All 2 branches missed.">            if ( Utils.isEmpty( fileObjects ) ) {</span>
+<span class="nc bnc" id="L237" title="All 2 branches missed.">              if ( onerequired ) {</span>
+<span class="nc" id="L238">                fileInputList.addNonAccessibleFile( directoryFileObject );</span>
+              }
+            }
+
+            // Sort the list: quicksort, only for regular files
+<span class="nc" id="L243">            fileInputList.sortFiles();</span>
+<span class="nc bnc" id="L244" title="All 2 branches missed.">          } else if ( directoryFileObject instanceof CompressedFileFileObject ) {</span>
+<span class="nc" id="L245">            FileObject[] children = directoryFileObject.getChildren();</span>
+<span class="nc bnc" id="L246" title="All 2 branches missed.">            for ( int j = 0; j &lt; children.length; j++ ) {</span>
+              // See if the wildcard (regexp) matches...
+<span class="nc" id="L248">              String name = children[ j ].getName().getBaseName();</span>
+<span class="nc" id="L249">              boolean matches = true;</span>
+<span class="nc bnc" id="L250" title="All 2 branches missed.">              if ( !Utils.isEmpty( onemask ) ) {</span>
+<span class="nc" id="L251">                matches = Pattern.matches( onemask, name );</span>
+              }
+<span class="nc" id="L253">              boolean excludematches = false;</span>
+<span class="nc bnc" id="L254" title="All 2 branches missed.">              if ( !Utils.isEmpty( excludeonemask ) ) {</span>
+<span class="nc" id="L255">                excludematches = Pattern.matches( excludeonemask, name );</span>
+              }
+<span class="nc bnc" id="L257" title="All 4 branches missed.">              if ( matches &amp;&amp; !excludematches ) {</span>
+<span class="nc" id="L258">                fileInputList.addFile( children[ j ] );</span>
+              }
+
+            }
+            // We don't sort here, keep the order of the files in the archive.
+<span class="nc" id="L263">          } else {</span>
+<span class="nc" id="L264">            FileObject fileObject = HopVfs.getFileObject( onefile );</span>
+<span class="nc bnc" id="L265" title="All 2 branches missed.">            if ( fileObject.exists() ) {</span>
+<span class="nc bnc" id="L266" title="All 2 branches missed.">              if ( fileObject.isReadable() ) {</span>
+<span class="nc" id="L267">                fileInputList.addFile( fileObject );</span>
+              } else {
+<span class="nc bnc" id="L269" title="All 2 branches missed.">                if ( onerequired ) {</span>
+<span class="nc" id="L270">                  fileInputList.addNonAccessibleFile( fileObject );</span>
+                }
+              }
+            } else {
+<span class="nc bnc" id="L274" title="All 2 branches missed.">              if ( onerequired ) {</span>
+<span class="nc" id="L275">                fileInputList.addNonExistantFile( fileObject );</span>
+              }
+            }
+          }
+        }
+<span class="nc" id="L280">      } catch ( Exception e ) {</span>
+<span class="nc bnc" id="L281" title="All 2 branches missed.">        if ( onerequired ) {</span>
+<span class="nc" id="L282">          fileInputList.addNonAccessibleFile( new NonAccessibleFileObject( onefile ) );</span>
+        }
+<span class="nc" id="L284">        log.logError( Const.getStackTracker( e ) );</span>
+<span class="nc" id="L285">      }</span>
+    }
+
+<span class="nc" id="L288">    return fileInputList;</span>
+  }
+
+  public static FileInputList createFolderList( IVariables variables, String[] folderName, String[] folderRequired ) {
+<span class="nc" id="L292">    FileInputList fileInputList = new FileInputList();</span>
+
+    // Replace possible environment variables...
+<span class="nc" id="L295">    final String[] realfolder = variables.environmentSubstitute( folderName );</span>
+
+<span class="nc bnc" id="L297" title="All 2 branches missed.">    for ( int i = 0; i &lt; realfolder.length; i++ ) {</span>
+<span class="nc" id="L298">      final String onefile = realfolder[ i ];</span>
+<span class="nc" id="L299">      final boolean onerequired = YES.equalsIgnoreCase( folderRequired[ i ] );</span>
+<span class="nc" id="L300">      final boolean subdirs = true;</span>
+<span class="nc" id="L301">      final FileTypeFilter filter = FileTypeFilter.ONLY_FOLDERS;</span>
+
+<span class="nc bnc" id="L303" title="All 2 branches missed.">      if ( Utils.isEmpty( onefile ) ) {</span>
+<span class="nc" id="L304">        continue;</span>
+      }
+<span class="nc" id="L306">      FileObject directoryFileObject = null;</span>
+
+      try {
+        // Find all folder names in this directory
+        //
+<span class="nc" id="L311">        directoryFileObject = HopVfs.getFileObject( onefile );</span>
+<span class="nc bnc" id="L312" title="All 4 branches missed.">        if ( directoryFileObject != null &amp;&amp; directoryFileObject.getType() == FileType.FOLDER ) { // it's a directory</span>
+<span class="nc" id="L313">          FileObject[] fileObjects = directoryFileObject.findFiles( new AllFileSelector() {</span>
+            @Override
+            public boolean traverseDescendents( FileSelectInfo info ) {
+<span class="nc bnc" id="L316" title="All 2 branches missed.">              return info.getDepth() == 0 || subdirs;</span>
+            }
+
+            @Override
+            public boolean includeFile( FileSelectInfo info ) {
+              // Never return the parent directory of a file list.
+<span class="nc bnc" id="L322" title="All 2 branches missed.">              if ( info.getDepth() == 0 ) {</span>
+<span class="nc" id="L323">                return false;</span>
+              }
+
+<span class="nc" id="L326">              FileObject fileObject = info.getFile();</span>
+              try {
+<span class="nc bnc" id="L328" title="All 4 branches missed.">                if ( fileObject != null &amp;&amp; filter.isFileTypeAllowed( fileObject.getType() ) ) {</span>
+<span class="nc" id="L329">                  return true;</span>
+                }
+<span class="nc" id="L331">                return false;</span>
+<span class="nc" id="L332">              } catch ( IOException ex ) {</span>
+                // Upon error don't process the file.
+<span class="nc" id="L334">                return false;</span>
+              }
+            }
+          } );
+<span class="nc bnc" id="L338" title="All 2 branches missed.">          if ( fileObjects != null ) {</span>
+<span class="nc bnc" id="L339" title="All 2 branches missed.">            for ( int j = 0; j &lt; fileObjects.length; j++ ) {</span>
+<span class="nc bnc" id="L340" title="All 2 branches missed.">              if ( fileObjects[ j ].exists() ) {</span>
+<span class="nc" id="L341">                fileInputList.addFile( fileObjects[ j ] );</span>
+              }
+            }
+          }
+<span class="nc bnc" id="L345" title="All 2 branches missed.">          if ( Utils.isEmpty( fileObjects ) ) {</span>
+<span class="nc bnc" id="L346" title="All 2 branches missed.">            if ( onerequired ) {</span>
+<span class="nc" id="L347">              fileInputList.addNonAccessibleFile( directoryFileObject );</span>
+            }
+          }
+
+          // Sort the list: quicksort, only for regular files
+<span class="nc" id="L352">          fileInputList.sortFiles();</span>
+<span class="nc" id="L353">        } else {</span>
+<span class="nc bnc" id="L354" title="All 4 branches missed.">          if ( onerequired &amp;&amp; !directoryFileObject.exists() ) {</span>
+<span class="nc" id="L355">            fileInputList.addNonExistantFile( directoryFileObject );</span>
+          }
+        }
+<span class="nc" id="L358">      } catch ( Exception e ) {</span>
+<span class="nc" id="L359">        log.logError( Const.getStackTracker( e ) );</span>
+      } finally {
+        try {
+<span class="nc bnc" id="L362" title="All 2 branches missed.">          if ( directoryFileObject != null ) {</span>
+<span class="nc" id="L363">            directoryFileObject.close();</span>
+          }
+<span class="nc" id="L365">          directoryFileObject = null;</span>
+<span class="nc" id="L366">        } catch ( Exception e ) {</span>
+          // Ignore
+<span class="nc" id="L368">        }</span>
+      }
+    }
+
+<span class="nc" id="L372">    return fileInputList;</span>
+  }
+
+  public List&lt;FileObject&gt; getFiles() {
+<span class="nc" id="L376">    return files;</span>
+  }
+
+  public String[] getFileStrings() {
+<span class="nc" id="L380">    String[] fileStrings = new String[ files.size() ];</span>
+<span class="nc bnc" id="L381" title="All 2 branches missed.">    for ( int i = 0; i &lt; fileStrings.length; i++ ) {</span>
+<span class="nc" id="L382">      fileStrings[ i ] = HopVfs.getFilename( files.get( i ) );</span>
+    }
+<span class="nc" id="L384">    return fileStrings;</span>
+  }
+
+  public String[] getUrlStrings() {
+<span class="fc" id="L388">    String[] fileStrings = new String[ files.size() ];</span>
+<span class="fc bfc" id="L389" title="All 2 branches covered.">    for ( int i = 0; i &lt; fileStrings.length; i++ ) {</span>
+<span class="fc" id="L390">      fileStrings[ i ] = files.get( i ).getPublicURIString();</span>
+    }
+<span class="fc" id="L392">    return fileStrings;</span>
+  }
+
+  public List&lt;FileObject&gt; getNonAccessibleFiles() {
+<span class="nc" id="L396">    return nonAccessibleFiles;</span>
+  }
+
+  public List&lt;FileObject&gt; getNonExistantFiles() {
+<span class="nc" id="L400">    return nonExistantFiles;</span>
+  }
+
+  public void addFile( FileObject file ) {
+<span class="fc" id="L404">    files.add( file );</span>
+<span class="fc" id="L405">  }</span>
+
+  public void addNonAccessibleFile( FileObject file ) {
+<span class="nc" id="L408">    nonAccessibleFiles.add( file );</span>
+<span class="nc" id="L409">  }</span>
+
+  public void addNonExistantFile( FileObject file ) {
+<span class="nc" id="L412">    nonExistantFiles.add( file );</span>
+<span class="nc" id="L413">  }</span>
+
+  public void sortFiles() {
+<span class="nc" id="L416">    Collections.sort( files, HopVfs.getComparator() );</span>
+<span class="nc" id="L417">    Collections.sort( nonAccessibleFiles, HopVfs.getComparator() );</span>
+<span class="nc" id="L418">    Collections.sort( nonExistantFiles, HopVfs.getComparator() );</span>
+<span class="nc" id="L419">  }</span>
+
+  /*
+   * private boolean containsComparable(List list) { if (list == null || list.size() == 0) return false;
+   *
+   * return (list.get(0) instanceof Comparable); }
+   */
+
+  public FileObject getFile( int i ) {
+<span class="nc" id="L428">    return files.get( i );</span>
+  }
+
+  public int nrOfFiles() {
+<span class="nc" id="L432">    return files.size();</span>
+  }
+
+  public int nrOfMissingFiles() {
+<span class="nc" id="L436">    return nonAccessibleFiles.size() + nonExistantFiles.size();</span>
+  }
+
+  public static FileInputList createFileList( IVariables variables, String[] fileName, String[] fileMask,
+                                              String[] fileRequired, boolean[] includeSubdirs ) {
+<span class="nc" id="L441">    return createFileList(</span>
+      variables, fileName, fileMask, new String[ fileName.length ], fileRequired, includeSubdirs, null );
+  }
+
+  public static String[] createFilePathList( IVariables variables, String[] fileName, String[] fileMask,
+                                             String[] fileRequired ) {
+<span class="nc" id="L447">    boolean[] includeSubdirs = includeSubdirsFalse( fileName.length );</span>
+<span class="nc" id="L448">    return createFilePathList(</span>
+      variables, fileName, fileMask, new String[ fileName.length ], fileRequired, includeSubdirs, null );
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

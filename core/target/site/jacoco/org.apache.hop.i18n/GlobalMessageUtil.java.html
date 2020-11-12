@@ -1,0 +1,442 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GlobalMessageUtil.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.i18n</a> &gt; <span class="el_source">GlobalMessageUtil.java</span></div><h1>GlobalMessageUtil.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.i18n;
+
+import com.google.common.annotations.VisibleForTesting;
+import org.apache.commons.lang.StringUtils;
+import org.apache.hop.core.Const;
+import org.apache.hop.core.exception.HopException;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.URL;
+import java.net.URLConnection;
+import java.nio.charset.StandardCharsets;
+import java.text.MessageFormat;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.MissingResourceException;
+import java.util.PropertyResourceBundle;
+import java.util.ResourceBundle;
+import java.util.Set;
+
+<span class="nc" id="L46">public class GlobalMessageUtil {</span>
+
+  /**
+   * Used when the preferred locale (as defined by the user) is not available.
+   */
+<span class="fc" id="L51">  public static final Locale FAILOVER_LOCALE = Locale.US;</span>
+
+<span class="fc" id="L53">  protected static final LanguageChoice langChoice = LanguageChoice.getInstance();</span>
+
+<span class="fc" id="L55">  protected static final ThreadLocal&lt;Locale&gt; threadLocales = new ThreadLocal();</span>
+
+  public static String formatErrorMessage( String key, String msg ) {
+<span class="nc" id="L58">    String s2 = key.substring( 0, key.indexOf( '.' ) + &quot;ERROR_0000&quot;.length() + 1 );</span>
+<span class="nc" id="L59">    return BaseMessages.getString( &quot;MESSUTIL.ERROR_FORMAT_MASK&quot;, s2, msg );</span>
+  }
+
+  private static String decorateMissingKey( final String key ) {
+<span class="fc" id="L63">    final StringBuilder keyBuilder = new StringBuilder();</span>
+<span class="fc" id="L64">    keyBuilder.append( '!' ).append( key ).append( '!' );</span>
+<span class="fc" id="L65">    return keyBuilder.toString();</span>
+  }
+
+  public static String getString( ResourceBundle bundle, String key ) throws MissingResourceException {
+<span class="nc" id="L69">    return MessageFormat.format( bundle.getString( key ), new Object[] {} );</span>
+  }
+
+  public static String getErrorString( ResourceBundle bundle, String key ) {
+<span class="nc" id="L73">    return formatErrorMessage( key, getString( bundle, key ) );</span>
+  }
+
+  public static String getString( ResourceBundle bundle, String key, String param1 ) {
+    try {
+<span class="nc" id="L78">      Object[] args = { param1 };</span>
+<span class="nc" id="L79">      return MessageFormat.format( bundle.getString( key ), args );</span>
+<span class="nc" id="L80">    } catch ( Exception e ) {</span>
+<span class="nc" id="L81">      return decorateMissingKey( key );</span>
+    }
+  }
+
+  public static String getErrorString( ResourceBundle bundle, String key, String param1 ) {
+<span class="nc" id="L86">    return formatErrorMessage( key, getString( bundle, key, param1 ) );</span>
+  }
+
+  public static String getString( ResourceBundle bundle, String key, String param1, String param2 ) {
+    try {
+<span class="nc" id="L91">      Object[] args = { param1, param2 };</span>
+<span class="nc" id="L92">      return MessageFormat.format( bundle.getString( key ), args );</span>
+<span class="nc" id="L93">    } catch ( Exception e ) {</span>
+<span class="nc" id="L94">      return decorateMissingKey( key );</span>
+    }
+  }
+
+  public static String getErrorString( ResourceBundle bundle, String key, String param1, String param2 ) {
+<span class="nc" id="L99">    return formatErrorMessage( key, getString( bundle, key, param1, param2 ) );</span>
+  }
+
+  public static String getString( ResourceBundle bundle, String key, String param1, String param2, String param3 ) {
+    try {
+<span class="nc" id="L104">      Object[] args = { param1, param2, param3 };</span>
+<span class="nc" id="L105">      return MessageFormat.format( bundle.getString( key ), args );</span>
+<span class="nc" id="L106">    } catch ( Exception e ) {</span>
+<span class="nc" id="L107">      return decorateMissingKey( key );</span>
+    }
+  }
+
+  public static String getErrorString( ResourceBundle bundle, String key, String param1, String param2,
+                                       String param3 ) {
+<span class="nc" id="L113">    return formatErrorMessage( key, getString( bundle, key, param1, param2, param3 ) );</span>
+  }
+
+  public static String getString( ResourceBundle bundle, String key, String param1, String param2, String param3,
+                                  String param4 ) {
+    try {
+<span class="nc" id="L119">      Object[] args = { param1, param2, param3, param4 };</span>
+<span class="nc" id="L120">      return MessageFormat.format( bundle.getString( key ), args );</span>
+<span class="nc" id="L121">    } catch ( Exception e ) {</span>
+<span class="nc" id="L122">      return decorateMissingKey( key );</span>
+    }
+  }
+
+  public static String getString( ResourceBundle bundle, String key, String param1, String param2, String param3,
+                                  String param4, String param5 ) {
+    try {
+<span class="nc" id="L129">      Object[] args = { param1, param2, param3, param4, param5 };</span>
+<span class="nc" id="L130">      return MessageFormat.format( bundle.getString( key ), args );</span>
+<span class="nc" id="L131">    } catch ( Exception e ) {</span>
+<span class="nc" id="L132">      return decorateMissingKey( key );</span>
+    }
+  }
+
+  public static String getString( ResourceBundle bundle, String key, String param1, String param2, String param3,
+                                  String param4, String param5, String param6 ) {
+    try {
+<span class="nc" id="L139">      Object[] args = { param1, param2, param3, param4, param5, param6 };</span>
+<span class="nc" id="L140">      return MessageFormat.format( bundle.getString( key ), args );</span>
+<span class="nc" id="L141">    } catch ( Exception e ) {</span>
+<span class="nc" id="L142">      return decorateMissingKey( key );</span>
+    }
+  }
+
+  public static String getErrorString( ResourceBundle bundle, String key, String param1, String param2,
+                                       String param3, String param4 ) {
+<span class="nc" id="L148">    return formatErrorMessage( key, getString( bundle, key, param1, param2, param3, param4 ) );</span>
+  }
+
+  public static void setLocale( Locale newLocale ) {
+<span class="nc" id="L152">    threadLocales.set( newLocale );</span>
+<span class="nc" id="L153">  }</span>
+
+  public static Locale getLocale() {
+<span class="nc" id="L156">    Locale rtn = threadLocales.get();</span>
+<span class="nc bnc" id="L157" title="All 2 branches missed.">    if ( rtn != null ) {</span>
+<span class="nc" id="L158">      return rtn;</span>
+    }
+
+<span class="nc" id="L161">    setLocale( langChoice.getDefaultLocale() );</span>
+<span class="nc" id="L162">    return langChoice.getDefaultLocale();</span>
+  }
+
+  /**
+   * Returns a {@link LinkedHashSet} of {@link Locale}s for consideration when localizing text. The
+   * {@link LinkedHashSet} contains the user selected preferred {@link Locale}, the failover {@link Locale}
+   * ({@link Locale#ENGLISH}) and the {@link Locale#ROOT}.
+   *
+   * @return Returns a {@link LinkedHashSet} of {@link Locale}s for consideration when translating text
+   */
+  public static LinkedHashSet&lt;Locale&gt; getActiveLocales() {
+    // Use a LinkedHashSet to maintain order
+<span class="fc" id="L174">    final LinkedHashSet&lt;Locale&gt; activeLocales = new LinkedHashSet&lt;&gt;();</span>
+    // Example: messages_fr_FR.properties
+<span class="fc" id="L176">    activeLocales.add( langChoice.getDefaultLocale() );</span>
+    // Example: messages_en_US.properties
+<span class="fc" id="L178">    activeLocales.add( FAILOVER_LOCALE );</span>
+    // Example: messages.properties
+<span class="fc" id="L180">    activeLocales.add( Locale.ROOT );</span>
+<span class="fc" id="L181">    return activeLocales;</span>
+  }
+
+  /**
+   * Calls {@link #calculateString(String[], String, Object[], Class, String, boolean)} with the {@code
+   * logNotFoundError} parameter set to {@code true} to ensure proper error logging when the localized string cannot be
+   * found.
+   */
+
+  public static String calculateString( final String[] pkgNames, final String key, final Object[] parameters,
+                                        final Class&lt;?&gt; resourceClass, final String bundleName ) {
+<span class="fc" id="L192">    return calculateString( pkgNames, key, parameters, resourceClass, bundleName, false, false );</span>
+  }
+
+  public static String calculateString( final String[] pkgNames, final String key, Object[] parameters,
+                                        final Class&lt;?&gt; resourceClass, final String bundleName,
+                                        final boolean fallbackOnRoot ) {
+<span class="fc" id="L198">    return calculateString( pkgNames, key, parameters, resourceClass, bundleName, false, fallbackOnRoot );</span>
+  }
+
+  /**
+   * Returns the localized string for the given {@code key} and {@code parameters} in a bundle defined by the the
+   * concatenation of the package names defined in {@code packageName} and @code bundleName} (the first valid
+   * combination of {@code packageName} + {@code bundleName} wins), sing the provided {@code resourceClass}'s class
+   * loader.
+   *
+   * @param pkgNames         an array of packages potentially containing the localized messages the first one found to
+   *                         contain the messages is the one that is used to localize the message
+   * @param key              the message key being looked up
+   * @param parameters       parameters within the looked up message
+   * @param resourceClass    the class whose class loader is used to getch the resource bundle
+   * @param bundleName       the name of the message bundle
+   * @param logNotFoundError determines whether an error is logged when the localized string cannot be found - it can be
+   *                         used to suppress the log in cases where it is known that various combinations of parameters
+   *                         will be tried to fetch the message, to avoid unnecessary error logging.
+   * @param fallbackOnRoot   if true, and a {@link ResourceBundle} cannot be found for a given {@link Locale},
+   *                         falls back on the ROOT {@link Locale}
+   * @return the localized string for the given {@code key} and {@code parameters} in a bundle defined by the the
+   * concatenation of the package names defined in {@code packageName} and @code bundleName} (the first valid
+   * combination of {@code packageName} + @code bundleName} wins), sing the provided {@code resourceClass}'s class
+   * loader
+   */
+  public static String calculateString( final String[] pkgNames, final String key, final Object[] parameters,
+                                        final Class&lt;?&gt; resourceClass, final String bundleName,
+                                        final boolean logNotFoundError, final boolean fallbackOnRoot ) {
+
+<span class="fc" id="L227">    final Set&lt;Locale&gt; activeLocales = getActiveLocales();</span>
+<span class="fc bfc" id="L228" title="All 2 branches covered.">    for ( final Locale locale : activeLocales ) {</span>
+<span class="fc" id="L229">      final String string =</span>
+<span class="fc" id="L230">        calculateString( pkgNames, locale, key, parameters, resourceClass, bundleName, fallbackOnRoot );</span>
+<span class="fc bfc" id="L231" title="All 2 branches covered.">      if ( !isMissingKey( string ) ) {</span>
+<span class="fc" id="L232">        return string;</span>
+      }
+<span class="fc" id="L234">    }</span>
+<span class="pc bpc" id="L235" title="1 of 2 branches missed.">    if ( logNotFoundError ) {</span>
+<span class="nc" id="L236">      final StringBuilder msg = new StringBuilder();</span>
+<span class="nc" id="L237">      msg.append( &quot;Message not found in the preferred and failover locale: key=[&quot; ).append( key ).append(</span>
+<span class="nc" id="L238">        &quot;], package=&quot; ).append( Arrays.asList( pkgNames ) );</span>
+<span class="nc" id="L239">      System.err.println( Const.getStackTracker( new HopException( msg.toString() ) ) );</span>
+    }
+<span class="fc" id="L241">    return decorateMissingKey( key );</span>
+  }
+
+  private static String calculateString( final String[] pkgNames, final Locale locale, final String key,
+                                         final Object[] parameters, final Class&lt;?&gt; resourceClass,
+                                         final String bundleName, final boolean fallbackOnRoot ) {
+<span class="fc bfc" id="L247" title="All 2 branches covered.">    for ( final String packageName : pkgNames ) {</span>
+      try {
+<span class="fc" id="L249">        return calculateString( packageName, locale, key, parameters, resourceClass, bundleName, fallbackOnRoot );</span>
+<span class="fc" id="L250">      } catch ( final MissingResourceException e ) {</span>
+<span class="fc" id="L251">        continue;</span>
+      }
+    }
+<span class="fc" id="L254">    return null;</span>
+  }
+
+  static String calculateString( final String packageName, final Locale locale, final String key, Object[] parameters,
+                                 final Class&lt;?&gt; resourceClass, final String bundleName ) {
+<span class="fc" id="L259">    return calculateString( packageName, locale, key, parameters, resourceClass, bundleName, true );</span>
+  }
+
+  @VisibleForTesting
+  static String calculateString( final String packageName, final Locale locale, final String key,
+                                 final Object[] parameters, final Class&lt;?&gt; resourceClass, final String bundleName,
+                                 final boolean fallbackOnRoot ) throws MissingResourceException {
+    try {
+<span class="fc" id="L267">      ResourceBundle bundle = getBundle( locale, packageName + &quot;.&quot; + bundleName, resourceClass, fallbackOnRoot );</span>
+<span class="fc" id="L268">      String unformattedString = bundle.getString( key );</span>
+<span class="fc" id="L269">      String string = MessageFormat.format( unformattedString, parameters );</span>
+<span class="fc" id="L270">      return string;</span>
+<span class="nc" id="L271">    } catch ( IllegalArgumentException e ) {</span>
+<span class="nc" id="L272">      final StringBuilder msg = new StringBuilder();</span>
+<span class="nc" id="L273">      msg.append( &quot;Format problem with key=[&quot; ).append( key ).append( &quot;], locale=[&quot; ).append( locale ).append(</span>
+<span class="nc" id="L274">        &quot;], package=&quot; ).append( packageName ).append( &quot; : &quot; ).append( e.toString() );</span>
+<span class="nc" id="L275">      System.err.println( msg.toString() );</span>
+<span class="nc" id="L276">      System.err.println( Const.getStackTracker( e ) );</span>
+<span class="nc" id="L277">      throw new MissingResourceException( msg.toString(), packageName, key );</span>
+    }
+  }
+
+  /**
+   * Retrieve a resource bundle of the default or fail-over locales.
+   *
+   * @param packagePath   The package to search in
+   * @param resourceClass the class to use to resolve the bundle
+   * @return The resource bundle
+   * @throws MissingResourceException in case both resource bundles couldn't be found.
+   */
+  public static ResourceBundle getBundle( final String packagePath, final Class&lt;?&gt; resourceClass )
+    throws MissingResourceException {
+<span class="fc" id="L291">    final Set&lt;Locale&gt; activeLocales = getActiveLocales();</span>
+<span class="pc bpc" id="L292" title="1 of 2 branches missed.">    for ( final Locale locale : activeLocales ) {</span>
+      try {
+<span class="fc" id="L294">        return getBundle( locale, packagePath, resourceClass );</span>
+<span class="fc" id="L295">      } catch ( MissingResourceException e ) {</span>
+<span class="fc" id="L296">        final StringBuilder msg = new StringBuilder();</span>
+<span class="fc" id="L297">        msg.append( &quot;Unable to find properties file for package '&quot; ).append( packagePath ).append( &quot;' and class '&quot; )</span>
+<span class="fc" id="L298">          .append( resourceClass.getName() ).append( &quot;' in the available locales: &quot; ).append( locale );</span>
+        // nothing to do, an exception will be thrown if no bundle is found
+<span class="fc" id="L300">        System.out.println( &quot;Warning: &quot; + msg.toString() );</span>
+      }
+<span class="fc" id="L302">    }</span>
+<span class="nc" id="L303">    final StringBuilder msg = new StringBuilder();</span>
+<span class="nc" id="L304">    msg.append( &quot;Unable to find properties file for package '&quot; ).append( packagePath ).append( &quot;' and class '&quot; )</span>
+<span class="nc" id="L305">      .append( resourceClass.getName() ).append( &quot;' in the available locales: &quot; ).append(</span>
+<span class="nc" id="L306">      Arrays.asList( activeLocales ) );</span>
+<span class="nc" id="L307">    throw new MissingResourceException( msg.toString(), resourceClass.getName(),</span>
+      packagePath );
+  }
+
+  public static ResourceBundle getBundle( Locale locale, String packagePath, Class&lt;?&gt; resourceClass ) {
+<span class="fc" id="L312">    return getBundle( locale, packagePath, resourceClass, true );</span>
+  }
+
+  /**
+   * Returns a {@link ResourceBundle} corresponding to the given {@link Locale} package and resource class. Falls-back
+   * on the ROOT {@link Locale}, if the {@code fallbackOnRoot} flag is true and the requested Locale is not available.
+   *
+   * @param locale         the {@link Locale} for which the {@link ResourceBundle} is being requested
+   * @param packagePath
+   * @param resourceClass
+   * @param fallbackOnRoot if true, and a {@link ResourceBundle} cannot be found for the requested {@link Locale}, falls
+   *                       back on the ROOT {@link Locale}
+   * @return a {@link ResourceBundle} corresponding to the given {@link Locale} package and resource class
+   */
+  public static ResourceBundle getBundle( final Locale locale, final String packagePath, final Class&lt;?&gt; resourceClass,
+                                          final boolean fallbackOnRoot ) {
+<span class="fc" id="L328">    final GlobalMessageControl control = new GlobalMessageControl( fallbackOnRoot );</span>
+<span class="fc" id="L329">    final String resourceName = control.toResourceName( control.toBundleName( packagePath, locale ), &quot;properties&quot; );</span>
+
+    ResourceBundle bundle;
+    try {
+<span class="fc" id="L333">      bundle = ResourceBundle.getBundle( packagePath, locale, resourceClass.getClassLoader(),</span>
+        new GlobalMessageControl( fallbackOnRoot ) );
+<span class="fc" id="L335">    } catch ( final MissingResourceException e ) {</span>
+<span class="fc" id="L336">      final StringBuilder msg = new StringBuilder();</span>
+<span class="fc" id="L337">      msg.append( &quot;Unable to find properties file '&quot; ).append( resourceName ).append( &quot;': &quot; ).append( e.toString() );</span>
+<span class="fc" id="L338">      throw new MissingResourceException( msg.toString(), resourceClass.getName(), packagePath );</span>
+<span class="fc" id="L339">    }</span>
+<span class="fc" id="L340">    return bundle;</span>
+  }
+
+  /**
+   * Returns a string corresponding to the locale (Example: &quot;en&quot;, &quot;en_US&quot;).
+   *
+   * @param locale The {@link Locale} whose string representation it being returned
+   * @return a string corresponding to the locale (Example: &quot;en&quot;, &quot;en_US&quot;).
+   */
+  protected static String getLocaleString( Locale locale ) {
+<span class="fc" id="L350">    final StringBuilder localeString = new StringBuilder();</span>
+<span class="fc bfc" id="L351" title="All 4 branches covered.">    if ( locale != null &amp;&amp; !StringUtils.isBlank( locale.getLanguage() ) ) {</span>
+<span class="fc bfc" id="L352" title="All 2 branches covered.">      if ( !StringUtils.isBlank( locale.getCountry() ) ) {</span>
+        // force language to be lower case and country to be upper case
+<span class="fc" id="L354">        localeString.append( locale.getLanguage().toLowerCase() ).append( '_' ).append(</span>
+<span class="fc" id="L355">          locale.getCountry().toUpperCase() );</span>
+      } else {
+        // force language to be lower case
+<span class="fc" id="L358">        localeString.append( locale.getLanguage().toLowerCase() );</span>
+      }
+    }
+<span class="fc" id="L361">    return localeString.toString();</span>
+  }
+
+  /**
+   * Returns true if the given {@code string} is null or is in the format of a missing key: !key!.
+   *
+   * @param string
+   * @return true if the given {@code string} is null or is in the format of a missing key: !key!.
+   */
+  protected static boolean isMissingKey( final String string ) {
+<span class="fc bfc" id="L371" title="All 6 branches covered.">    return string == null || ( string.trim().startsWith( &quot;!&quot; ) &amp;&amp; string.trim().endsWith( &quot;!&quot; )</span>
+<span class="fc bfc" id="L372" title="All 2 branches covered.">      &amp;&amp; !string.trim().equals( &quot;!&quot; ) );</span>
+  }
+
+  /**
+   * A custom {@link ResourceBundle.Control} implementation that provides the desired fall-back mechanism.
+   */
+  static class GlobalMessageControl extends ResourceBundle.Control {
+
+    private boolean fallbackOnRoot;
+
+<span class="fc" id="L382">    GlobalMessageControl( final boolean fallbackOnRoot ) {</span>
+<span class="fc" id="L383">      this.fallbackOnRoot = fallbackOnRoot;</span>
+<span class="fc" id="L384">    }</span>
+
+    @Override
+    public Locale getFallbackLocale( final String baseName, final Locale locale ) {
+      // we have our own fall-back mechanism
+<span class="fc" id="L389">      return null;</span>
+    }
+
+    @Override
+    public List&lt;Locale&gt; getCandidateLocales( final String baseName, final Locale locale ) {
+      // we have our own fall-back mechanism
+<span class="fc" id="L395">      final List&lt;Locale&gt; locales = super.getCandidateLocales( baseName, locale );</span>
+      // remove the root locale, as we want to handle it ourselves, unless the locale itself is root
+<span class="fc bfc" id="L397" title="All 4 branches covered.">      if ( !fallbackOnRoot &amp;&amp; !locale.equals( Locale.ROOT ) ) {</span>
+<span class="fc" id="L398">        locales.remove( Locale.ROOT );</span>
+      }
+<span class="fc" id="L400">      return locales;</span>
+    }
+
+    @Override
+    public ResourceBundle newBundle( final String baseName, final Locale locale, final String format,
+                                     final ClassLoader loader, final boolean reload )
+      throws IllegalAccessException, InstantiationException, IOException {
+<span class="fc" id="L407">      final String resourceName = toResourceName( toBundleName( baseName, locale ), &quot;properties&quot; );</span>
+      ResourceBundle bundle;
+<span class="fc" id="L409">      InputStream stream = null;</span>
+<span class="pc bpc" id="L410" title="1 of 2 branches missed.">      if ( reload ) {</span>
+<span class="nc" id="L411">        final URL url = loader.getResource( resourceName );</span>
+<span class="nc bnc" id="L412" title="All 2 branches missed.">        if ( url != null ) {</span>
+<span class="nc" id="L413">          final URLConnection connection = url.openConnection();</span>
+<span class="nc bnc" id="L414" title="All 2 branches missed.">          if ( connection != null ) {</span>
+<span class="nc" id="L415">            connection.setUseCaches( false );</span>
+<span class="nc" id="L416">            stream = connection.getInputStream();</span>
+          }
+        }
+<span class="nc" id="L419">      } else {</span>
+<span class="fc" id="L420">        stream = loader.getResourceAsStream( resourceName );</span>
+      }
+<span class="fc bfc" id="L422" title="All 2 branches covered.">      if ( stream == null ) {</span>
+        // Retry with the system class loader, just in case we are dealing with a messy plug-in.
+<span class="fc" id="L424">        stream = ClassLoader.getSystemResourceAsStream( resourceName );</span>
+      }
+<span class="fc bfc" id="L426" title="All 2 branches covered.">      if ( stream != null ) {</span>
+        try {
+          // use UTF-8 encoding
+<span class="fc" id="L429">          bundle = new PropertyResourceBundle( new InputStreamReader( stream, StandardCharsets.UTF_8.name() ) );</span>
+        } finally {
+<span class="fc" id="L431">          stream.close();</span>
+<span class="fc" id="L432">        }</span>
+      } else {
+<span class="fc" id="L434">        final StringBuilder msg = new StringBuilder();</span>
+<span class="fc" id="L435">        msg.append( &quot;Unable to find properties file '&quot; ).append( resourceName ).append( &quot;'&quot; );</span>
+<span class="fc" id="L436">        throw new MissingResourceException( msg.toString(), loader.getClass().getName(), baseName );</span>
+      }
+<span class="fc" id="L438">      return bundle;</span>
+    }
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

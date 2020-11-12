@@ -1,0 +1,445 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DatabaseMetaInformation.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.database</a> &gt; <span class="el_source">DatabaseMetaInformation.java</span></div><h1>DatabaseMetaInformation.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.database;
+
+import org.apache.hop.core.IProgressMonitor;
+import org.apache.hop.core.exception.HopDatabaseException;
+import org.apache.hop.core.logging.ILoggingObject;
+import org.apache.hop.core.util.Utils;
+import org.apache.hop.i18n.BaseMessages;
+
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Map;
+
+/**
+ * Contains the schema's, catalogs, tables, views, synonyms, etc we can find in the databases...
+ *
+ * @author Matt
+ * @since 7-apr-2005
+ */
+public class DatabaseMetaInformation {
+<span class="nc" id="L46">  private static Class&lt;?&gt; PKG = Database.class; // for i18n purposes, needed by Translator!!</span>
+
+  private String[] tables;
+  private Map&lt;String, Collection&lt;String&gt;&gt; tableMap;
+  private String[] views;
+  private Map&lt;String, Collection&lt;String&gt;&gt; viewMap;
+  private String[] synonyms;
+  private Map&lt;String, Collection&lt;String&gt;&gt; synonymMap;
+  private Catalog[] catalogs;
+  private Schema[] schemas;
+  private String[] procedures;
+
+  private DatabaseMeta databaseMeta;
+  public static final String FILTER_CATALOG_LIST = &quot;FILTER_CATALOG_LIST&quot;;
+  public static final String FILTER_SCHEMA_LIST = &quot;FILTER_SCHEMA_LIST&quot;;
+
+  /**
+   * Create a new DatabaseMetaData object for the given database connection
+   */
+<span class="nc" id="L65">  public DatabaseMetaInformation( DatabaseMeta databaseMeta ) {</span>
+<span class="nc" id="L66">    this.databaseMeta = databaseMeta;</span>
+<span class="nc" id="L67">  }</span>
+
+  /**
+   * @return Returns the catalogs.
+   */
+  public Catalog[] getCatalogs() {
+<span class="nc" id="L73">    return catalogs;</span>
+  }
+
+  /**
+   * @param catalogs The catalogs to set.
+   */
+  public void setCatalogs( Catalog[] catalogs ) {
+<span class="nc" id="L80">    this.catalogs = catalogs;</span>
+<span class="nc" id="L81">  }</span>
+
+  /**
+   * @return Returns the DatabaseMeta.
+   */
+  public DatabaseMeta getDbInfo() {
+<span class="nc" id="L87">    return databaseMeta;</span>
+  }
+
+  /**
+   * @param value The DatabaseMeta to set.
+   */
+  public void setDbInfo( DatabaseMeta value ) {
+<span class="nc" id="L94">    this.databaseMeta = value;</span>
+<span class="nc" id="L95">  }</span>
+
+  /**
+   * @return Returns the schemas.
+   */
+  public Schema[] getSchemas() {
+<span class="nc" id="L101">    return schemas;</span>
+  }
+
+  /**
+   * @param schemas The schemas to set.
+   */
+  public void setSchemas( Schema[] schemas ) {
+<span class="nc" id="L108">    this.schemas = schemas;</span>
+<span class="nc" id="L109">  }</span>
+
+  /**
+   * @return Returns the tables.
+   */
+  public String[] getTables() {
+<span class="nc" id="L115">    return tables;</span>
+  }
+
+  /**
+   * @param tables The tables to set.
+   */
+  public void setTables( String[] tables ) {
+<span class="nc" id="L122">    this.tables = tables;</span>
+<span class="nc" id="L123">  }</span>
+
+  /**
+   * @return Returns the views.
+   */
+  public String[] getViews() {
+<span class="nc" id="L129">    return views;</span>
+  }
+
+  /**
+   * @param views The views to set.
+   */
+  public void setViews( String[] views ) {
+<span class="nc" id="L136">    this.views = views;</span>
+<span class="nc" id="L137">  }</span>
+
+  /**
+   * @param synonyms The synonyms to set.
+   */
+  public void setSynonyms( String[] synonyms ) {
+<span class="nc" id="L143">    this.synonyms = synonyms;</span>
+<span class="nc" id="L144">  }</span>
+
+  /**
+   * @return Returns the synonyms.
+   */
+  public String[] getSynonyms() {
+<span class="nc" id="L150">    return synonyms;</span>
+  }
+
+  /**
+   * @return Returns the procedures.
+   */
+  public String[] getProcedures() {
+<span class="nc" id="L157">    return procedures;</span>
+  }
+
+  /**
+   * @param procedures The procedures to set.
+   */
+  public void setProcedures( String[] procedures ) {
+<span class="nc" id="L164">    this.procedures = procedures;</span>
+<span class="nc" id="L165">  }</span>
+
+  public void getData( ILoggingObject parentLoggingObject, IProgressMonitor monitor ) throws HopDatabaseException {
+<span class="nc bnc" id="L168" title="All 2 branches missed.">    if ( monitor != null ) {</span>
+<span class="nc" id="L169">      monitor.beginTask( BaseMessages.getString( PKG, &quot;DatabaseMeta.Info.GettingInfoFromDb&quot; ), 8 );</span>
+    }
+
+<span class="nc" id="L172">    Database db = new Database( parentLoggingObject, databaseMeta );</span>
+
+    /*
+     * ResultSet tableResultSet = null;
+     *
+     * ResultSet schemaTablesResultSet = null; ResultSet schemaResultSet = null;
+     *
+     * ResultSet catalogResultSet = null; ResultSet catalogTablesResultSet = null;
+     */
+
+    try {
+<span class="nc bnc" id="L183" title="All 2 branches missed.">      if ( monitor != null ) {</span>
+<span class="nc" id="L184">        monitor.subTask( BaseMessages.getString( PKG, &quot;DatabaseMeta.Info.ConnectingDb&quot; ) );</span>
+      }
+<span class="nc" id="L186">      db.connect();</span>
+<span class="nc bnc" id="L187" title="All 2 branches missed.">      if ( monitor != null ) {</span>
+<span class="nc" id="L188">        monitor.worked( 1 );</span>
+      }
+
+<span class="nc bnc" id="L191" title="All 4 branches missed.">      if ( monitor != null &amp;&amp; monitor.isCanceled() ) {</span>
+<span class="nc" id="L192">        return;</span>
+      }
+<span class="nc bnc" id="L194" title="All 2 branches missed.">      if ( monitor != null ) {</span>
+<span class="nc" id="L195">        monitor.subTask( BaseMessages.getString( PKG, &quot;DatabaseMeta.Info.GettingMetaData&quot; ) );</span>
+      }
+<span class="nc" id="L197">      DatabaseMetaData dbmd = db.getDatabaseMetaData();</span>
+<span class="nc bnc" id="L198" title="All 2 branches missed.">      if ( monitor != null ) {</span>
+<span class="nc" id="L199">        monitor.worked( 1 );</span>
+      }
+
+<span class="nc bnc" id="L202" title="All 4 branches missed.">      if ( monitor != null &amp;&amp; monitor.isCanceled() ) {</span>
+<span class="nc" id="L203">        return;</span>
+      }
+<span class="nc bnc" id="L205" title="All 2 branches missed.">      if ( monitor != null ) {</span>
+<span class="nc" id="L206">        monitor.subTask( BaseMessages.getString( PKG, &quot;DatabaseMeta.Info.GettingInfo&quot; ) );</span>
+      }
+<span class="nc" id="L208">      Map&lt;String, String&gt; connectionExtraOptions = databaseMeta.getExtraOptions();</span>
+<span class="nc bnc" id="L209" title="All 4 branches missed.">      if ( databaseMeta.supportsCatalogs() &amp;&amp; dbmd.supportsCatalogsInTableDefinitions() ) {</span>
+<span class="nc" id="L210">        ArrayList&lt;Catalog&gt; catalogList = new ArrayList&lt;&gt;();</span>
+
+<span class="nc" id="L212">        String catalogFilterKey = databaseMeta.getPluginId() + &quot;.&quot; + FILTER_CATALOG_LIST;</span>
+<span class="nc bnc" id="L213" title="All 4 branches missed.">        if ( ( connectionExtraOptions != null ) &amp;&amp; connectionExtraOptions.containsKey( catalogFilterKey ) ) {</span>
+<span class="nc" id="L214">          String catsFilterCommaList = connectionExtraOptions.get( catalogFilterKey );</span>
+<span class="nc" id="L215">          String[] catsFilterArray = catsFilterCommaList.split( &quot;,&quot; );</span>
+<span class="nc bnc" id="L216" title="All 2 branches missed.">          for ( int i = 0; i &lt; catsFilterArray.length; i++ ) {</span>
+<span class="nc" id="L217">            catalogList.add( new Catalog( catsFilterArray[ i ].trim() ) );</span>
+          }
+        }
+<span class="nc bnc" id="L220" title="All 2 branches missed.">        if ( catalogList.isEmpty() ) {</span>
+<span class="nc" id="L221">          ResultSet catalogResultSet = dbmd.getCatalogs();</span>
+
+          // Grab all the catalog names and put them in an array list
+          // Then we can close the resultset as soon as possible.
+          // This is the safest route to take for a lot of databases
+          //
+<span class="nc bnc" id="L227" title="All 4 branches missed.">          while ( catalogResultSet != null &amp;&amp; catalogResultSet.next() ) {</span>
+<span class="nc" id="L228">            String catalogName = catalogResultSet.getString( 1 );</span>
+<span class="nc" id="L229">            catalogList.add( new Catalog( catalogName ) );</span>
+<span class="nc" id="L230">          }</span>
+
+          // Close the catalogs resultset immediately
+          //
+<span class="nc" id="L234">          catalogResultSet.close();</span>
+        }
+
+        // Now loop over the catalogs...
+        //
+<span class="nc bnc" id="L239" title="All 2 branches missed.">        for ( Catalog catalog : catalogList ) {</span>
+<span class="nc" id="L240">          ArrayList&lt;String&gt; catalogTables = new ArrayList&lt;&gt;();</span>
+
+          try {
+<span class="nc" id="L243">            ResultSet catalogTablesResultSet = dbmd.getTables( catalog.getCatalogName(), null, null, null );</span>
+<span class="nc bnc" id="L244" title="All 2 branches missed.">            while ( catalogTablesResultSet.next() ) {</span>
+<span class="nc" id="L245">              String tableName = catalogTablesResultSet.getString( 3 );</span>
+
+<span class="nc bnc" id="L247" title="All 2 branches missed.">              if ( !db.isSystemTable( tableName ) ) {</span>
+<span class="nc" id="L248">                catalogTables.add( tableName );</span>
+              }
+<span class="nc" id="L250">            }</span>
+            // Immediately close the catalog tables ResultSet
+            //
+<span class="nc" id="L253">            catalogTablesResultSet.close();</span>
+
+            // Sort the tables by names
+<span class="nc" id="L256">            Collections.sort( catalogTables );</span>
+<span class="nc" id="L257">          } catch ( Exception e ) {</span>
+            // Obviously, we're not allowed to snoop around in this catalog.
+            // Just ignore it!
+<span class="nc" id="L260">          }</span>
+
+          // Save the list of tables in the catalog (can be empty)
+          //
+<span class="nc" id="L264">          catalog.setItems( catalogTables.toArray( new String[ catalogTables.size() ] ) );</span>
+<span class="nc" id="L265">        }</span>
+
+        // Save for later...
+<span class="nc" id="L268">        setCatalogs( catalogList.toArray( new Catalog[ catalogList.size() ] ) );</span>
+      }
+<span class="nc bnc" id="L270" title="All 2 branches missed.">      if ( monitor != null ) {</span>
+<span class="nc" id="L271">        monitor.worked( 1 );</span>
+      }
+
+<span class="nc bnc" id="L274" title="All 4 branches missed.">      if ( monitor != null &amp;&amp; monitor.isCanceled() ) {</span>
+<span class="nc" id="L275">        return;</span>
+      }
+<span class="nc bnc" id="L277" title="All 2 branches missed.">      if ( monitor != null ) {</span>
+<span class="nc" id="L278">        monitor.subTask( BaseMessages.getString( PKG, &quot;DatabaseMeta.Info.GettingSchemaInfo&quot; ) );</span>
+      }
+<span class="nc bnc" id="L280" title="All 4 branches missed.">      if ( databaseMeta.supportsSchemas() &amp;&amp; dbmd.supportsSchemasInTableDefinitions() ) {</span>
+<span class="nc" id="L281">        ArrayList&lt;Schema&gt; schemaList = new ArrayList&lt;&gt;();</span>
+        try {
+<span class="nc" id="L283">          String schemaFilterKey = databaseMeta.getPluginId() + &quot;.&quot; + FILTER_SCHEMA_LIST;</span>
+<span class="nc bnc" id="L284" title="All 4 branches missed.">          if ( ( connectionExtraOptions != null ) &amp;&amp; connectionExtraOptions.containsKey( schemaFilterKey ) ) {</span>
+<span class="nc" id="L285">            String schemasFilterCommaList = connectionExtraOptions.get( schemaFilterKey );</span>
+<span class="nc" id="L286">            String[] schemasFilterArray = schemasFilterCommaList.split( &quot;,&quot; );</span>
+<span class="nc bnc" id="L287" title="All 2 branches missed.">            for ( int i = 0; i &lt; schemasFilterArray.length; i++ ) {</span>
+<span class="nc" id="L288">              schemaList.add( new Schema( schemasFilterArray[ i ].trim() ) );</span>
+            }
+          }
+<span class="nc bnc" id="L291" title="All 2 branches missed.">          if ( schemaList.isEmpty() ) {</span>
+            // Support schemas for MS SQL server due to PDI-1531
+            //
+<span class="nc" id="L294">            String sql = databaseMeta.getSqlListOfSchemas();</span>
+<span class="nc bnc" id="L295" title="All 2 branches missed.">            if ( !Utils.isEmpty( sql ) ) {</span>
+<span class="nc" id="L296">              Statement schemaStatement = db.getConnection().createStatement();</span>
+<span class="nc" id="L297">              ResultSet schemaResultSet = schemaStatement.executeQuery( sql );</span>
+<span class="nc bnc" id="L298" title="All 4 branches missed.">              while ( schemaResultSet != null &amp;&amp; schemaResultSet.next() ) {</span>
+<span class="nc" id="L299">                String schemaName = schemaResultSet.getString( &quot;name&quot; );</span>
+<span class="nc" id="L300">                schemaList.add( new Schema( schemaName ) );</span>
+<span class="nc" id="L301">              }</span>
+<span class="nc" id="L302">              schemaResultSet.close();</span>
+<span class="nc" id="L303">              schemaStatement.close();</span>
+<span class="nc" id="L304">            } else {</span>
+<span class="nc" id="L305">              ResultSet schemaResultSet = dbmd.getSchemas();</span>
+<span class="nc bnc" id="L306" title="All 4 branches missed.">              while ( schemaResultSet != null &amp;&amp; schemaResultSet.next() ) {</span>
+<span class="nc" id="L307">                String schemaName = schemaResultSet.getString( 1 );</span>
+<span class="nc" id="L308">                schemaList.add( new Schema( schemaName ) );</span>
+<span class="nc" id="L309">              }</span>
+              // Close the schema ResultSet immediately
+              //
+<span class="nc" id="L312">              schemaResultSet.close();</span>
+            }
+          }
+<span class="nc bnc" id="L315" title="All 2 branches missed.">          for ( Schema schema : schemaList ) {</span>
+<span class="nc" id="L316">            ArrayList&lt;String&gt; schemaTables = new ArrayList&lt;&gt;();</span>
+
+            try {
+<span class="nc" id="L319">              ResultSet schemaTablesResultSet = dbmd.getTables( null, schema.getSchemaName(), null, null );</span>
+<span class="nc bnc" id="L320" title="All 2 branches missed.">              while ( schemaTablesResultSet.next() ) {</span>
+<span class="nc" id="L321">                String tableName = schemaTablesResultSet.getString( 3 );</span>
+<span class="nc bnc" id="L322" title="All 2 branches missed.">                if ( !db.isSystemTable( tableName ) ) {</span>
+<span class="nc" id="L323">                  schemaTables.add( tableName );</span>
+                }
+<span class="nc" id="L325">              }</span>
+              // Immediately close the schema tables ResultSet
+              //
+<span class="nc" id="L328">              schemaTablesResultSet.close();</span>
+
+              // Sort the tables by names
+<span class="nc" id="L331">              Collections.sort( schemaTables );</span>
+<span class="nc" id="L332">            } catch ( Exception e ) {</span>
+              // Obviously, we're not allowed to snoop around in this catalog.
+              // Just ignore it!
+<span class="nc" id="L335">            }</span>
+
+<span class="nc" id="L337">            schema.setItems( schemaTables.toArray( new String[ schemaTables.size() ] ) );</span>
+<span class="nc" id="L338">          }</span>
+<span class="nc" id="L339">        } catch ( Exception e ) {</span>
+          // Typically an unsupported feature, security issue etc.
+          // Ignore it to avoid excessive spamming
+<span class="nc" id="L342">        }</span>
+
+        // Save for later...
+<span class="nc" id="L345">        setSchemas( schemaList.toArray( new Schema[ schemaList.size() ] ) );</span>
+      }
+<span class="nc bnc" id="L347" title="All 2 branches missed.">      if ( monitor != null ) {</span>
+<span class="nc" id="L348">        monitor.worked( 1 );</span>
+      }
+
+<span class="nc bnc" id="L351" title="All 4 branches missed.">      if ( monitor != null &amp;&amp; monitor.isCanceled() ) {</span>
+<span class="nc" id="L352">        return;</span>
+      }
+<span class="nc bnc" id="L354" title="All 2 branches missed.">      if ( monitor != null ) {</span>
+<span class="nc" id="L355">        monitor.subTask( BaseMessages.getString( PKG, &quot;DatabaseMeta.Info.GettingTables&quot; ) );</span>
+      }
+<span class="nc" id="L357">      setTables( db.getTablenames( databaseMeta.supportsSchemas() ) ); // legacy call</span>
+<span class="nc" id="L358">      setTableMap( db.getTableMap() );</span>
+<span class="nc bnc" id="L359" title="All 2 branches missed.">      if ( monitor != null ) {</span>
+<span class="nc" id="L360">        monitor.worked( 1 );</span>
+      }
+
+<span class="nc bnc" id="L363" title="All 4 branches missed.">      if ( monitor != null &amp;&amp; monitor.isCanceled() ) {</span>
+<span class="nc" id="L364">        return;</span>
+      }
+<span class="nc bnc" id="L366" title="All 2 branches missed.">      if ( monitor != null ) {</span>
+<span class="nc" id="L367">        monitor.subTask( BaseMessages.getString( PKG, &quot;DatabaseMeta.Info.GettingViews&quot; ) );</span>
+      }
+<span class="nc bnc" id="L369" title="All 2 branches missed.">      if ( databaseMeta.supportsViews() ) {</span>
+<span class="nc" id="L370">        setViews( db.getViews( databaseMeta.supportsSchemas() ) ); // legacy call</span>
+<span class="nc" id="L371">        setViewMap( db.getViewMap() );</span>
+      }
+<span class="nc bnc" id="L373" title="All 2 branches missed.">      if ( monitor != null ) {</span>
+<span class="nc" id="L374">        monitor.worked( 1 );</span>
+      }
+
+<span class="nc bnc" id="L377" title="All 4 branches missed.">      if ( monitor != null &amp;&amp; monitor.isCanceled() ) {</span>
+<span class="nc" id="L378">        return;</span>
+      }
+<span class="nc bnc" id="L380" title="All 2 branches missed.">      if ( monitor != null ) {</span>
+<span class="nc" id="L381">        monitor.subTask( BaseMessages.getString( PKG, &quot;DatabaseMeta.Info.GettingSynonyms&quot; ) );</span>
+      }
+<span class="nc bnc" id="L383" title="All 2 branches missed.">      if ( databaseMeta.supportsSynonyms() ) {</span>
+<span class="nc" id="L384">        setSynonyms( db.getSynonyms( databaseMeta.supportsSchemas() ) ); // legacy call</span>
+<span class="nc" id="L385">        setSynonymMap( db.getSynonymMap() );</span>
+      }
+<span class="nc bnc" id="L387" title="All 2 branches missed.">      if ( monitor != null ) {</span>
+<span class="nc" id="L388">        monitor.worked( 1 );</span>
+      }
+
+<span class="nc bnc" id="L391" title="All 4 branches missed.">      if ( monitor != null &amp;&amp; monitor.isCanceled() ) {</span>
+<span class="nc" id="L392">        return;</span>
+      }
+<span class="nc bnc" id="L394" title="All 2 branches missed.">      if ( monitor != null ) {</span>
+<span class="nc" id="L395">        monitor.subTask( BaseMessages.getString( PKG, &quot;DatabaseMeta.Info.GettingProcedures&quot; ) );</span>
+      }
+<span class="nc" id="L397">      setProcedures( db.getProcedures() );</span>
+<span class="nc bnc" id="L398" title="All 2 branches missed.">      if ( monitor != null ) {</span>
+<span class="nc" id="L399">        monitor.worked( 1 );</span>
+      }
+
+<span class="nc" id="L402">    } catch ( Exception e ) {</span>
+<span class="nc" id="L403">      throw new HopDatabaseException(</span>
+<span class="nc" id="L404">        BaseMessages.getString( PKG, &quot;DatabaseMeta.Error.UnableRetrieveDbInfo&quot; ), e );</span>
+    } finally {
+<span class="nc bnc" id="L406" title="All 2 branches missed.">      if ( monitor != null ) {</span>
+<span class="nc" id="L407">        monitor.subTask( BaseMessages.getString( PKG, &quot;DatabaseMeta.Info.ClosingDbConnection&quot; ) );</span>
+      }
+
+<span class="nc" id="L410">      db.disconnect();</span>
+<span class="nc bnc" id="L411" title="All 2 branches missed.">      if ( monitor != null ) {</span>
+<span class="nc" id="L412">        monitor.worked( 1 );</span>
+      }
+    }
+<span class="nc bnc" id="L415" title="All 2 branches missed.">    if ( monitor != null ) {</span>
+<span class="nc" id="L416">      monitor.done();</span>
+    }
+<span class="nc" id="L418">  }</span>
+
+  public Map&lt;String, Collection&lt;String&gt;&gt; getTableMap() {
+<span class="nc" id="L421">    return tableMap;</span>
+  }
+
+  public void setTableMap( Map&lt;String, Collection&lt;String&gt;&gt; tableMap ) {
+<span class="nc" id="L425">    this.tableMap = tableMap;</span>
+<span class="nc" id="L426">  }</span>
+
+  public Map&lt;String, Collection&lt;String&gt;&gt; getViewMap() {
+<span class="nc" id="L429">    return viewMap;</span>
+  }
+
+  public void setViewMap( Map&lt;String, Collection&lt;String&gt;&gt; viewMap ) {
+<span class="nc" id="L433">    this.viewMap = viewMap;</span>
+<span class="nc" id="L434">  }</span>
+
+  public Map&lt;String, Collection&lt;String&gt;&gt; getSynonymMap() {
+<span class="nc" id="L437">    return synonymMap;</span>
+  }
+
+  public void setSynonymMap( Map&lt;String, Collection&lt;String&gt;&gt; synonymMap ) {
+<span class="nc" id="L441">    this.synonymMap = synonymMap;</span>
+<span class="nc" id="L442">  }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

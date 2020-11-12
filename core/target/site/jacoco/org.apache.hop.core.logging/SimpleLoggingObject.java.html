@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SimpleLoggingObject.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.logging</a> &gt; <span class="el_source">SimpleLoggingObject.java</span></div><h1>SimpleLoggingObject.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.logging;
+
+import java.util.Date;
+
+
+public class SimpleLoggingObject implements ILoggingObject {
+
+  private String objectName;
+  private LoggingObjectType objectType;
+  private ILoggingObject parent;
+<span class="fc" id="L33">  private LogLevel logLevel = DefaultLogLevel.getLogLevel();</span>
+  private String containerObjectId;
+  private Date registrationDate;
+  private boolean gatheringMetrics;
+  private boolean forcingSeparateLogging;
+
+  /**
+   * @param objectName
+   * @param loggingObjectType
+   * @param parent
+   */
+<span class="fc" id="L44">  public SimpleLoggingObject( String objectName, LoggingObjectType loggingObjectType, ILoggingObject parent ) {</span>
+<span class="fc" id="L45">    this.objectName = objectName;</span>
+<span class="fc" id="L46">    this.objectType = loggingObjectType;</span>
+<span class="fc" id="L47">    this.parent = parent;</span>
+<span class="fc bfc" id="L48" title="All 2 branches covered.">    if ( parent != null ) {</span>
+<span class="fc" id="L49">      this.logLevel = parent.getLogLevel();</span>
+<span class="fc" id="L50">      this.containerObjectId = parent.getContainerId();</span>
+    }
+<span class="fc" id="L52">  }</span>
+
+  /**
+   * @return the name
+   */
+  @Override
+  public String getObjectName() {
+<span class="fc" id="L59">    return objectName;</span>
+  }
+
+  /**
+   * @param name the name to set
+   */
+  public void setObjectName( String name ) {
+<span class="nc" id="L66">    this.objectName = name;</span>
+<span class="nc" id="L67">  }</span>
+
+  /**
+   * @return the objectType
+   */
+  @Override
+  public LoggingObjectType getObjectType() {
+<span class="fc" id="L74">    return objectType;</span>
+  }
+
+  /**
+   * @param objectType the objectType to set
+   */
+  public void setObjectType( LoggingObjectType objectType ) {
+<span class="nc" id="L81">    this.objectType = objectType;</span>
+<span class="nc" id="L82">  }</span>
+
+  /**
+   * @return the parent
+   */
+  @Override
+  public ILoggingObject getParent() {
+<span class="fc" id="L89">    return parent;</span>
+  }
+
+  /**
+   * @param parent the parent to set
+   */
+  public void setParent( ILoggingObject parent ) {
+<span class="nc" id="L96">    this.parent = parent;</span>
+<span class="nc" id="L97">  }</span>
+
+  @Override
+  public String getFilename() {
+<span class="fc" id="L101">    return null;</span>
+  }
+
+  @Override
+  public String getLogChannelId() {
+<span class="fc" id="L106">    return null;</span>
+  }
+
+  @Override
+  public String getObjectCopy() {
+<span class="fc" id="L111">    return null;</span>
+  }
+
+  @Override
+  public LogLevel getLogLevel() {
+<span class="fc" id="L116">    return logLevel;</span>
+  }
+
+  public void setLogLevel( LogLevel logLevel ) {
+<span class="nc" id="L120">    this.logLevel = logLevel;</span>
+<span class="nc" id="L121">  }</span>
+
+  @Override
+  public String getContainerId() {
+<span class="fc" id="L125">    return containerObjectId;</span>
+  }
+
+  public void setContainerObjectId( String containerObjectId ) {
+<span class="nc" id="L129">    this.containerObjectId = containerObjectId;</span>
+<span class="nc" id="L130">  }</span>
+
+  /**
+   * @return the registrationDate
+   */
+  @Override
+  public Date getRegistrationDate() {
+<span class="nc" id="L137">    return registrationDate;</span>
+  }
+
+  /**
+   * @param registrationDate the registrationDate to set
+   */
+  public void setRegistrationDate( Date registrationDate ) {
+<span class="nc" id="L144">    this.registrationDate = registrationDate;</span>
+<span class="nc" id="L145">  }</span>
+
+  /**
+   * @return the gatheringMetrics
+   */
+  @Override
+  public boolean isGatheringMetrics() {
+<span class="fc" id="L152">    return gatheringMetrics;</span>
+  }
+
+  /**
+   * @param gatheringMetrics the gatheringMetrics to set
+   */
+  @Override
+  public void setGatheringMetrics( boolean gatheringMetrics ) {
+<span class="nc" id="L160">    this.gatheringMetrics = gatheringMetrics;</span>
+<span class="nc" id="L161">  }</span>
+
+  /**
+   * @return the forcingSeparateLogging
+   */
+  @Override
+  public boolean isForcingSeparateLogging() {
+<span class="fc" id="L168">    return forcingSeparateLogging;</span>
+  }
+
+  /**
+   * @param forcingSeparateLogging the forcingSeparateLogging to set
+   */
+  @Override
+  public void setForcingSeparateLogging( boolean forcingSeparateLogging ) {
+<span class="nc" id="L176">    this.forcingSeparateLogging = forcingSeparateLogging;</span>
+<span class="nc" id="L177">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

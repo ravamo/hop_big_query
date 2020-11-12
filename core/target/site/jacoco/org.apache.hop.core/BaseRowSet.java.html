@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BaseRowSet.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core</a> &gt; <span class="el_source">BaseRowSet.java</span></div><h1>BaseRowSet.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core;
+
+import org.apache.hop.core.row.IRowMeta;
+import org.apache.hop.core.util.Utils;
+
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+/**
+ * Contains the base IRowSet class to help implement IRowSet variants.
+ *
+ * @author Matt
+ * @since 22-01-2010
+ */
+abstract class BaseRowSet implements Comparable&lt;IRowSet&gt;, IRowSet {
+  protected IRowMeta rowMeta;
+
+  protected AtomicBoolean done;
+  protected volatile String originTransformName;
+  protected AtomicInteger originTransformCopy;
+  protected volatile String destinationTransformName;
+  protected AtomicInteger destinationTransformCopy;
+
+  protected volatile String remoteHopServerName;
+  private ReadWriteLock lock;
+
+<span class="fc" id="L52">  public BaseRowSet() {</span>
+    // not done putting data into this IRowSet
+<span class="fc" id="L54">    done = new AtomicBoolean( false );</span>
+
+<span class="fc" id="L56">    originTransformCopy = new AtomicInteger( 0 );</span>
+<span class="fc" id="L57">    destinationTransformCopy = new AtomicInteger( 0 );</span>
+<span class="fc" id="L58">    lock = new ReentrantReadWriteLock();</span>
+<span class="fc" id="L59">  }</span>
+
+  /**
+   * Compares using the target transforms and copy, not the source.
+   * That way, re-partitioning is always done in the same way.
+   */
+  @Override
+  public int compareTo( IRowSet rowSet ) {
+<span class="nc" id="L67">    lock.readLock().lock();</span>
+    String target;
+
+    try {
+<span class="nc" id="L71">      target = remoteHopServerName + &quot;.&quot; + destinationTransformName + &quot;.&quot; + destinationTransformCopy.intValue();</span>
+    } finally {
+<span class="nc" id="L73">      lock.readLock().unlock();</span>
+    }
+
+<span class="nc" id="L76">    String comp =</span>
+<span class="nc" id="L77">      rowSet.getRemoteHopServerName()</span>
+<span class="nc" id="L78">        + &quot;.&quot; + rowSet.getDestinationTransformName() + &quot;.&quot; + rowSet.getDestinationTransformCopy();</span>
+
+<span class="nc" id="L80">    return target.compareTo( comp );</span>
+  }
+
+  public boolean equals( BaseRowSet rowSet ) {
+<span class="nc bnc" id="L84" title="All 2 branches missed.">    return compareTo( rowSet ) == 0;</span>
+  }
+
+  /*
+   * (non-Javadoc)
+   *
+   * @see org.apache.hop.core.RowSetInterface#putRow(org.apache.hop.core.row.IRowMeta, java.lang.Object[])
+   */
+  @Override
+  public abstract boolean putRow( IRowMeta rowMeta, Object[] rowData );
+
+  /*
+   * (non-Javadoc)
+   *
+   * @see org.apache.hop.core.RowSetInterface#putRowWait(org.apache.hop.core.row.IRowMeta, java.lang.Object[],
+   * long, java.util.concurrent.TimeUnit)
+   */
+  @Override
+  public abstract boolean putRowWait( IRowMeta rowMeta, Object[] rowData, long time, TimeUnit tu );
+
+  // default getRow with wait time = 100ms
+  //
+  /*
+   * (non-Javadoc)
+   *
+   * @see org.apache.hop.core.RowSetInterface#getRow()
+   */
+  @Override
+  public abstract Object[] getRow();
+
+  /*
+   * (non-Javadoc)
+   *
+   * @see org.apache.hop.core.RowSetInterface#getRowImmediate()
+   */
+  @Override
+  public abstract Object[] getRowImmediate();
+
+  /*
+   * (non-Javadoc)
+   *
+   * @see org.apache.hop.core.RowSetInterface#getRowWait(long, java.util.concurrent.TimeUnit)
+   */
+  @Override
+  public abstract Object[] getRowWait( long timeout, TimeUnit tu );
+
+  /*
+   * (non-Javadoc)
+   *
+   * @see org.apache.hop.core.RowSetInterface#setDone()
+   */
+  @Override
+  public void setDone() {
+<span class="fc" id="L137">    done.set( true );</span>
+<span class="fc" id="L138">  }</span>
+
+  /*
+   * (non-Javadoc)
+   *
+   * @see org.apache.hop.core.RowSetInterface#isDone()
+   */
+  @Override
+  public boolean isDone() {
+<span class="fc" id="L147">    return done.get();</span>
+  }
+
+  /*
+   * (non-Javadoc)
+   *
+   * @see org.apache.hop.core.RowSetInterface#getOriginTransformName()
+   */
+  @Override
+  public String getOriginTransformName() {
+<span class="fc" id="L157">    return originTransformName;</span>
+  }
+
+  /*
+   * (non-Javadoc)
+   *
+   * @see org.apache.hop.core.RowSetInterface#getOriginTransformCopy()
+   */
+  @Override
+  public int getOriginTransformCopy() {
+<span class="fc" id="L167">    return originTransformCopy.get();</span>
+  }
+
+  /*
+   * (non-Javadoc)
+   *
+   * @see org.apache.hop.core.RowSetInterface#getDestinationTransformName()
+   */
+  @Override
+  public String getDestinationTransformName() {
+<span class="fc" id="L177">    return destinationTransformName;</span>
+  }
+
+  /*
+   * (non-Javadoc)
+   *
+   * @see org.apache.hop.core.RowSetInterface#getDestinationTransformCopy()
+   */
+  @Override
+  public int getDestinationTransformCopy() {
+<span class="fc" id="L187">    return destinationTransformCopy.get();</span>
+  }
+
+  /*
+   * (non-Javadoc)
+   *
+   * @see org.apache.hop.core.RowSetInterface#getName()
+   */
+  @Override
+  public String getName() {
+<span class="fc" id="L197">    return toString();</span>
+  }
+
+  /*
+   * (non-Javadoc)
+   *
+   * @see org.apache.hop.core.RowSetInterface#size()
+   */
+  @Override
+  public abstract int size();
+
+  /*
+   * (non-Javadoc)
+   *
+   * @see org.apache.hop.core.RowSetInterface#setThreadNameFromToCopy(java.lang.String, int, java.lang.String, int)
+   */
+  @Override
+  public void setThreadNameFromToCopy( String from, int from_copy, String to, int to_copy ) {
+
+<span class="fc" id="L216">    lock.writeLock().lock();</span>
+    try {
+<span class="fc" id="L218">      originTransformName = from;</span>
+<span class="fc" id="L219">      originTransformCopy.set( from_copy );</span>
+
+<span class="fc" id="L221">      destinationTransformName = to;</span>
+<span class="fc" id="L222">      destinationTransformCopy.set( to_copy );</span>
+    } finally {
+<span class="fc" id="L224">      lock.writeLock().unlock();</span>
+    }
+<span class="fc" id="L226">  }</span>
+
+  @Override
+  public String toString() {
+    StringBuilder str;
+
+<span class="fc" id="L232">    lock.readLock().lock();</span>
+    try {
+<span class="fc" id="L234">      str = new StringBuilder( originTransformName )</span>
+<span class="fc" id="L235">        .append( &quot;.&quot; )</span>
+<span class="fc" id="L236">        .append( originTransformCopy )</span>
+<span class="fc" id="L237">        .append( &quot; - &quot; )</span>
+<span class="fc" id="L238">        .append( destinationTransformName )</span>
+<span class="fc" id="L239">        .append( &quot;.&quot; )</span>
+<span class="fc" id="L240">        .append( destinationTransformCopy );</span>
+
+<span class="pc bpc" id="L242" title="1 of 2 branches missed.">      if ( !Utils.isEmpty( remoteHopServerName ) ) {</span>
+<span class="nc" id="L243">        str.append( &quot; (&quot; )</span>
+<span class="nc" id="L244">          .append( remoteHopServerName )</span>
+<span class="nc" id="L245">          .append( &quot;)&quot; );</span>
+      }
+    } finally {
+<span class="fc" id="L248">      lock.readLock().unlock();</span>
+    }
+
+<span class="fc" id="L251">    return str.toString();</span>
+  }
+
+  /*
+   * (non-Javadoc)
+   *
+   * @see org.apache.hop.core.RowSetInterface#getRowMeta()
+   */
+  @Override
+  public IRowMeta getRowMeta() {
+<span class="fc" id="L261">    return rowMeta;</span>
+  }
+
+  /*
+   * (non-Javadoc)
+   *
+   * @see org.apache.hop.core.RowSetInterface#setRowMeta(org.apache.hop.core.row.IRowMeta)
+   */
+  @Override
+  public void setRowMeta( IRowMeta rowMeta ) {
+<span class="nc" id="L271">    this.rowMeta = rowMeta;</span>
+<span class="nc" id="L272">  }</span>
+
+  /*
+   * (non-Javadoc)
+   *
+   * @see org.apache.hop.core.RowSetInterface#getRemoteHopServerName()
+   */
+  @Override
+  public String getRemoteHopServerName() {
+<span class="nc" id="L281">    return remoteHopServerName;</span>
+  }
+
+  /*
+   * (non-Javadoc)
+   *
+   * @see org.apache.hop.core.RowSetInterface#setRemoteHopServerName(java.lang.String)
+   */
+  @Override
+  public void setRemoteHopServerName( String remoteHopServerName ) {
+<span class="nc" id="L291">    this.remoteHopServerName = remoteHopServerName;</span>
+<span class="nc" id="L292">  }</span>
+
+  /**
+   * By default we don't report blocking, only for monitored pipelines.
+   *
+   * @return true if this row set is blocking on reading or writing.
+   */
+  @Override
+  public boolean isBlocking() {
+<span class="nc" id="L301">    return false;</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

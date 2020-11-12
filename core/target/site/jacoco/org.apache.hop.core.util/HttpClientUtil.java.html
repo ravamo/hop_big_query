@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HttpClientUtil.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.util</a> &gt; <span class="el_source">HttpClientUtil.java</span></div><h1>HttpClientUtil.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.util;
+
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpHost;
+import org.apache.http.HttpResponse;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.AuthCache;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.impl.auth.BasicScheme;
+import org.apache.http.impl.client.BasicAuthCache;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.util.EntityUtils;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URLDecoder;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+
+/**
+ * Utility class contained useful methods while working with {@link org.apache.http.client.HttpClient HttpClient}
+ *
+ * @author Yury_Bakhmutski
+ * @since 06-27-2017
+ */
+public class HttpClientUtil {
+
+  private HttpClientUtil() {
+  }
+
+  /**
+   * @param response the httpresponse for processing
+   * @return HttpEntity in String representation using &quot;UTF-8&quot; encoding
+   * @throws IOException
+   */
+  public static String responseToString( HttpResponse response ) throws IOException {
+<span class="nc" id="L61">    return responseToString( response, Charset.forName( StandardCharsets.UTF_8.name() ) );</span>
+  }
+
+  /**
+   * @param response the httpresponse for processing
+   * @param charset  the charset used for getting HttpEntity
+   * @return HttpEntity in decoded String representation using provided charset
+   * @throws IOException
+   */
+  public static String responseToString( HttpResponse response, Charset charset ) throws IOException {
+<span class="nc" id="L71">    return responseToString( response, charset, false );</span>
+  }
+
+  /**
+   * @param response the httpresponse for processing
+   * @param charset  the charset used for getting HttpEntity
+   * @param decode   determines if the result should be decoded or not
+   * @return HttpEntity in String representation using provided charset
+   * @throws IOException
+   */
+  public static String responseToString( HttpResponse response, Charset charset, boolean decode ) throws IOException {
+<span class="nc" id="L82">    HttpEntity entity = response.getEntity();</span>
+<span class="nc" id="L83">    String result = EntityUtils.toString( entity, charset );</span>
+<span class="nc" id="L84">    EntityUtils.consume( entity );</span>
+<span class="nc bnc" id="L85" title="All 2 branches missed.">    if ( decode ) {</span>
+<span class="nc" id="L86">      result = URLDecoder.decode( result, StandardCharsets.UTF_8.name() );</span>
+    }
+<span class="nc" id="L88">    return result;</span>
+  }
+
+  public static InputStream responseToInputStream( HttpResponse response ) throws IOException {
+<span class="nc" id="L92">    return response.getEntity().getContent();</span>
+  }
+
+  public static byte[] responseToByteArray( HttpResponse response ) throws IOException {
+<span class="nc" id="L96">    return EntityUtils.toByteArray( response.getEntity() );</span>
+  }
+
+  /**
+   * Returns context with AuthCache or null in case of any exception was thrown.
+   *
+   * @param host
+   * @param port
+   * @param user
+   * @param password
+   * @param schema
+   * @return {@link org.apache.http.client.protocol.HttpClientContext HttpClientContext}
+   */
+  public static HttpClientContext createPreemptiveBasicAuthentication( String host, int port, String user,
+                                                                       String password, String schema ) {
+<span class="nc" id="L111">    HttpClientContext localContext = null;</span>
+    try {
+<span class="nc" id="L113">      HttpHost target = new HttpHost( host, port, schema );</span>
+<span class="nc" id="L114">      CredentialsProvider credsProvider = new BasicCredentialsProvider();</span>
+<span class="nc" id="L115">      credsProvider.setCredentials(</span>
+<span class="nc" id="L116">        new AuthScope( target.getHostName(), target.getPort() ),</span>
+        new UsernamePasswordCredentials( user, password ) );
+
+      // Create AuthCache instance
+<span class="nc" id="L120">      AuthCache authCache = new BasicAuthCache();</span>
+      // Generate BASIC scheme object and add it to the local
+      // auth cache
+<span class="nc" id="L123">      BasicScheme basicAuth = new BasicScheme();</span>
+<span class="nc" id="L124">      authCache.put( target, basicAuth );</span>
+
+      // Add AuthCache to the execution context
+<span class="nc" id="L127">      localContext = HttpClientContext.create();</span>
+<span class="nc" id="L128">      localContext.setAuthCache( authCache );</span>
+<span class="nc" id="L129">    } catch ( Exception e ) {</span>
+<span class="nc" id="L130">      return null;</span>
+<span class="nc" id="L131">    }</span>
+<span class="nc" id="L132">    return localContext;</span>
+  }
+
+  /**
+   * Returns context with AuthCache or null in case of any exception was thrown.
+   * Use &quot;http&quot; schema.
+   *
+   * @param host
+   * @param port
+   * @param user
+   * @param password
+   * @return {@link org.apache.http.client.protocol.HttpClientContext HttpClientContext}
+   */
+  public static HttpClientContext createPreemptiveBasicAuthentication( String host, int port, String user,
+                                                                       String password ) {
+<span class="nc" id="L147">    return createPreemptiveBasicAuthentication( host, port, user, password, &quot;http&quot; );</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

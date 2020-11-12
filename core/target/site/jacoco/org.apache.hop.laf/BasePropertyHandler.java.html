@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BasePropertyHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.laf</a> &gt; <span class="el_source">BasePropertyHandler.java</span></div><h1>BasePropertyHandler.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.laf;
+
+/**
+ * This is a static accessor for the dynamic property loader and should be used by all classes requiring access to
+ * property files. The static accessor provides a notification from the LafFactory when the concrete handler is changed
+ * at runtime should the LAF be changed.
+ *
+ * @author dhushon
+ */
+public class BasePropertyHandler implements ILafChangeListener&lt;IPropertyHandler&gt; {
+
+<span class="fc" id="L34">  static BasePropertyHandler instance = null;</span>
+<span class="fc" id="L35">  protected IPropertyHandler handler = null;</span>
+<span class="fc" id="L36">  Class&lt;IPropertyHandler&gt; clazz = IPropertyHandler.class;</span>
+
+  static {
+<span class="fc" id="L39">    getInstance();</span>
+<span class="fc" id="L40">  }</span>
+
+<span class="fc" id="L42">  private BasePropertyHandler() {</span>
+<span class="fc" id="L43">    init();</span>
+<span class="fc" id="L44">  }</span>
+
+  private void init() {
+    // counting on LafFactory to return a class conforming to @see IMessageHandler
+<span class="fc" id="L48">    handler = LafFactory.getHandler( clazz );</span>
+<span class="fc" id="L49">  }</span>
+
+  public static BasePropertyHandler getInstance() {
+<span class="fc bfc" id="L52" title="All 2 branches covered.">    if ( instance == null ) {</span>
+<span class="fc" id="L53">      instance = new BasePropertyHandler();</span>
+    }
+<span class="fc" id="L55">    return instance;</span>
+  }
+
+  protected IPropertyHandler getHandler() {
+<span class="fc" id="L59">    return handler;</span>
+  }
+
+  protected static IPropertyHandler getInstanceHandler() {
+<span class="fc" id="L63">    return getInstance().getHandler();</span>
+  }
+
+  /**
+   * return the value of a given key from the properties list
+   *
+   * @param key
+   * @return null if the key is not found
+   */
+  public static String getProperty( String key ) {
+<span class="fc" id="L73">    return getInstanceHandler().getProperty( key );</span>
+  }
+
+  /**
+   * return the value of a given key from the properties list, returning the defValue string should the key not be found
+   *
+   * @param key
+   * @param defValue
+   * @return a string representing either the value associated with the passed key or defValue should that key not be
+   * found
+   */
+  public static String getProperty( String key, String defValue ) {
+<span class="nc" id="L85">    return getInstanceHandler().getProperty( key, defValue );</span>
+  }
+
+  @Override
+  public void notify( IPropertyHandler changedObject ) {
+<span class="nc" id="L90">    handler = changedObject;</span>
+<span class="nc" id="L91">  }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

@@ -1,0 +1,435 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Plugin.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.plugins</a> &gt; <span class="el_source">Plugin.java</span></div><h1>Plugin.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.plugins;
+
+import org.apache.commons.lang.builder.CompareToBuilder;
+import org.apache.hop.core.Const;
+
+import java.net.URL;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * This describes the plugin itself, the IDs it listens too, what libraries (jar files) it uses, the names, the i18n
+ * details, etc.
+ *
+ * @author matt
+ */
+public class Plugin implements IPlugin, Comparable&lt;Plugin&gt; {
+
+<span class="fc" id="L41">  public static Comparator&lt;IPlugin&gt; nullStringComparator =</span>
+<span class="fc" id="L42">    ( p1, p2 ) -&gt; new CompareToBuilder()</span>
+<span class="fc" id="L43">      .append( p1.getName(), p2.getName(), Comparator.nullsLast( String::compareToIgnoreCase ) )</span>
+<span class="fc" id="L44">      .append( p1.getIds(), p2.getIds() )</span>
+<span class="fc" id="L45">      .toComparison();</span>
+
+  private String category;
+  private String name;
+  private String description;
+  private String[] ids;
+  private Class&lt;? extends IPluginType&gt; pluginType;
+  private String imageFile;
+  private boolean separateClassLoaderNeeded;
+  private String classLoaderGroup;
+  private boolean nativePlugin;
+  private Map&lt;Class&lt;?&gt;, String&gt; classMap;
+  private List&lt;String&gt; libraries;
+  private String errorHelpFile;
+  private Class&lt;?&gt; mainType;
+  private URL pluginFolder;
+  private String documentationUrl;
+  private String casesUrl;
+  private String forumUrl;
+  private String suggestion;
+  private String[] keywords;
+  private boolean usingLibrariesOutsidePluginFolder;
+
+  public Plugin( String[] ids, Class&lt;? extends IPluginType&gt; pluginType, Class&lt;?&gt; mainType,
+                 String category, String name, String description, String imageFile, boolean separateClassLoaderNeeded,
+                 boolean nativePlugin, Map&lt;Class&lt;?&gt;, String&gt; classMap, List&lt;String&gt; libraries, String errorHelpFile, String[] keywords,
+                 URL pluginFolder, boolean usingLibrariesOutsidePluginFolder ) {
+<span class="fc" id="L72">    this( ids, pluginType, mainType, category, name, description, imageFile, separateClassLoaderNeeded,</span>
+      nativePlugin, classMap, libraries, errorHelpFile, keywords, pluginFolder, usingLibrariesOutsidePluginFolder, null, null, null );
+<span class="fc" id="L74">  }</span>
+
+  public Plugin( String[] ids, Class&lt;? extends IPluginType&gt; pluginType, Class&lt;?&gt; mainType,
+                 String category, String name, String description, String imageFile, boolean separateClassLoaderNeeded,
+                 boolean nativePlugin, Map&lt;Class&lt;?&gt;, String&gt; classMap, List&lt;String&gt; libraries, String errorHelpFile, String[] keywords,
+                 URL pluginFolder, boolean usingLibrariesOutsidePluginFolder, String documentationUrl, String casesUrl, String forumUrl ) {
+<span class="fc" id="L80">    this( ids, pluginType, mainType, category, name, description, imageFile, separateClassLoaderNeeded, null,</span>
+      nativePlugin, classMap, libraries, errorHelpFile, keywords, pluginFolder, usingLibrariesOutsidePluginFolder, documentationUrl, casesUrl, forumUrl );
+<span class="fc" id="L82">  }</span>
+
+  public Plugin( String[] ids, Class&lt;? extends IPluginType&gt; pluginType, Class&lt;?&gt; mainType,
+                 String category, String name, String description, String imageFile, boolean separateClassLoaderNeeded,
+                 String classLoaderGroup, boolean nativePlugin, Map&lt;Class&lt;?&gt;, String&gt; classMap, List&lt;String&gt; libraries,
+                 String errorHelpFile, String[] keywords, URL pluginFolder, boolean usingLibrariesOutsidePluginFolder, String documentationUrl, String casesUrl, String forumUrl,
+                 String suggestion ) {
+<span class="nc" id="L89">    this( ids, pluginType, mainType, category, name, description, imageFile, separateClassLoaderNeeded,</span>
+      classLoaderGroup, nativePlugin, classMap, libraries, errorHelpFile, keywords, pluginFolder, usingLibrariesOutsidePluginFolder, documentationUrl, casesUrl,
+      forumUrl );
+<span class="nc" id="L92">    this.suggestion = suggestion;</span>
+<span class="nc" id="L93">  }</span>
+
+  public Plugin( String[] ids, Class&lt;? extends IPluginType&gt; pluginType, Class&lt;?&gt; mainType,
+                 String category, String name, String description, String imageFile, boolean separateClassLoaderNeeded,
+                 boolean nativePlugin, Map&lt;Class&lt;?&gt;, String&gt; classMap, List&lt;String&gt; libraries, String errorHelpFile, String[] keywords,
+                 URL pluginFolder, boolean usingLibrariesOutsidePluginFolder, String documentationUrl, String casesUrl, String forumUrl, String suggestion ) {
+<span class="fc" id="L99">    this( ids, pluginType, mainType, category, name, description, imageFile, separateClassLoaderNeeded, null,</span>
+      nativePlugin, classMap, libraries, errorHelpFile, keywords, pluginFolder, usingLibrariesOutsidePluginFolder, documentationUrl, casesUrl, forumUrl );
+<span class="fc" id="L101">    this.suggestion = suggestion;</span>
+<span class="fc" id="L102">  }</span>
+
+  public Plugin( String[] ids, Class&lt;? extends IPluginType&gt; pluginType, Class&lt;?&gt; mainType,
+                 String category, String name, String description, String imageFile, boolean separateClassLoaderNeeded,
+                 String classLoaderGroup, boolean nativePlugin, Map&lt;Class&lt;?&gt;, String&gt; classMap, List&lt;String&gt; libraries,
+<span class="fc" id="L107">                 String errorHelpFile, String[] keywords, URL pluginFolder, boolean usingLibrariesOutsidePluginFolder, String documentationUrl, String casesUrl, String forumUrl ) {</span>
+<span class="fc" id="L108">    this.ids = ids;</span>
+<span class="fc" id="L109">    this.pluginType = pluginType;</span>
+<span class="fc" id="L110">    this.mainType = mainType;</span>
+<span class="fc" id="L111">    this.category = category;</span>
+<span class="fc" id="L112">    this.name = name;</span>
+<span class="fc" id="L113">    this.description = description;</span>
+<span class="fc" id="L114">    this.imageFile = imageFile;</span>
+<span class="fc" id="L115">    this.separateClassLoaderNeeded = separateClassLoaderNeeded;</span>
+<span class="fc" id="L116">    this.classLoaderGroup = classLoaderGroup;</span>
+<span class="fc" id="L117">    this.nativePlugin = nativePlugin;</span>
+<span class="fc" id="L118">    this.classMap = classMap;</span>
+<span class="fc" id="L119">    this.libraries = libraries;</span>
+<span class="fc" id="L120">    this.errorHelpFile = errorHelpFile;</span>
+<span class="fc" id="L121">    this.keywords = keywords;</span>
+<span class="fc" id="L122">    this.pluginFolder = pluginFolder;</span>
+<span class="fc" id="L123">    this.usingLibrariesOutsidePluginFolder = usingLibrariesOutsidePluginFolder;</span>
+<span class="fc" id="L124">    this.documentationUrl = Const.getDocUrl( documentationUrl );</span>
+<span class="fc" id="L125">    this.casesUrl = casesUrl;</span>
+<span class="fc" id="L126">    this.forumUrl = forumUrl;</span>
+<span class="fc" id="L127">  }</span>
+
+  @Override
+  public String toString() {
+<span class="nc" id="L131">    return ids[ 0 ] + &quot;/&quot; + name + &quot;{&quot; + pluginType + &quot;}&quot;;</span>
+  }
+
+  @Override
+  public boolean equals( Object obj ) {
+<span class="pc bpc" id="L136" title="3 of 6 branches missed.">    return ( obj != null ) &amp;&amp; ( obj instanceof Plugin ) &amp;&amp; compareTo( (Plugin) obj ) == 0;</span>
+  }
+
+  @Override
+  public int hashCode() {
+<span class="fc" id="L141">    return ids[ 0 ].hashCode();</span>
+  }
+
+  @Override
+  public int compareTo( Plugin o ) {
+    // All the IDs have to be the same to match, otherwise it's a different plugin
+    // This might be a bit over the top, usually we only have a single ID
+    //
+
+<span class="fc" id="L150">    return nullStringComparator.compare( this, o );</span>
+  }
+
+  @Override
+  public boolean matches( String id ) {
+<span class="fc bfc" id="L155" title="All 2 branches covered.">    return Const.indexOfString( id, ids ) &gt;= 0;</span>
+  }
+
+  /**
+   * @return the category
+   */
+  @Override
+  public String getCategory() {
+<span class="nc" id="L163">    return category;</span>
+  }
+
+  /**
+   * @param category the category to set
+   */
+  public void setCategory( String category ) {
+<span class="nc" id="L170">    this.category = category;</span>
+<span class="nc" id="L171">  }</span>
+
+  /**
+   * @return the name
+   */
+  @Override
+  public String getName() {
+<span class="fc" id="L178">    return name;</span>
+  }
+
+  /**
+   * @param name the name to set
+   */
+  public void setName( String name ) {
+<span class="nc" id="L185">    this.name = name;</span>
+<span class="nc" id="L186">  }</span>
+
+  /**
+   * @return the description
+   */
+  @Override
+  public String getDescription() {
+<span class="fc" id="L193">    return description;</span>
+  }
+
+  /**
+   * @param description the description to set
+   */
+  public void setDescription( String description ) {
+<span class="nc" id="L200">    this.description = description;</span>
+<span class="nc" id="L201">  }</span>
+
+  /**
+   * @return the ids
+   */
+  @Override
+  public String[] getIds() {
+<span class="fc" id="L208">    return ids;</span>
+  }
+
+  /**
+   * @param ids the ids to set
+   */
+  public void setIds( String[] ids ) {
+<span class="nc" id="L215">    this.ids = ids;</span>
+<span class="nc" id="L216">  }</span>
+
+  /**
+   * @return the pluginType
+   */
+  @Override
+  public Class&lt;? extends IPluginType&gt; getPluginType() {
+<span class="fc" id="L223">    return pluginType;</span>
+  }
+
+  /**
+   * @param pluginType the pluginType to set
+   */
+  public void setPluginType( Class&lt;? extends IPluginType&gt; pluginType ) {
+<span class="nc" id="L230">    this.pluginType = pluginType;</span>
+<span class="nc" id="L231">  }</span>
+
+  /**
+   * @return the imageFile
+   */
+  @Override
+  public String getImageFile() {
+<span class="fc" id="L238">    return imageFile;</span>
+  }
+
+  /**
+   * @param imageFile the imageFile to set
+   */
+  @Override
+  public void setImageFile( String imageFile ) {
+<span class="fc" id="L246">    this.imageFile = imageFile;</span>
+<span class="fc" id="L247">  }</span>
+
+  /**
+   * @return the separateClassLoaderNeeded
+   */
+  @Override
+  public boolean isSeparateClassLoaderNeeded() {
+<span class="fc" id="L254">    return separateClassLoaderNeeded;</span>
+  }
+
+  /**
+   * @param separateClassLoaderNeeded the separateClassLoaderNeeded to set
+   */
+  public void setSaperateClassLoaderNeeded( boolean separateClassLoaderNeeded ) {
+<span class="nc" id="L261">    this.separateClassLoaderNeeded = separateClassLoaderNeeded;</span>
+<span class="nc" id="L262">  }</span>
+
+  /**
+   * @return the nativePlugin
+   */
+  @Override
+  public boolean isNativePlugin() {
+<span class="fc" id="L269">    return nativePlugin;</span>
+  }
+
+  /**
+   * @param nativePlugin the nativePlugin to set
+   */
+  public void setNativePlugin( boolean nativePlugin ) {
+<span class="nc" id="L276">    this.nativePlugin = nativePlugin;</span>
+<span class="nc" id="L277">  }</span>
+
+  /**
+   * @return the classMap
+   */
+  @Override
+  public Map&lt;Class&lt;?&gt;, String&gt; getClassMap() {
+<span class="fc" id="L284">    return classMap;</span>
+  }
+
+  /**
+   * @param classMap the classMap to set
+   */
+  public void setClassMap( Map&lt;Class&lt;?&gt;, String&gt; classMap ) {
+<span class="nc" id="L291">    this.classMap = classMap;</span>
+<span class="nc" id="L292">  }</span>
+
+  /**
+   * @return the libraries
+   */
+  @Override
+  public List&lt;String&gt; getLibraries() {
+<span class="fc" id="L299">    return libraries;</span>
+  }
+
+  /**
+   * @param libraries the libraries to set
+   */
+  public void setLibraries( List&lt;String&gt; libraries ) {
+<span class="nc" id="L306">    this.libraries = libraries;</span>
+<span class="nc" id="L307">  }</span>
+
+  /**
+   * @return the errorHelpFile
+   */
+  @Override
+  public String getErrorHelpFile() {
+<span class="fc" id="L314">    return errorHelpFile;</span>
+  }
+
+  /**
+   * @param errorHelpFile the errorHelpFile to set
+   */
+  @Override
+  public void setErrorHelpFile( String errorHelpFile ) {
+<span class="nc" id="L322">    this.errorHelpFile = errorHelpFile;</span>
+<span class="nc" id="L323">  }</span>
+
+  @Override
+  public Class&lt;?&gt; getMainType() {
+<span class="fc" id="L327">    return mainType;</span>
+  }
+
+  @Override
+  public URL getPluginDirectory() {
+<span class="fc" id="L332">    return this.pluginFolder;</span>
+  }
+
+  /**
+   * @return the documentationUrl
+   */
+  @Override
+  public String getDocumentationUrl() {
+<span class="fc" id="L340">    return documentationUrl;</span>
+  }
+
+  /**
+   * @param documentationUrl the documentationUrl to set
+   */
+  @Override
+  public void setDocumentationUrl( String documentationUrl ) {
+<span class="fc" id="L348">    this.documentationUrl = documentationUrl;</span>
+<span class="fc" id="L349">  }</span>
+
+  /**
+   * @return the casesUrl
+   */
+  @Override
+  public String getCasesUrl() {
+<span class="fc" id="L356">    return casesUrl;</span>
+  }
+
+  /**
+   * @param casesUrl the casesUrl to set
+   */
+  @Override
+  public void setCasesUrl( String casesUrl ) {
+<span class="fc" id="L364">    this.casesUrl = casesUrl;</span>
+<span class="fc" id="L365">  }</span>
+
+  /**
+   * @return the forum URL
+   */
+  @Override
+  public String getForumUrl() {
+<span class="fc" id="L372">    return forumUrl;</span>
+  }
+
+  /**
+   * @param forumUrl the forum URL to set
+   */
+  @Override
+  public void setForumUrl( String forumUrl ) {
+<span class="fc" id="L380">    this.forumUrl = forumUrl;</span>
+<span class="fc" id="L381">  }</span>
+
+  @Override
+  public String getClassLoaderGroup() {
+<span class="fc" id="L385">    return classLoaderGroup;</span>
+  }
+
+  @Override
+  public void setSuggestion( String suggestion ) {
+<span class="nc" id="L390">    this.suggestion = suggestion;</span>
+<span class="nc" id="L391">  }</span>
+
+  @Override
+  public String getSuggestion() {
+<span class="nc" id="L395">    return suggestion;</span>
+  }
+
+  @Override
+  public void setClassLoaderGroup( String classLoaderGroup ) {
+<span class="nc" id="L400">    this.classLoaderGroup = classLoaderGroup;</span>
+<span class="nc" id="L401">  }</span>
+
+  /**
+   * Gets keywords
+   *
+   * @return value of keywords
+   */
+  public String[] getKeywords() {
+<span class="nc" id="L409">    return keywords;</span>
+  }
+
+  /**
+   * @param keywords The keywords to set
+   */
+  public void setKeywords( String[] keywords ) {
+<span class="nc" id="L416">    this.keywords = keywords;</span>
+<span class="nc" id="L417">  }</span>
+
+  /**
+   * Gets usingLibrariesOutsidePluginFolder
+   *
+   * @return value of usingLibrariesOutsidePluginFolder
+   */
+  @Override public boolean isUsingLibrariesOutsidePluginFolder() {
+<span class="fc" id="L425">    return usingLibrariesOutsidePluginFolder;</span>
+  }
+
+  /**
+   * @param usingLibrariesOutsidePluginFolder The usingLibrariesOutsidePluginFolder to set
+   */
+  public void setUsingLibrariesOutsidePluginFolder( boolean usingLibrariesOutsidePluginFolder ) {
+<span class="nc" id="L432">    this.usingLibrariesOutsidePluginFolder = usingLibrariesOutsidePluginFolder;</span>
+<span class="nc" id="L433">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

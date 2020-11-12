@@ -1,0 +1,351 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LoggingBuffer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.logging</a> &gt; <span class="el_source">LoggingBuffer.java</span></div><h1>LoggingBuffer.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.logging;
+
+import com.google.common.annotations.VisibleForTesting;
+import org.apache.hop.core.Const;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+/**
+ * This class keeps the last N lines in a buffer
+ *
+ * @author matt
+ */
+public class LoggingBuffer {
+  private String name;
+
+  private List&lt;BufferLine&gt; buffer;
+<span class="fc" id="L48">  private ReadWriteLock lock = new ReentrantReadWriteLock();</span>
+
+  private int bufferSize;
+
+  private HopLogLayout layout;
+
+  private List&lt;IHopLoggingEventListener&gt; eventListeners;
+
+<span class="fc" id="L56">  private LoggingRegistry loggingRegistry = LoggingRegistry.getInstance();</span>
+
+<span class="fc" id="L58">  public LoggingBuffer( int bufferSize ) {</span>
+<span class="fc" id="L59">    this.bufferSize = bufferSize;</span>
+    // The buffer overflow protection allows it to be overflowed for 1 item within a single thread.
+    // Considering a possible high contention, let's set it's max overflow size to be 10%.
+    // Anyway, even an overflow goes higher than 10%, it wouldn't cost us too much.
+<span class="fc" id="L63">    buffer = new ArrayList&lt;&gt;( (int) ( bufferSize * 1.1 ) );</span>
+<span class="fc" id="L64">    layout = new HopLogLayout( true );</span>
+<span class="fc" id="L65">    eventListeners = new CopyOnWriteArrayList&lt;&gt;();</span>
+<span class="fc" id="L66">  }</span>
+
+  /**
+   * @return the number (sequence, 1..N) of the last log line. If no records are present in the buffer, 0 is returned.
+   */
+  public int getLastBufferLineNr() {
+<span class="fc" id="L72">    lock.readLock().lock();</span>
+    try {
+<span class="pc bpc" id="L74" title="1 of 2 branches missed.">      if ( buffer.size() &gt; 0 ) {</span>
+<span class="nc" id="L75">        return buffer.get( buffer.size() - 1 ).getNr();</span>
+      } else {
+<span class="fc" id="L77">        return 0;</span>
+      }
+    } finally {
+<span class="fc" id="L80">      lock.readLock().unlock();</span>
+    }
+  }
+
+  /**
+   * @param channelId      channel IDs to grab
+   * @param includeGeneral include general log lines
+   * @param from
+   * @param to
+   * @return
+   */
+  public List&lt;HopLoggingEvent&gt; getLogBufferFromTo( List&lt;String&gt; channelId, boolean includeGeneral, int from,
+                                                   int to ) {
+<span class="fc" id="L93">    lock.readLock().lock();</span>
+    try {
+<span class="pc bnc" id="L95" title="All 4 branches missed.">      Stream&lt;BufferLine&gt; bufferStream = buffer.stream().filter( line -&gt; line.getNr() &gt; from &amp;&amp; line.getNr() &lt;= to );</span>
+<span class="pc bpc" id="L96" title="1 of 2 branches missed.">      if ( channelId != null ) {</span>
+<span class="nc" id="L97">        bufferStream = bufferStream.filter( line -&gt; {</span>
+<span class="nc" id="L98">          String logChannelId = getLogChId( line );</span>
+<span class="nc bnc" id="L99" title="All 6 branches missed.">          return includeGeneral ? isGeneral( logChannelId ) || channelId.contains( logChannelId ) : channelId.contains( logChannelId );</span>
+        } );
+      }
+<span class="fc" id="L102">      return bufferStream.map( BufferLine::getEvent ).collect( Collectors.toList() );</span>
+    } finally {
+<span class="fc" id="L104">      lock.readLock().unlock();</span>
+    }
+  }
+
+  /**
+   * @param parentLogChannelId the parent log channel ID to grab
+   * @param includeGeneral     include general log lines
+   * @param from
+   * @param to
+   * @return
+   */
+  public List&lt;HopLoggingEvent&gt; getLogBufferFromTo( String parentLogChannelId, boolean includeGeneral, int from,
+                                                   int to ) {
+
+    // Typically, the log channel id is the one from the pipeline or workflow running currently.
+    // However, we also want to see the details of the transforms etc.
+    // So we need to look at the parents all the way up if needed...
+    //
+<span class="fc" id="L122">    List&lt;String&gt; childIds = loggingRegistry.getLogChannelChildren( parentLogChannelId );</span>
+
+<span class="fc" id="L124">    return getLogBufferFromTo( childIds, includeGeneral, from, to );</span>
+  }
+
+  public StringBuffer getBuffer( String parentLogChannelId, boolean includeGeneral, int startLineNr, int endLineNr ) {
+<span class="fc" id="L128">    StringBuilder eventBuffer = new StringBuilder( 10000 );</span>
+
+<span class="fc" id="L130">    List&lt;HopLoggingEvent&gt; events = getLogBufferFromTo( parentLogChannelId, includeGeneral, startLineNr, endLineNr );</span>
+<span class="pc bpc" id="L131" title="1 of 2 branches missed.">    for ( HopLoggingEvent event : events ) {</span>
+<span class="nc" id="L132">      eventBuffer.append( layout.format( event ) ).append( Const.CR );</span>
+<span class="nc" id="L133">    }</span>
+
+<span class="fc" id="L135">    return new StringBuffer( eventBuffer );</span>
+  }
+
+  public StringBuffer getBuffer( String parentLogChannelId, boolean includeGeneral ) {
+<span class="fc" id="L139">    return getBuffer( parentLogChannelId, includeGeneral, 0 );</span>
+  }
+
+  public StringBuffer getBuffer( String parentLogChannelId, boolean includeGeneral, int startLineNr ) {
+<span class="fc" id="L143">    return getBuffer( parentLogChannelId, includeGeneral, startLineNr, getLastBufferLineNr() );</span>
+  }
+
+  public StringBuffer getBuffer() {
+<span class="fc" id="L147">    return getBuffer( null, true );</span>
+  }
+
+  public void close() {
+<span class="nc" id="L151">  }</span>
+
+  public void doAppend( HopLoggingEvent event ) {
+<span class="fc bfc" id="L154" title="All 2 branches covered.">    if ( event.getMessage() instanceof LogMessage ) {</span>
+<span class="fc" id="L155">      lock.writeLock().lock();</span>
+      try {
+<span class="fc" id="L157">        buffer.add( new BufferLine( event ) );</span>
+<span class="pc bpc" id="L158" title="1 of 4 branches missed.">        while ( bufferSize &gt; 0 &amp;&amp; buffer.size() &gt; bufferSize ) {</span>
+<span class="fc" id="L159">          buffer.remove( 0 );</span>
+        }
+      } finally {
+<span class="fc" id="L162">        lock.writeLock().unlock();</span>
+      }
+    }
+<span class="fc" id="L165">  }</span>
+
+  public void setName( String name ) {
+<span class="nc" id="L168">    this.name = name;</span>
+<span class="nc" id="L169">  }</span>
+
+  public String getName() {
+<span class="nc" id="L172">    return name;</span>
+  }
+
+  public void setLayout( HopLogLayout layout ) {
+<span class="nc" id="L176">    this.layout = layout;</span>
+<span class="nc" id="L177">  }</span>
+
+  public HopLogLayout getLayout() {
+<span class="nc" id="L180">    return layout;</span>
+  }
+
+  public boolean requiresLayout() {
+<span class="nc" id="L184">    return true;</span>
+  }
+
+  public void clear() {
+<span class="fc" id="L188">    lock.writeLock().lock();</span>
+    try {
+<span class="fc" id="L190">      buffer.clear();</span>
+    } finally {
+<span class="fc" id="L192">      lock.writeLock().unlock();</span>
+    }
+<span class="fc" id="L194">  }</span>
+
+  /**
+   * @return the maximum number of lines that this buffer contains, 0 or lower means: no limit
+   */
+  public int getMaxNrLines() {
+<span class="fc" id="L200">    return bufferSize;</span>
+  }
+
+  /**
+   * @param maxNrLines the maximum number of lines that this buffer should contain, 0 or lower means: no limit
+   */
+  public void setMaxNrLines( int maxNrLines ) {
+<span class="fc" id="L207">    this.bufferSize = maxNrLines;</span>
+<span class="fc" id="L208">  }</span>
+
+  /**
+   * @return the nrLines
+   */
+  public int getNrLines() {
+<span class="fc" id="L214">    return buffer.size();</span>
+  }
+
+  /**
+   * Removes all rows for the channel with the specified id
+   *
+   * @param id the id of the logging channel to remove
+   */
+  public void removeChannelFromBuffer( String id ) {
+<span class="fc" id="L223">    lock.writeLock().lock();</span>
+    try {
+<span class="fc" id="L225">      buffer.removeIf( line -&gt; id.equals( getLogChId( line ) ) );</span>
+    } finally {
+<span class="fc" id="L227">      lock.writeLock().unlock();</span>
+    }
+<span class="fc" id="L229">  }</span>
+
+  public int size() {
+<span class="fc" id="L232">    return buffer.size();</span>
+  }
+
+  public void removeGeneralMessages() {
+<span class="nc" id="L236">    lock.writeLock().lock();</span>
+    try {
+<span class="nc" id="L238">      buffer.removeIf( line -&gt; isGeneral( getLogChId( line ) ) );</span>
+    } finally {
+<span class="nc" id="L240">      lock.writeLock().unlock();</span>
+    }
+<span class="nc" id="L242">  }</span>
+
+  /**
+   * We should not expose iterator out of the class.
+   * Looks like it's only used in tests.
+   * &lt;p&gt;
+   * Marked deprecated for now.
+   * TODO: To be made package-level in future.
+   */
+  @Deprecated
+  @VisibleForTesting
+  public Iterator&lt;BufferLine&gt; getBufferIterator() {
+<span class="fc" id="L254">    return buffer.iterator();</span>
+  }
+
+  /**
+   * It looks like this method is not used in the project.
+   */
+  @Deprecated
+  public String dump() {
+<span class="nc" id="L262">    StringBuilder buf = new StringBuilder( 50000 );</span>
+<span class="nc" id="L263">    lock.readLock().lock();</span>
+    try {
+<span class="nc" id="L265">      buffer.forEach( line -&gt; {</span>
+<span class="nc" id="L266">        LogMessage message = (LogMessage) line.getEvent().getMessage();</span>
+<span class="nc" id="L267">        buf.append( message.getLogChannelId() ).append( &quot;\t&quot; )</span>
+<span class="nc" id="L268">          .append( message.getSubject() ).append( &quot;\n&quot; );</span>
+<span class="nc" id="L269">      } );</span>
+<span class="nc" id="L270">      return buf.toString();</span>
+    } finally {
+<span class="nc" id="L272">      lock.readLock().unlock();</span>
+    }
+  }
+
+  /**
+   * Was used in a pair with {@link #getBufferLinesBefore(long)}.
+   *
+   * @deprecated in favor of {@link #removeBufferLinesBefore(long)}.
+   */
+  @Deprecated
+  public void removeBufferLines( List&lt;BufferLine&gt; linesToRemove ) {
+<span class="nc" id="L283">    lock.writeLock().lock();</span>
+    try {
+<span class="nc" id="L285">      buffer.removeAll( linesToRemove );</span>
+    } finally {
+<span class="nc" id="L287">      lock.writeLock().unlock();</span>
+    }
+<span class="nc" id="L289">  }</span>
+
+  /**
+   * Was used in a pair with {@link #removeBufferLines(List)}.
+   *
+   * @deprecated in favor of {@link #removeBufferLinesBefore(long)}.
+   */
+  @Deprecated
+  public List&lt;BufferLine&gt; getBufferLinesBefore( long minTimeBoundary ) {
+<span class="fc" id="L298">    lock.readLock().lock();</span>
+    try {
+<span class="fc bfc" id="L300" title="All 2 branches covered.">      return buffer.stream().filter( line -&gt; line.getEvent().timeStamp &lt; minTimeBoundary )</span>
+<span class="fc" id="L301">        .collect( Collectors.toList() );</span>
+    } finally {
+<span class="fc" id="L303">      lock.readLock().unlock();</span>
+    }
+  }
+
+  public void removeBufferLinesBefore( long minTimeBoundary ) {
+    // Using HashSet even though BufferLine does not implement hashcode and equals,
+    // we just need to remove the exact objects we have found and put in the set.
+<span class="fc" id="L310">    Set&lt;BufferLine&gt; linesToRemove = new HashSet&lt;&gt;();</span>
+<span class="fc" id="L311">    lock.writeLock().lock();</span>
+    try {
+<span class="fc bfc" id="L313" title="All 2 branches covered.">      for ( BufferLine bufferLine : buffer ) {</span>
+<span class="fc bfc" id="L314" title="All 2 branches covered.">        if ( bufferLine.getEvent().timeStamp &lt; minTimeBoundary ) {</span>
+<span class="fc" id="L315">          linesToRemove.add( bufferLine );</span>
+        } else {
+          break;
+        }
+<span class="fc" id="L319">      }</span>
+      // removeAll should run fast against a HashSet,
+      // since ArrayList.batchRemove check for each element of a collection given if it is in the ArrayList.
+      // Thus, removeAll should run in a linear time.
+<span class="fc" id="L323">      buffer.removeAll( linesToRemove );</span>
+    } finally {
+<span class="fc" id="L325">      lock.writeLock().unlock();</span>
+    }
+<span class="fc" id="L327">  }</span>
+
+  public void addLogggingEvent( HopLoggingEvent loggingEvent ) {
+<span class="fc" id="L330">    doAppend( loggingEvent );</span>
+<span class="fc" id="L331">    eventListeners.forEach( event -&gt; event.eventAdded( loggingEvent ) );</span>
+<span class="fc" id="L332">  }</span>
+
+  public void addLoggingEventListener( IHopLoggingEventListener listener ) {
+<span class="fc" id="L335">    eventListeners.add( listener );</span>
+<span class="fc" id="L336">  }</span>
+
+  public void removeLoggingEventListener( IHopLoggingEventListener listener ) {
+<span class="fc" id="L339">    eventListeners.remove( listener );</span>
+<span class="fc" id="L340">  }</span>
+
+  private boolean isGeneral( String logChannelId ) {
+<span class="nc" id="L343">    ILoggingObject loggingObject = loggingRegistry.getLoggingObject( logChannelId );</span>
+<span class="nc bnc" id="L344" title="All 4 branches missed.">    return loggingObject != null &amp;&amp; LoggingObjectType.GENERAL.equals( loggingObject.getObjectType() );</span>
+  }
+
+  private static String getLogChId( BufferLine bufferLine ) {
+<span class="fc" id="L348">    return ( (LogMessage) bufferLine.getEvent().getMessage() ).getLogChannelId();</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

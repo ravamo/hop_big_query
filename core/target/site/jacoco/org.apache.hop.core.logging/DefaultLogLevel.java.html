@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultLogLevel.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.logging</a> &gt; <span class="el_source">DefaultLogLevel.java</span></div><h1>DefaultLogLevel.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.logging;
+
+/**
+ * Retains the default log level during execution
+ *
+ * @author matt
+ */
+public class DefaultLogLevel {
+  private static DefaultLogLevel defaultLogLevel;
+
+  private LogLevel logLevel;
+
+<span class="fc" id="L35">  private DefaultLogLevel() {</span>
+<span class="fc" id="L36">    logLevel = LogLevel.BASIC;</span>
+<span class="fc" id="L37">  }</span>
+
+  private static DefaultLogLevel getInstance() {
+<span class="fc bfc" id="L40" title="All 2 branches covered.">    if ( defaultLogLevel == null ) {</span>
+<span class="fc" id="L41">      defaultLogLevel = new DefaultLogLevel();</span>
+    }
+<span class="fc" id="L43">    return defaultLogLevel;</span>
+  }
+
+  /**
+   * @return The default log level for this application
+   */
+  public static LogLevel getLogLevel() {
+<span class="fc" id="L50">    DefaultLogLevel instance = getInstance();</span>
+<span class="fc" id="L51">    return instance.logLevel;</span>
+  }
+
+  /**
+   * @param logLevel Set the default log level for this application
+   */
+  public static void setLogLevel( LogLevel logLevel ) {
+<span class="nc" id="L58">    DefaultLogLevel instance = getInstance();</span>
+<span class="nc" id="L59">    instance.logLevel = logLevel;</span>
+<span class="nc" id="L60">  }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LogChannelFileWriterBuffer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.logging</a> &gt; <span class="el_source">LogChannelFileWriterBuffer.java</span></div><h1>LogChannelFileWriterBuffer.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.logging;
+
+import org.apache.hop.core.Const;
+
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+
+public class LogChannelFileWriterBuffer {
+
+  private HopLogLayout layout;
+
+  private String logChannelId;
+
+<span class="fc" id="L37">  private final List&lt;HopLoggingEvent&gt; buffer = Collections.synchronizedList( new LinkedList&lt;HopLoggingEvent&gt;() );</span>
+
+<span class="fc" id="L39">  public LogChannelFileWriterBuffer( String logChannelId ) {</span>
+<span class="fc" id="L40">    this.logChannelId = logChannelId;</span>
+<span class="fc" id="L41">    layout = new HopLogLayout( true );</span>
+<span class="fc" id="L42">  }</span>
+
+  public void addEvent( HopLoggingEvent event ) {
+<span class="fc" id="L45">    synchronized ( buffer ) {</span>
+<span class="fc" id="L46">      buffer.add( event );</span>
+<span class="fc" id="L47">    }</span>
+<span class="fc" id="L48">  }</span>
+
+  public StringBuffer getBuffer() {
+<span class="fc" id="L51">    StringBuffer stringBuffer = new StringBuffer( 1000 );</span>
+
+<span class="fc" id="L53">    synchronized ( buffer ) {</span>
+<span class="fc bfc" id="L54" title="All 2 branches covered.">      for ( HopLoggingEvent event : buffer ) {</span>
+<span class="fc" id="L55">        stringBuffer.append( layout.format( event ) ).append( Const.CR );</span>
+<span class="fc" id="L56">      }</span>
+
+<span class="fc" id="L58">      buffer.clear();</span>
+<span class="fc" id="L59">    }</span>
+
+<span class="fc" id="L61">    return stringBuffer;</span>
+  }
+
+  public String getLogChannelId() {
+<span class="fc" id="L65">    return logChannelId;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

@@ -1,0 +1,571 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GuiRegistry.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.gui.plugin</a> &gt; <span class="el_source">GuiRegistry.java</span></div><h1>GuiRegistry.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.gui.plugin;
+
+import org.apache.hop.core.action.GuiContextAction;
+import org.apache.hop.core.gui.plugin.action.GuiAction;
+import org.apache.hop.core.gui.plugin.key.GuiKeyboardShortcut;
+import org.apache.hop.core.gui.plugin.key.GuiOsxKeyboardShortcut;
+import org.apache.hop.core.gui.plugin.key.KeyboardShortcut;
+import org.apache.hop.core.gui.plugin.menu.GuiMenuElement;
+import org.apache.hop.core.gui.plugin.menu.GuiMenuItem;
+import org.apache.hop.core.gui.plugin.toolbar.GuiToolbarElement;
+import org.apache.hop.core.gui.plugin.toolbar.GuiToolbarItem;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * This singleton keeps track of the various GUI elements that are made plug-able by the developers.
+ * For example, a general menu with a certain ID is added by someone and then other developers can then add menu items into it wherever they like.
+ * This registry keeps track of everything so that menus can be built dynamically as needed.
+ */
+public class GuiRegistry {
+
+  private static GuiRegistry guiRegistry;
+
+  /**
+   * this map links the GUI class to the menu elements information.
+   * For example, it would contain the root ID of the HopGui class at the top of the map.
+   * For the HopGui main menu we would have a menu elements stored per ID.
+   */
+  private Map&lt;String, Map&lt;String, GuiMenuItem&gt;&gt; guiMenuMap;
+  private Map&lt;String, Map&lt;String, GuiToolbarItem&gt;&gt; guiToolbarMap;
+  private Map&lt;String, Map&lt;String, GuiElements&gt;&gt; dataElementsMap;
+  private Map&lt;String, List&lt;KeyboardShortcut&gt;&gt; shortCutsMap;
+  private Map&lt;String, List&lt;GuiAction&gt;&gt; contextActionsMap;
+
+  /**
+   * The first entry in this map is the HopGui ID
+   * Then the maps found are GuiPlugin class names and their instances.  It's used to get the methods and fields for toolbars, components, ...
+   */
+  private Map&lt;String, Map&lt;String, Map&lt;String, Object&gt;&gt;&gt; guiPluginObjectsMap;
+
+<span class="fc" id="L70">  private GuiRegistry() {</span>
+<span class="fc" id="L71">    guiMenuMap = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L72">    guiToolbarMap = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L73">    dataElementsMap = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L74">    shortCutsMap = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L75">    contextActionsMap = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L76">    guiPluginObjectsMap = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L77">  }</span>
+
+  public static final GuiRegistry getInstance() {
+<span class="fc bfc" id="L80" title="All 2 branches covered.">    if ( guiRegistry == null ) {</span>
+<span class="fc" id="L81">      guiRegistry = new GuiRegistry();</span>
+    }
+<span class="fc" id="L83">    return guiRegistry;</span>
+  }
+
+  /**
+   * Add GUI Menu elements under a particular gui root (example: HopGui-MainMenu)
+   * under a particular parent element ID
+   *
+   * @param root
+   * @param guiMenuItem
+   */
+  public void addGuiMenuItem( String root, GuiMenuItem guiMenuItem ) {
+<span class="nc" id="L94">    Map&lt;String, GuiMenuItem&gt; menuMap = guiMenuMap.get( root );</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">    if ( menuMap == null ) {</span>
+<span class="nc" id="L96">      menuMap = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L97">      guiMenuMap.put( root, menuMap );</span>
+    }
+<span class="nc" id="L99">    menuMap.put( guiMenuItem.getId(), guiMenuItem );</span>
+<span class="nc" id="L100">  }</span>
+
+  /**
+   * Get the GUI Menu Item for the given root and the given ID.
+   *
+   * @param root
+   * @param id
+   * @return The GUI Menu elements or null if the gui class name or ID can not be found.
+   */
+  public GuiMenuItem findGuiMenuItem( String root, String id ) {
+<span class="nc" id="L110">    Map&lt;String, GuiMenuItem&gt; menuMap = guiMenuMap.get( root );</span>
+<span class="nc bnc" id="L111" title="All 2 branches missed.">    if ( menuMap == null ) {</span>
+<span class="nc" id="L112">      return null;</span>
+    }
+<span class="nc" id="L114">    return menuMap.get( id );</span>
+  }
+
+  /**
+   * Find the root menu item for a certain GUI root (HopGui for example).
+   *
+   * @param root The menu root ID
+   * @return An empty list if the root could not be found. The parent menu items or an empty list if nothing was found.
+   */
+  public List&lt;GuiMenuItem&gt; findChildGuiMenuItems( String root, String parentId ) {
+<span class="nc" id="L124">    Map&lt;String, GuiMenuItem&gt; menuMap = guiMenuMap.get( root );</span>
+<span class="nc bnc" id="L125" title="All 2 branches missed.">    if ( menuMap == null ) {</span>
+<span class="nc" id="L126">      return Collections.emptyList();</span>
+    }
+<span class="nc" id="L128">    List&lt;GuiMenuItem&gt; items = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">    for ( GuiMenuItem item : menuMap.values() ) {</span>
+<span class="nc bnc" id="L130" title="All 2 branches missed.">      if ( item.getParentId().equals( parentId ) ) {</span>
+<span class="nc" id="L131">        items.add( item );</span>
+      }
+<span class="nc" id="L133">    }</span>
+<span class="nc" id="L134">    return items;</span>
+  }
+
+
+  /**
+   * Add a GUI Toolbar element under a particular gui root (example: HopGui-MainMenu)
+   * under a particular parent element ID
+   *
+   * @param root
+   * @param guiToolbarItem
+   */
+  public void addGuiToolbarItem( String root, GuiToolbarItem guiToolbarItem ) {
+<span class="nc" id="L146">    Map&lt;String, GuiToolbarItem&gt; toolbarMap = guiToolbarMap.get( root );</span>
+<span class="nc bnc" id="L147" title="All 2 branches missed.">    if ( toolbarMap == null ) {</span>
+<span class="nc" id="L148">      toolbarMap = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L149">      guiToolbarMap.put( root, toolbarMap );</span>
+    }
+<span class="nc" id="L151">    toolbarMap.put( guiToolbarItem.getId(), guiToolbarItem );</span>
+<span class="nc" id="L152">  }</span>
+
+  /**
+   * Get the GUI Menu Item for the given root and the given ID.
+   *
+   * @param root
+   * @param id
+   * @return The GUI Menu elements or null if the gui class name or ID can not be found.
+   */
+  public GuiToolbarItem findGuiToolbarItem( String root, String id ) {
+<span class="nc" id="L162">    Map&lt;String, GuiToolbarItem&gt; toolbarMap = guiToolbarMap.get( root );</span>
+<span class="nc bnc" id="L163" title="All 2 branches missed.">    if ( toolbarMap == null ) {</span>
+<span class="nc" id="L164">      return null;</span>
+    }
+<span class="nc" id="L166">    return toolbarMap.get( id );</span>
+  }
+
+  /**
+   * Find the root menu item for a certain GUI Toolbar root.
+   *
+   * @param root The toolbar root ID
+   * @return Returns either: an empty list if the root could not be found, the toolbar items or an empty list if nothing was found.
+   */
+  public List&lt;GuiToolbarItem&gt; findGuiToolbarItems( String root ) {
+<span class="nc" id="L176">    Map&lt;String, GuiToolbarItem&gt; menuMap = guiToolbarMap.get( root );</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">    if ( menuMap == null ) {</span>
+<span class="nc" id="L178">      return Collections.emptyList();</span>
+    }
+<span class="nc" id="L180">    List&lt;GuiToolbarItem&gt; items = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L181" title="All 2 branches missed.">    for ( GuiToolbarItem item : menuMap.values() ) {</span>
+<span class="nc" id="L182">      items.add( item );</span>
+<span class="nc" id="L183">    }</span>
+<span class="nc" id="L184">    return items;</span>
+  }
+
+
+  /**
+   * Add a bunch of GUI elements under a particular data class name (example: PostgresDatabaseMeta)
+   * under a particular parent GUI element ID (the ID of the specific postgres database options)
+   *
+   * @param dataClassName
+   * @param parentGuiElementId
+   * @param guiElements
+   */
+  public void putGuiElements( String dataClassName, String parentGuiElementId, GuiElements guiElements ) {
+<span class="nc" id="L197">    Map&lt;String, GuiElements&gt; elementsMap = dataElementsMap.get( dataClassName );</span>
+<span class="nc bnc" id="L198" title="All 2 branches missed.">    if ( elementsMap == null ) {</span>
+<span class="nc" id="L199">      elementsMap = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L200">      dataElementsMap.put( dataClassName, elementsMap );</span>
+    }
+<span class="nc" id="L202">    elementsMap.put( parentGuiElementId, guiElements );</span>
+<span class="nc" id="L203">  }</span>
+
+  /**
+   * Get the GUI elements for the given data class and parent GUI element ID.
+   *
+   * @param dataClassName
+   * @param parentGuiElementId
+   * @return The GUI elements or null if the data class name or parent ID can not be found.
+   */
+  public GuiElements findGuiElements( String dataClassName, String parentGuiElementId ) {
+<span class="nc" id="L213">    Map&lt;String, GuiElements&gt; elementsMap = dataElementsMap.get( dataClassName );</span>
+<span class="nc bnc" id="L214" title="All 2 branches missed.">    if ( elementsMap == null ) {</span>
+<span class="nc" id="L215">      return null;</span>
+    }
+<span class="nc" id="L217">    GuiElements guiElements = elementsMap.get( parentGuiElementId );</span>
+<span class="nc bnc" id="L218" title="All 2 branches missed.">    if ( guiElements == null ) {</span>
+<span class="nc bnc" id="L219" title="All 2 branches missed.">      for ( GuiElements elements : elementsMap.values() ) {</span>
+<span class="nc" id="L220">        GuiElements found = findChildGuiElementsById( elements, parentGuiElementId );</span>
+<span class="nc bnc" id="L221" title="All 2 branches missed.">        if ( found != null ) {</span>
+<span class="nc" id="L222">          return found;</span>
+        }
+<span class="nc" id="L224">      }</span>
+    }
+<span class="nc" id="L226">    return guiElements;</span>
+  }
+
+
+  /**
+   * Look at the given {@link GuiElements} object its children and see if the element with the given ID is found.
+   *
+   * @param guiElements The element and its children to examine
+   * @param id          The element ID to look for
+   * @return The GuiElement if any is found or null if nothing is found.
+   */
+  public GuiElements findChildGuiElementsById( GuiElements guiElements, String id ) {
+<span class="nc bnc" id="L238" title="All 4 branches missed.">    if ( guiElements.getId() != null &amp;&amp; guiElements.getId().equals( id ) ) {</span>
+<span class="nc" id="L239">      return guiElements;</span>
+    }
+<span class="nc bnc" id="L241" title="All 2 branches missed.">    for ( GuiElements child : guiElements.getChildren() ) {</span>
+<span class="nc" id="L242">      GuiElements found = findChildGuiElementsById( child, id );</span>
+<span class="nc bnc" id="L243" title="All 2 branches missed.">      if ( found != null ) {</span>
+<span class="nc" id="L244">        return found;</span>
+      }
+<span class="nc" id="L246">    }</span>
+<span class="nc" id="L247">    return null;</span>
+  }
+
+  /**
+   * Add a GUI element to the registry.
+   * If there is no elements objects for the parent ID under which the element belongs, one will be added.
+   *
+   * @param dataClassName
+   * @param guiElement
+   * @param field
+   */
+  public void addGuiWidgetElement( String dataClassName, GuiWidgetElement guiElement, Field field ) {
+<span class="nc" id="L259">    GuiElements guiElements = findGuiElements( dataClassName, guiElement.parentId() );</span>
+<span class="nc bnc" id="L260" title="All 2 branches missed.">    if ( guiElements == null ) {</span>
+<span class="nc" id="L261">      guiElements = new GuiElements();</span>
+<span class="nc" id="L262">      putGuiElements( dataClassName, guiElement.parentId(), guiElements );</span>
+    }
+<span class="nc" id="L264">    GuiElements child = new GuiElements( guiElement, field );</span>
+
+    // See if we need to disable something of if something is disabled already...
+    // In those scenarios we ignore the GuiWidgetElement
+    //
+<span class="nc" id="L269">    GuiElements existing = guiElements.findChild( guiElement.id() );</span>
+<span class="nc bnc" id="L270" title="All 4 branches missed.">    if ( existing != null &amp;&amp; existing.isIgnored() ) {</span>
+<span class="nc" id="L271">      return;</span>
+    }
+<span class="nc bnc" id="L273" title="All 4 branches missed.">    if ( existing != null &amp;&amp; child.isIgnored() ) {</span>
+<span class="nc" id="L274">      existing.setIgnored( true );</span>
+<span class="nc" id="L275">      return;</span>
+    }
+
+<span class="nc" id="L278">    guiElements.getChildren().add( child );</span>
+<span class="nc" id="L279">  }</span>
+
+  /**
+   * Add a GUI menu element to the registry.
+   * If there is no elements objects for the parent ID under which the element belongs, one will be added.
+   *
+   * @param guiPluginClassName   Class in which we paint the GUI element
+   * @param guiElement
+   * @param guiPluginClassMethod
+   */
+  public void addGuiWidgetElement( String guiPluginClassName, GuiMenuElement guiElement, Method guiPluginClassMethod, ClassLoader classLoader ) {
+
+    // Extract all the information we need from the available data at boot time
+    //
+<span class="nc" id="L293">    GuiMenuItem guiMenuItem = new GuiMenuItem( guiElement, guiPluginClassMethod, guiPluginClassName, classLoader );</span>
+
+    // Store the element under the specified root
+    // This holds together a menu
+    //
+<span class="nc" id="L298">    addGuiMenuItem( guiElement.root(), guiMenuItem );</span>
+<span class="nc" id="L299">  }</span>
+
+  /**
+   * Add a GUI element to the registry.
+   * If there is no elements objects for the parent ID under which the element belongs, one will be added.
+   *
+   * @param guiPluginClassName The parent under which the widgets are stored
+   * @param toolbarElement
+   * @param method
+   * @param classLoader
+   */
+  public void addGuiToolbarElement( String guiPluginClassName, GuiToolbarElement toolbarElement, Method method, ClassLoader classLoader ) {
+
+    // Convert it to a class so we can work with it more easily compared to an annotation
+    //
+<span class="nc" id="L314">    GuiToolbarItem toolbarItem = new GuiToolbarItem( toolbarElement, guiPluginClassName, method, classLoader );</span>
+
+    // Store the toolbar item under its root
+    //
+<span class="nc" id="L318">    addGuiToolbarItem( toolbarElement.root(), toolbarItem );</span>
+<span class="nc" id="L319">  }</span>
+
+  /**
+   * Sort all the GUI elements in all data classes for all parent IDs
+   * You typically call this only once after loading all the GUI Plugins or when adding more plugins
+   */
+  public void sortAllElements() {
+<span class="nc" id="L326">    Set&lt;String&gt; dataClassNames = dataElementsMap.keySet();</span>
+<span class="nc bnc" id="L327" title="All 2 branches missed.">    for ( String dataClassName : dataClassNames ) {</span>
+<span class="nc" id="L328">      Map&lt;String, GuiElements&gt; guiElementsMap = dataElementsMap.get( dataClassName );</span>
+<span class="nc" id="L329">      Set&lt;String&gt; parentIds = guiElementsMap.keySet();</span>
+<span class="nc bnc" id="L330" title="All 2 branches missed.">      for ( String parentId : parentIds ) {</span>
+<span class="nc" id="L331">        GuiElements guiElements = guiElementsMap.get( parentId );</span>
+<span class="nc" id="L332">        guiElements.sortChildren();</span>
+<span class="nc" id="L333">      }</span>
+<span class="nc" id="L334">    }</span>
+<span class="nc" id="L335">  }</span>
+
+  public void addKeyboardShortcut( String guiPluginClassName, Method method, GuiKeyboardShortcut shortcut ) {
+<span class="nc" id="L338">    List&lt;KeyboardShortcut&gt; shortcuts = shortCutsMap.get( guiPluginClassName );</span>
+<span class="nc bnc" id="L339" title="All 2 branches missed.">    if ( shortcuts == null ) {</span>
+<span class="nc" id="L340">      shortcuts = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L341">      shortCutsMap.put( guiPluginClassName, shortcuts );</span>
+    }
+<span class="nc" id="L343">    KeyboardShortcut keyboardShortCut = new KeyboardShortcut( shortcut, method );</span>
+<span class="nc" id="L344">    shortcuts.add( keyboardShortCut );</span>
+<span class="nc" id="L345">  }</span>
+
+  public void addKeyboardShortcut( String parentClassName, Method parentMethod, GuiOsxKeyboardShortcut shortcut ) {
+<span class="nc" id="L348">    List&lt;KeyboardShortcut&gt; shortcuts = shortCutsMap.get( parentClassName );</span>
+<span class="nc bnc" id="L349" title="All 2 branches missed.">    if ( shortcuts == null ) {</span>
+<span class="nc" id="L350">      shortcuts = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L351">      shortCutsMap.put( parentClassName, shortcuts );</span>
+    }
+<span class="nc" id="L353">    shortcuts.add( new KeyboardShortcut( shortcut, parentMethod ) );</span>
+<span class="nc" id="L354">  }</span>
+
+  public List&lt;KeyboardShortcut&gt; getKeyboardShortcuts( String parentClassName ) {
+<span class="nc" id="L357">    List&lt;KeyboardShortcut&gt; shortcuts = shortCutsMap.get( parentClassName );</span>
+<span class="nc" id="L358">    return shortcuts;</span>
+  }
+
+  // Shortcuts are pretty much global so we'll look everywhere...
+  //
+  public KeyboardShortcut findKeyboardShortcut( String parentClassName, String methodName, boolean osx ) {
+<span class="nc" id="L364">    List&lt;KeyboardShortcut&gt; shortcuts = getKeyboardShortcuts( parentClassName );</span>
+<span class="nc bnc" id="L365" title="All 2 branches missed.">    if ( shortcuts != null ) {</span>
+<span class="nc bnc" id="L366" title="All 2 branches missed.">      for ( KeyboardShortcut shortcut : shortcuts ) {</span>
+<span class="nc bnc" id="L367" title="All 2 branches missed.">        if ( shortcut.getParentMethodName().equals( methodName ) ) {</span>
+<span class="nc bnc" id="L368" title="All 2 branches missed.">          if ( shortcut.isOsx() == osx ) {</span>
+<span class="nc" id="L369">            return shortcut;</span>
+          }
+        }
+<span class="nc" id="L372">      }</span>
+    }
+<span class="nc" id="L374">    return null;</span>
+  }
+
+  /**
+   * Add a GUI context action for the given method and its annotation.
+   * Also provide a classloader which can be used to load resources later.
+   *
+   * @param guiPluginClassName
+   * @param method
+   * @param ca
+   * @param classLoader
+   */
+  public void addGuiContextAction( String guiPluginClassName, Method method, GuiContextAction ca, ClassLoader classLoader ) {
+<span class="nc" id="L387">    GuiAction action = new GuiAction( ca.id(), ca.type(), ca.name(), ca.tooltip(), ca.image(), guiPluginClassName, method.getName() );</span>
+<span class="nc" id="L388">    action.setClassLoader( classLoader );</span>
+
+<span class="nc" id="L390">    List&lt;GuiAction&gt; actions = contextActionsMap.get( ca.parentId() );</span>
+<span class="nc bnc" id="L391" title="All 2 branches missed.">    if ( actions == null ) {</span>
+<span class="nc" id="L392">      actions = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L393">      contextActionsMap.put( ca.parentId(), actions );</span>
+    }
+<span class="nc" id="L395">    actions.add( action );</span>
+<span class="nc" id="L396">  }</span>
+
+  public List&lt;GuiAction&gt; getGuiContextActions( String parentContextId ) {
+<span class="nc" id="L399">    return contextActionsMap.get( parentContextId );</span>
+  }
+
+  /**
+   * @param hopGuiId           The HopGui ID
+   * @param guiPluginClassname
+   * @param instanceId
+   * @param guiPluginObject
+   */
+  public void registerGuiPluginObject( String hopGuiId, String guiPluginClassname, String instanceId, Object guiPluginObject ) {
+<span class="fc" id="L409">    Map&lt;String, Map&lt;String, Object&gt;&gt; instanceObjectsMap = guiPluginObjectsMap.get( hopGuiId );</span>
+<span class="fc bfc" id="L410" title="All 2 branches covered.">    if ( instanceObjectsMap == null ) {</span>
+<span class="fc" id="L411">      instanceObjectsMap = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L412">      guiPluginObjectsMap.put( hopGuiId, instanceObjectsMap );</span>
+    }
+<span class="fc" id="L414">    Map&lt;String, Object&gt; objectsMap = instanceObjectsMap.get( instanceId );</span>
+<span class="fc bfc" id="L415" title="All 2 branches covered.">    if ( objectsMap == null ) {</span>
+<span class="fc" id="L416">      objectsMap = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L417">      instanceObjectsMap.put( instanceId, objectsMap );</span>
+    }
+<span class="fc" id="L419">    objectsMap.put( guiPluginClassname, guiPluginObject );</span>
+<span class="fc" id="L420">  }</span>
+
+  /**
+   * @param hopGuiId           The HopGui ID
+   * @param guiPluginClassname
+   * @param instanceId
+   * @return
+   */
+  public Object findGuiPluginObject( String hopGuiId, String guiPluginClassname, String instanceId ) {
+
+<span class="fc" id="L430">    Map&lt;String, Map&lt;String, Object&gt;&gt; instanceObjectsMap = guiPluginObjectsMap.get( hopGuiId );</span>
+<span class="pc bpc" id="L431" title="1 of 2 branches missed.">    if ( instanceObjectsMap == null ) {</span>
+<span class="nc" id="L432">      return null;</span>
+    }
+<span class="fc" id="L434">    Map&lt;String, Object&gt; objectsMap = instanceObjectsMap.get( instanceId );</span>
+<span class="pc bpc" id="L435" title="1 of 2 branches missed.">    if ( objectsMap == null ) {</span>
+<span class="nc" id="L436">      return null;</span>
+    }
+<span class="fc" id="L438">    return objectsMap.get( guiPluginClassname );</span>
+  }
+
+  /**
+   * Remove the GuiPlugin object once it's disposed.
+   *
+   * @param hopGuiId
+   * @param guiPluginClassname
+   * @param instanceId
+   */
+  public void removeGuiPluginObject( String hopGuiId, String guiPluginClassname, String instanceId ) {
+<span class="nc" id="L449">    Map&lt;String, Map&lt;String, Object&gt;&gt; instanceObjectsMap = guiPluginObjectsMap.get( hopGuiId );</span>
+<span class="nc bnc" id="L450" title="All 2 branches missed.">    if ( instanceObjectsMap == null ) {</span>
+<span class="nc" id="L451">      return;</span>
+    }
+<span class="nc" id="L453">    Map&lt;String, Object&gt; objectsMap = instanceObjectsMap.get( instanceId );</span>
+<span class="nc bnc" id="L454" title="All 2 branches missed.">    if ( objectsMap == null ) {</span>
+<span class="nc" id="L455">      return;</span>
+    }
+<span class="nc" id="L457">    objectsMap.remove( guiPluginClassname );</span>
+<span class="nc" id="L458">  }</span>
+
+  /**
+   * Remove all objects with the given instanceId
+   *
+   * @param hopGuiId
+   * @param instanceId
+   */
+  public void removeGuiPluginObjects( String hopGuiId, String instanceId ) {
+<span class="nc" id="L467">    Map&lt;String, Map&lt;String, Object&gt;&gt; instanceObjectsMap = guiPluginObjectsMap.get( hopGuiId );</span>
+<span class="nc bnc" id="L468" title="All 2 branches missed.">    if ( instanceObjectsMap == null ) {</span>
+<span class="nc" id="L469">      return;</span>
+    }
+<span class="nc" id="L471">    instanceObjectsMap.remove( instanceId );</span>
+<span class="nc" id="L472">  }</span>
+
+  /**
+   * Gets dataElementsMap
+   *
+   * @return value of dataElementsMap
+   */
+  public Map&lt;String, Map&lt;String, GuiElements&gt;&gt; getDataElementsMap() {
+<span class="nc" id="L480">    return dataElementsMap;</span>
+  }
+
+  /**
+   * @param dataElementsMap The dataElementsMap to set
+   */
+  public void setDataElementsMap( Map&lt;String, Map&lt;String, GuiElements&gt;&gt; dataElementsMap ) {
+<span class="nc" id="L487">    this.dataElementsMap = dataElementsMap;</span>
+<span class="nc" id="L488">  }</span>
+
+  /**
+   * Gets shortCutsMap
+   *
+   * @return value of shortCutsMap
+   */
+  public Map&lt;String, List&lt;KeyboardShortcut&gt;&gt; getShortCutsMap() {
+<span class="nc" id="L496">    return shortCutsMap;</span>
+  }
+
+  /**
+   * @param shortCutsMap The shortCutsMap to set
+   */
+  public void setShortCutsMap( Map&lt;String, List&lt;KeyboardShortcut&gt;&gt; shortCutsMap ) {
+<span class="nc" id="L503">    this.shortCutsMap = shortCutsMap;</span>
+<span class="nc" id="L504">  }</span>
+
+  /**
+   * Gets contextActionsMap
+   *
+   * @return value of contextActionsMap
+   */
+  public Map&lt;String, List&lt;GuiAction&gt;&gt; getContextActionsMap() {
+<span class="nc" id="L512">    return contextActionsMap;</span>
+  }
+
+  /**
+   * @param contextActionsMap The contextActionsMap to set
+   */
+  public void setContextActionsMap( Map&lt;String, List&lt;GuiAction&gt;&gt; contextActionsMap ) {
+<span class="nc" id="L519">    this.contextActionsMap = contextActionsMap;</span>
+<span class="nc" id="L520">  }</span>
+
+  /**
+   * Gets guiMenuMap
+   *
+   * @return value of guiMenuMap
+   */
+  public Map&lt;String, Map&lt;String, GuiMenuItem&gt;&gt; getGuiMenuMap() {
+<span class="nc" id="L528">    return guiMenuMap;</span>
+  }
+
+  /**
+   * @param guiMenuMap The guiMenuMap to set
+   */
+  public void setGuiMenuMap( Map&lt;String, Map&lt;String, GuiMenuItem&gt;&gt; guiMenuMap ) {
+<span class="nc" id="L535">    this.guiMenuMap = guiMenuMap;</span>
+<span class="nc" id="L536">  }</span>
+
+  /**
+   * Gets guiToolbarMap
+   *
+   * @return value of guiToolbarMap
+   */
+  public Map&lt;String, Map&lt;String, GuiToolbarItem&gt;&gt; getGuiToolbarMap() {
+<span class="nc" id="L544">    return guiToolbarMap;</span>
+  }
+
+  /**
+   * @param guiToolbarMap The guiToolbarMap to set
+   */
+  public void setGuiToolbarMap( Map&lt;String, Map&lt;String, GuiToolbarItem&gt;&gt; guiToolbarMap ) {
+<span class="nc" id="L551">    this.guiToolbarMap = guiToolbarMap;</span>
+<span class="nc" id="L552">  }</span>
+
+  /**
+   * Gets guiPluginObjectsMap
+   *
+   * @return value of guiPluginObjectsMap
+   */
+  public Map&lt;String, Map&lt;String, Map&lt;String, Object&gt;&gt;&gt; getGuiPluginObjectsMap() {
+<span class="nc" id="L560">    return guiPluginObjectsMap;</span>
+  }
+
+  /**
+   * @param guiPluginObjectsMap The guiPluginObjectsMap to set
+   */
+  public void setGuiPluginObjectsMap( Map&lt;String, Map&lt;String, Map&lt;String, Object&gt;&gt;&gt; guiPluginObjectsMap ) {
+<span class="nc" id="L567">    this.guiPluginObjectsMap = guiPluginObjectsMap;</span>
+<span class="nc" id="L568">  }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

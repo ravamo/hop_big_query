@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ByteArrayHashIndex.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.hash</a> &gt; <span class="el_source">ByteArrayHashIndex.java</span></div><h1>ByteArrayHashIndex.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.hash;
+
+import org.apache.hop.core.exception.HopValueException;
+import org.apache.hop.core.row.IRowMeta;
+import org.apache.hop.core.row.RowMeta;
+
+public class ByteArrayHashIndex {
+
+  private static final int STANDARD_INDEX_SIZE = 512;
+  private static final float STANDARD_LOAD_FACTOR = 0.78f;
+
+  private IRowMeta keyRowMeta;
+  private ByteArrayHashIndexEntry[] index;
+  private int size;
+  private int resizeThresHold;
+
+  /**
+   * Create a Byte array hash index to store row
+   *
+   * @param rowMeta
+   */
+<span class="fc" id="L44">  public ByteArrayHashIndex( IRowMeta keyRowMeta, int size ) {</span>
+<span class="fc" id="L45">    this.keyRowMeta = keyRowMeta;</span>
+
+    // Find a suitable capacity being a factor of 2:
+<span class="fc" id="L48">    int factor2Size = 1;</span>
+<span class="fc bfc" id="L49" title="All 2 branches covered.">    while ( factor2Size &lt; size ) {</span>
+<span class="fc" id="L50">      factor2Size &lt;&lt;= 1; // Multiply by 2</span>
+    }
+
+<span class="fc" id="L53">    this.size = factor2Size;</span>
+<span class="fc" id="L54">    this.resizeThresHold = (int) ( factor2Size * STANDARD_LOAD_FACTOR );</span>
+
+<span class="fc" id="L56">    index = new ByteArrayHashIndexEntry[ factor2Size ];</span>
+<span class="fc" id="L57">  }</span>
+
+  public ByteArrayHashIndex( IRowMeta keyRowMeta ) {
+<span class="nc" id="L60">    this( keyRowMeta, STANDARD_INDEX_SIZE );</span>
+<span class="nc" id="L61">  }</span>
+
+  public int getSize() {
+<span class="fc" id="L64">    return size;</span>
+  }
+
+  public boolean isEmpty() {
+<span class="nc bnc" id="L68" title="All 2 branches missed.">    return size == 0;</span>
+  }
+
+  public byte[] get( byte[] key ) throws HopValueException {
+<span class="fc" id="L72">    int hashCode = generateHashCode( key, keyRowMeta );</span>
+
+<span class="fc" id="L74">    int indexPointer = hashCode &amp; ( index.length - 1 );</span>
+<span class="fc" id="L75">    ByteArrayHashIndexEntry check = index[ indexPointer ];</span>
+
+<span class="fc bfc" id="L77" title="All 2 branches covered.">    while ( check != null ) {</span>
+<span class="pc bpc" id="L78" title="2 of 4 branches missed.">      if ( check.hashCode == hashCode &amp;&amp; check.equalsKey( key ) ) {</span>
+<span class="fc" id="L79">        return check.value;</span>
+      }
+<span class="nc" id="L81">      check = check.nextEntry;</span>
+    }
+<span class="fc" id="L83">    return null;</span>
+  }
+
+  public void put( byte[] key, byte[] value ) throws HopValueException {
+<span class="fc" id="L87">    int hashCode = generateHashCode( key, keyRowMeta );</span>
+<span class="fc" id="L88">    int indexPointer = hashCode &amp; ( index.length - 1 );</span>
+
+    // First see if there is an entry on that pointer...
+    //
+<span class="fc" id="L92">    boolean searchEmptySpot = false;</span>
+
+<span class="fc" id="L94">    ByteArrayHashIndexEntry check = index[ indexPointer ];</span>
+<span class="fc" id="L95">    ByteArrayHashIndexEntry previousCheck = null;</span>
+
+<span class="pc bpc" id="L97" title="1 of 2 branches missed.">    while ( check != null ) {</span>
+<span class="nc" id="L98">      searchEmptySpot = true;</span>
+
+      // If there is an identical entry in there, we replace the value.
+      // And then we just return...
+      //
+<span class="nc bnc" id="L103" title="All 4 branches missed.">      if ( check.hashCode == hashCode &amp;&amp; check.equalsKey( key ) ) {</span>
+<span class="nc" id="L104">        check.value = value;</span>
+<span class="nc" id="L105">        return;</span>
+      }
+<span class="nc" id="L107">      previousCheck = check;</span>
+<span class="nc" id="L108">      check = check.nextEntry;</span>
+    }
+
+    // If we are still here, that means that we are ready to put the value down...
+    // Where do we need to search for an empty spot in the index?
+    //
+<span class="pc bpc" id="L114" title="1 of 2 branches missed.">    while ( searchEmptySpot ) {</span>
+<span class="nc" id="L115">      indexPointer++;</span>
+<span class="nc bnc" id="L116" title="All 2 branches missed.">      if ( indexPointer &gt;= size ) {</span>
+<span class="nc" id="L117">        indexPointer = 0;</span>
+      }
+<span class="nc bnc" id="L119" title="All 2 branches missed.">      if ( index[ indexPointer ] == null ) {</span>
+<span class="nc" id="L120">        searchEmptySpot = false;</span>
+      }
+    }
+
+    // OK, now that we know where to put the entry, insert it...
+    //
+<span class="fc" id="L126">    index[ indexPointer ] = new ByteArrayHashIndexEntry( hashCode, key, value, index[ indexPointer ] );</span>
+
+    // Don't forget to link to the previous check entry if there was any...
+    //
+<span class="pc bpc" id="L130" title="1 of 2 branches missed.">    if ( previousCheck != null ) {</span>
+<span class="nc" id="L131">      previousCheck.nextEntry = index[ indexPointer ];</span>
+    }
+
+    // If required, resize the table...
+    //
+<span class="fc" id="L136">    resize();</span>
+<span class="fc" id="L137">  }</span>
+
+  private final void resize() {
+    // Increase the size of the index...
+    //
+<span class="fc" id="L142">    size++;</span>
+
+    // See if we've reached our resize threshold...
+    //
+<span class="pc bpc" id="L146" title="1 of 2 branches missed.">    if ( size &gt;= resizeThresHold ) {</span>
+
+<span class="fc" id="L148">      ByteArrayHashIndexEntry[] oldIndex = index;</span>
+
+      // Double the size to keep the size of the index a factor of 2...
+      // Allocate the new array...
+      //
+<span class="fc" id="L153">      int newSize = 2 * index.length;</span>
+
+<span class="fc" id="L155">      ByteArrayHashIndexEntry[] newIndex = new ByteArrayHashIndexEntry[ newSize ];</span>
+
+      // Loop over the old index and re-distribute the entries
+      // We want to make sure that the calculation
+      // entry.hashCode &amp; ( size - 1)
+      // ends up in the right location after re-sizing...
+      //
+<span class="fc bfc" id="L162" title="All 2 branches covered.">      for ( int i = 0; i &lt; oldIndex.length; i++ ) {</span>
+<span class="fc" id="L163">        ByteArrayHashIndexEntry entry = oldIndex[ i ];</span>
+<span class="fc bfc" id="L164" title="All 2 branches covered.">        if ( entry != null ) {</span>
+<span class="fc" id="L165">          oldIndex[ i ] = null;</span>
+<span class="fc" id="L166">          entry.nextEntry = null; // we assume there is plenty of room in the new index...</span>
+
+          // Make sure we follow all the linked entries...
+          // TODO This is a lot of extra work, see how we can avoid it!
+          //
+<span class="fc" id="L171">          int newIndexPointer = entry.hashCode &amp; ( newSize - 1 );</span>
+
+          // Make sure on this new index pointer, we have room to put the entry
+          //
+<span class="fc" id="L175">          ByteArrayHashIndexEntry check = newIndex[ newIndexPointer ];</span>
+<span class="pc bpc" id="L176" title="1 of 2 branches missed.">          if ( check == null ) {</span>
+            // Yes, plenty of room
+            //
+<span class="fc" id="L179">            newIndex[ newIndexPointer ] = check;</span>
+          } else {
+            // No, we need to look for a nice spot to put the hash entry...
+            //
+<span class="nc" id="L183">            ByteArrayHashIndexEntry previousCheck = null;</span>
+<span class="nc bnc" id="L184" title="All 2 branches missed.">            while ( check != null ) {</span>
+<span class="nc" id="L185">              previousCheck = check;</span>
+<span class="nc" id="L186">              check = check.nextEntry;</span>
+            }
+<span class="nc bnc" id="L188" title="All 2 branches missed.">            while ( newIndex[ newIndexPointer ] != null ) {</span>
+<span class="nc" id="L189">              newIndexPointer++;</span>
+<span class="nc bnc" id="L190" title="All 2 branches missed.">              if ( newIndexPointer &gt;= newSize ) {</span>
+<span class="nc" id="L191">                newIndexPointer = 0;</span>
+              }
+            }
+            // OK, now that we have a nice spot to put the entry, link the previous check entry to this one...
+            //
+<span class="nc" id="L196">            previousCheck.nextEntry = entry;</span>
+<span class="nc" id="L197">            newIndex[ newIndexPointer ] = entry;</span>
+          }
+<span class="fc" id="L199">          newIndex[ newIndexPointer ] = entry;</span>
+        }
+      }
+
+      // Replace the old index with the new one we just created...
+      //
+<span class="fc" id="L205">      index = newIndex;</span>
+
+      // Also change the resize threshold...
+      //
+<span class="fc" id="L209">      resizeThresHold = (int) ( newSize * STANDARD_LOAD_FACTOR );</span>
+    }
+<span class="fc" id="L211">  }</span>
+
+  public static int generateHashCode( byte[] key, IRowMeta rowMeta ) throws HopValueException {
+<span class="fc" id="L214">    Object[] rowData = RowMeta.getRow( rowMeta, key );</span>
+<span class="fc" id="L215">    return rowMeta.hashCode( rowData );</span>
+  }
+
+  private static final class ByteArrayHashIndexEntry {
+    private int hashCode;
+    private byte[] key;
+    private byte[] value;
+    private ByteArrayHashIndexEntry nextEntry;
+
+    /**
+     * @param hashCode
+     * @param key
+     * @param value
+     * @param nextEntry
+     */
+<span class="fc" id="L230">    public ByteArrayHashIndexEntry( int hashCode, byte[] key, byte[] value, ByteArrayHashIndexEntry nextEntry ) {</span>
+<span class="fc" id="L231">      this.hashCode = hashCode;</span>
+<span class="fc" id="L232">      this.key = key;</span>
+<span class="fc" id="L233">      this.value = value;</span>
+<span class="fc" id="L234">      this.nextEntry = nextEntry;</span>
+<span class="fc" id="L235">    }</span>
+
+    public boolean equalsKey( byte[] cmpKey ) {
+<span class="fc" id="L238">      return equalsByteArray( key, cmpKey );</span>
+    }
+
+    /**
+     * The row is the same if the value is the same The data types are the same so no error is made here.
+     */
+    @Override
+    public boolean equals( Object obj ) {
+<span class="nc" id="L246">      ByteArrayHashIndexEntry e = (ByteArrayHashIndexEntry) obj;</span>
+
+<span class="nc" id="L248">      return equalsValue( e.value );</span>
+    }
+
+    public boolean equalsValue( byte[] cmpValue ) {
+<span class="nc" id="L252">      return equalsByteArray( value, cmpValue );</span>
+    }
+
+    public static final boolean equalsByteArray( byte[] value, byte[] cmpValue ) {
+<span class="pc bpc" id="L256" title="1 of 2 branches missed.">      if ( value.length != cmpValue.length ) {</span>
+<span class="nc" id="L257">        return false;</span>
+      }
+<span class="fc bfc" id="L259" title="All 2 branches covered.">      for ( int i = value.length - 1; i &gt;= 0; i-- ) {</span>
+<span class="pc bpc" id="L260" title="1 of 2 branches missed.">        if ( value[ i ] != cmpValue[ i ] ) {</span>
+<span class="nc" id="L261">          return false;</span>
+        }
+      }
+<span class="fc" id="L264">      return true;</span>
+    }
+
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SvgCache.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.svg</a> &gt; <span class="el_source">SvgCache.java</span></div><h1>SvgCache.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.svg;
+
+import org.apache.batik.anim.dom.SAXSVGDocumentFactory;
+import org.apache.batik.bridge.BridgeContext;
+import org.apache.batik.bridge.DocumentLoader;
+import org.apache.batik.bridge.GVTBuilder;
+import org.apache.batik.bridge.UserAgent;
+import org.apache.batik.bridge.UserAgentAdapter;
+import org.apache.batik.gvt.GraphicsNode;
+import org.apache.batik.util.XMLResourceDescriptor;
+import org.apache.hop.core.Const;
+import org.apache.hop.core.exception.HopException;
+import org.w3c.dom.svg.SVGDocument;
+import org.w3c.dom.svg.SVGSVGElement;
+
+import java.awt.geom.Rectangle2D;
+import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
+
+public class SvgCache {
+  private static SvgCache instance;
+
+  private Map&lt;String, SvgCacheEntry&gt; fileDocumentMap;
+
+<span class="nc" id="L48">  private SvgCache() {</span>
+<span class="nc" id="L49">    fileDocumentMap = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L50">  }</span>
+
+  /**
+   * Gets instance
+   *
+   * @return value of instance
+   */
+  public static SvgCache getInstance() {
+<span class="nc bnc" id="L58" title="All 2 branches missed.">    if ( instance == null ) {</span>
+<span class="nc" id="L59">      instance = new SvgCache();</span>
+    }
+<span class="nc" id="L61">    return instance;</span>
+  }
+
+  public synchronized static SvgCacheEntry findSvg( String filename ) {
+<span class="nc" id="L65">    return getInstance().fileDocumentMap.get( filename );</span>
+  }
+
+  public synchronized static SvgCacheEntry loadSvg( SvgFile svgFile ) throws HopException {
+
+<span class="nc" id="L70">    SvgCacheEntry cacheEntry = findSvg( svgFile.getFilename() );</span>
+<span class="nc bnc" id="L71" title="All 2 branches missed.">    if (cacheEntry!=null) {</span>
+<span class="nc" id="L72">      return cacheEntry;</span>
+    }
+
+    try {
+<span class="nc" id="L76">      String parser = XMLResourceDescriptor.getXMLParserClassName();</span>
+<span class="nc" id="L77">      SAXSVGDocumentFactory factory = new SAXSVGDocumentFactory( parser );</span>
+<span class="nc" id="L78">      InputStream svgStream = svgFile.getClassLoader().getResourceAsStream( svgFile.getFilename() );</span>
+
+<span class="nc bnc" id="L80" title="All 2 branches missed.">      if ( svgStream == null ) {</span>
+<span class="nc" id="L81">        throw new HopException( &quot;Unable to find file '&quot; + svgFile.getFilename() + &quot;'&quot; );</span>
+      }
+<span class="nc" id="L83">      SVGDocument svgDocument = factory.createSVGDocument( svgFile.getFilename(), svgStream );</span>
+<span class="nc" id="L84">      SVGSVGElement elSVG = svgDocument.getRootElement();</span>
+
+<span class="nc" id="L86">      float width=-1;</span>
+<span class="nc" id="L87">      float height=-1;</span>
+
+      // See if the element has a &quot;width&quot; and a &quot;height&quot; attribute...
+      //
+<span class="nc" id="L91">      String widthAttribute = elSVG.getAttribute( &quot;width&quot; );</span>
+<span class="nc" id="L92">      String heightAttribute = elSVG.getAttribute( &quot;height&quot; );</span>
+<span class="nc bnc" id="L93" title="All 4 branches missed.">      if (widthAttribute!=null &amp;&amp; heightAttribute!=null) {</span>
+<span class="nc" id="L94">        width = (float) Const.toDouble( widthAttribute.replace( &quot;px&quot;, &quot;&quot; ), -1.0d );</span>
+<span class="nc" id="L95">        height = (float) Const.toDouble( heightAttribute.replace( &quot;px&quot;, &quot;&quot; ), -1.0d );</span>
+      }
+
+      // If we don't have width and height we'll have to calculate it...
+      //
+<span class="nc bnc" id="L100" title="All 4 branches missed.">      if (width&lt;=1 || height&lt;=1) {</span>
+        // Figure out the primitives bounds...
+        //
+<span class="nc" id="L103">        UserAgent agent = new UserAgentAdapter();</span>
+<span class="nc" id="L104">        DocumentLoader loader= new DocumentLoader(agent);</span>
+<span class="nc" id="L105">        BridgeContext context = new BridgeContext(agent, loader);</span>
+<span class="nc" id="L106">        context.setDynamic(true);</span>
+<span class="nc" id="L107">        GVTBuilder builder= new GVTBuilder();</span>
+<span class="nc" id="L108">        GraphicsNode root= builder.build(context, svgDocument);</span>
+
+        // We need to go through the document to figure it out unfortunately.
+        // It is slower but should always work.
+        //
+<span class="nc" id="L113">        Rectangle2D primitiveBounds = root.getPrimitiveBounds();</span>
+
+<span class="nc" id="L115">        width = (float) primitiveBounds.getWidth();</span>
+<span class="nc" id="L116">        height = (float) primitiveBounds.getHeight();</span>
+      }
+
+<span class="nc bnc" id="L119" title="All 4 branches missed.">      if (width&lt;=1 || height&lt;=1) {</span>
+<span class="nc" id="L120">        throw new HopException(&quot;Couldn't determine width or height of file : &quot;+ svgFile.getFilename());</span>
+      }
+
+<span class="nc" id="L123">      cacheEntry = new SvgCacheEntry( svgFile.getFilename(), svgDocument, Math.round(width), Math.round(height) );</span>
+<span class="nc" id="L124">      getInstance().fileDocumentMap.put( svgFile.getFilename(), cacheEntry );</span>
+<span class="nc" id="L125">      return cacheEntry;</span>
+<span class="nc" id="L126">    } catch ( Exception e ) {</span>
+<span class="nc" id="L127">      throw new HopException( &quot;Error loading SVG file &quot; + svgFile.getFilename(), e );</span>
+    }
+  }
+
+  public synchronized static void addSvg( String filename, SVGDocument svgDocument, int width, int height ) {
+<span class="nc" id="L132">    getInstance().fileDocumentMap.put( filename, new SvgCacheEntry( filename, svgDocument, width, height ) );</span>
+<span class="nc" id="L133">  }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

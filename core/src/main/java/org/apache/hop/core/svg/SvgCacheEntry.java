@@ -1,0 +1,121 @@
+/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.svg;
+
+import org.w3c.dom.svg.SVGDocument;
+
+import java.util.Objects;
+
+public class SvgCacheEntry {
+
+  private String filename;
+  private SVGDocument svgDocument;
+  private float width;
+  private float height;
+
+  public SvgCacheEntry( String filename, SVGDocument svgDocument, int width, int height ) {
+    this.filename = filename;
+    this.svgDocument = svgDocument;
+    this.width = width;
+    this.height = height;
+  }
+
+  @Override public boolean equals( Object o ) {
+    if ( this == o ) {
+      return true;
+    }
+    if ( o == null || getClass() != o.getClass() ) {
+      return false;
+    }
+    SvgCacheEntry that = (SvgCacheEntry) o;
+    return Objects.equals( filename, that.filename );
+  }
+
+  @Override public int hashCode() {
+    return Objects.hash( filename );
+  }
+
+  /**
+   * Gets filename
+   *
+   * @return value of filename
+   */
+  public String getFilename() {
+    return filename;
+  }
+
+  /**
+   * @param filename The filename to set
+   */
+  public void setFilename( String filename ) {
+    this.filename = filename;
+  }
+
+  /**
+   * Gets svgDocument
+   *
+   * @return value of svgDocument
+   */
+  public SVGDocument getSvgDocument() {
+    return svgDocument;
+  }
+
+  /**
+   * @param svgDocument The svgDocument to set
+   */
+  public void setSvgDocument( SVGDocument svgDocument ) {
+    this.svgDocument = svgDocument;
+  }
+
+  /**
+   * Gets width
+   *
+   * @return value of width
+   */
+  public float getWidth() {
+    return width;
+  }
+
+  /**
+   * @param width The width to set
+   */
+  public void setWidth( float width ) {
+    this.width = width;
+  }
+
+  /**
+   * Gets height
+   *
+   * @return value of height
+   */
+  public float getHeight() {
+    return height;
+  }
+
+  /**
+   * @param height The height to set
+   */
+  public void setHeight( float height ) {
+    this.height = height;
+  }
+}

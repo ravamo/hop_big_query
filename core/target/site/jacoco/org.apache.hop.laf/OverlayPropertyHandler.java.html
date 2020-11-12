@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OverlayPropertyHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.laf</a> &gt; <span class="el_source">OverlayPropertyHandler.java</span></div><h1>OverlayPropertyHandler.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.laf;
+
+import org.apache.hop.core.Const;
+
+import java.io.File;
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.Iterator;
+import java.util.LinkedList;
+
+public class OverlayPropertyHandler implements IPropertyHandler {
+  protected static final String propFile = &quot;ui/laf.properties&quot;;
+
+<span class="fc" id="L37">  private static IPropertyHandler instance = null;</span>
+
+<span class="fc" id="L39">  private LinkedList&lt;OverlayProperties&gt; propList = new LinkedList&lt;OverlayProperties&gt;();</span>
+
+<span class="fc" id="L41">  public OverlayPropertyHandler() {</span>
+<span class="fc" id="L42">    initProps();</span>
+<span class="fc" id="L43">  }</span>
+
+  public static IPropertyHandler getInstance() {
+<span class="nc bnc" id="L46" title="All 2 branches missed.">    if ( instance == null ) {</span>
+<span class="nc" id="L47">      instance = new OverlayPropertyHandler();</span>
+    }
+<span class="nc" id="L49">    return instance;</span>
+  }
+
+  protected boolean loadAltProps() {
+    // check the -D switch... something like -Dorg.apache.hop.laf.alt=&quot;somefile.properties&quot;
+<span class="fc" id="L54">    String altFile = Const.getEnvironmentVariable( &quot;org.apache.hop.laf.alt&quot;, null );</span>
+<span class="pc bpc" id="L55" title="1 of 2 branches missed.">    if ( altFile != null ) {</span>
+<span class="nc" id="L56">      return loadProps( altFile );</span>
+    }
+<span class="fc" id="L58">    return false;</span>
+  }
+
+  private boolean initProps() {
+<span class="fc" id="L62">    boolean flag = loadProps( propFile );</span>
+<span class="pc bpc" id="L63" title="2 of 4 branches missed.">    return ( loadAltProps() || flag );</span>
+  }
+
+  @Override
+  public String getProperty( String key ) {
+    // go through linked list from front to back to find the property
+<span class="fc" id="L69">    String s = null;</span>
+<span class="fc" id="L70">    Iterator&lt;OverlayProperties&gt; i = propList.iterator();</span>
+<span class="fc bfc" id="L71" title="All 2 branches covered.">    while ( i.hasNext() ) {</span>
+<span class="fc" id="L72">      s = i.next().getProperty( key );</span>
+<span class="pc bpc" id="L73" title="1 of 2 branches missed.">      if ( s != null ) {</span>
+<span class="nc" id="L74">        return s;</span>
+      }
+    }
+<span class="fc" id="L77">    return s;</span>
+  }
+
+  public static String getLAFProp( String key ) {
+<span class="nc" id="L81">    return getInstance().getProperty( key );</span>
+  }
+
+  @Override
+  public boolean loadProps( String filename ) {
+    try {
+<span class="fc" id="L87">      OverlayProperties ph = new OverlayProperties( filename );</span>
+<span class="fc" id="L88">      propList.addFirst( ph );</span>
+<span class="fc" id="L89">      return true;</span>
+<span class="nc" id="L90">    } catch ( IOException e ) {</span>
+<span class="nc" id="L91">      e.printStackTrace();</span>
+<span class="nc" id="L92">      return false;</span>
+    }
+  }
+
+  @Override
+  public String getProperty( String key, String defValue ) {
+<span class="nc" id="L98">    String s = getProperty( key );</span>
+<span class="nc bnc" id="L99" title="All 2 branches missed.">    if ( s != null ) {</span>
+<span class="nc" id="L100">      return s;</span>
+    }
+<span class="nc" id="L102">    return defValue;</span>
+  }
+
+  private URL getURL( String filename ) throws MalformedURLException {
+    URL url;
+<span class="nc" id="L107">    File file = new File( filename );</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">    if ( file.exists() ) {</span>
+<span class="nc" id="L109">      url = file.toURI().toURL();</span>
+    } else {
+<span class="nc" id="L111">      ClassLoader classLoader = getClass().getClassLoader();</span>
+<span class="nc" id="L112">      url = classLoader.getResource( filename );</span>
+    }
+<span class="nc" id="L114">    return url;</span>
+  }
+
+  @Override
+  public boolean exists( String filename ) {
+    try {
+<span class="nc bnc" id="L120" title="All 2 branches missed.">      return ( getURL( filename ) != null );</span>
+<span class="nc" id="L121">    } catch ( MalformedURLException e ) {</span>
+<span class="nc" id="L122">      return false;</span>
+    }
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

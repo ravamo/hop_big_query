@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MetricsUtil.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.metrics</a> &gt; <span class="el_source">MetricsUtil.java</span></div><h1>MetricsUtil.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.metrics;
+
+import org.apache.hop.core.logging.ILoggingObject;
+import org.apache.hop.core.logging.IMetrics;
+import org.apache.hop.core.logging.LoggingRegistry;
+import org.apache.hop.core.logging.Metrics;
+import org.apache.hop.core.logging.MetricsRegistry;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+
+<span class="nc" id="L38">public class MetricsUtil {</span>
+
+  /**
+   * Calculates the durations between the START and STOP snapshots for a given metric description
+   *
+   * @param logChannelId the id of the log channel to investigate
+   * @param metricsCode  the metric code
+   * @return the duration in ms
+   */
+  public static List&lt;MetricsDuration&gt; getDuration( String logChannelId, Metrics metric ) {
+<span class="nc" id="L48">    List&lt;MetricsDuration&gt; durations = new ArrayList&lt;MetricsDuration&gt;();</span>
+
+<span class="nc" id="L50">    Queue&lt;IMetricsSnapshot&gt; metrics = MetricsRegistry.getInstance().getSnapshotList( logChannelId );</span>
+<span class="nc" id="L51">    IMetricsSnapshot start = null;</span>
+
+<span class="nc" id="L53">    Iterator&lt;IMetricsSnapshot&gt; iterator = metrics.iterator();</span>
+<span class="nc bnc" id="L54" title="All 2 branches missed.">    while ( iterator.hasNext() ) {</span>
+<span class="nc" id="L55">      IMetricsSnapshot snapshot = iterator.next();</span>
+<span class="nc bnc" id="L56" title="All 2 branches missed.">      if ( snapshot.getMetric().equals( metric ) ) {</span>
+<span class="nc bnc" id="L57" title="All 2 branches missed.">        if ( snapshot.getMetric().getType() == MetricsSnapshotType.START ) {</span>
+<span class="nc bnc" id="L58" title="All 2 branches missed.">          if ( start != null ) {</span>
+            // We didn't find a stop for the previous start so add it with a null duration
+<span class="nc" id="L60">            durations.add( new MetricsDuration( start.getDate(), snapshot.getMetric().getDescription(), snapshot</span>
+<span class="nc" id="L61">              .getSubject(), logChannelId, null ) );</span>
+          }
+<span class="nc" id="L63">          start = snapshot;</span>
+        } else {
+<span class="nc" id="L65">          long duration = snapshot.getDate().getTime() - start.getDate().getTime();</span>
+<span class="nc" id="L66">          durations.add( new MetricsDuration( start.getDate(), snapshot.getMetric().getDescription(), snapshot</span>
+<span class="nc" id="L67">            .getSubject(), logChannelId, duration ) );</span>
+<span class="nc" id="L68">          start = null;</span>
+        }
+      }
+<span class="nc" id="L71">    }</span>
+
+    // Now aggregate even further, calculate total times...
+    //
+<span class="nc" id="L75">    Map&lt;String, MetricsDuration&gt; map = new HashMap&lt;String, MetricsDuration&gt;();</span>
+<span class="nc bnc" id="L76" title="All 2 branches missed.">    for ( MetricsDuration duration : durations ) {</span>
+<span class="nc" id="L77">      String key =</span>
+<span class="nc bnc" id="L78" title="All 2 branches missed.">        duration.getSubject() == null ? duration.getDescription() : duration.getDescription()</span>
+<span class="nc" id="L79">          + &quot; / &quot; + duration.getSubject();</span>
+<span class="nc" id="L80">      MetricsDuration agg = map.get( key );</span>
+<span class="nc bnc" id="L81" title="All 2 branches missed.">      if ( agg == null ) {</span>
+<span class="nc" id="L82">        map.put( key, duration );</span>
+      } else {
+<span class="nc" id="L84">        agg.setDuration( agg.getDuration() + duration.getDuration() );</span>
+      }
+<span class="nc" id="L86">    }</span>
+
+    // If we already have
+
+<span class="nc" id="L90">    return new ArrayList&lt;MetricsDuration&gt;( map.values() );</span>
+  }
+
+  public static List&lt;MetricsDuration&gt; getAllDurations( String parentLogChannelId ) {
+<span class="nc" id="L94">    List&lt;MetricsDuration&gt; durations = new ArrayList&lt;MetricsDuration&gt;();</span>
+
+<span class="nc" id="L96">    List&lt;String&gt; logChannelIds = LoggingRegistry.getInstance().getLogChannelChildren( parentLogChannelId );</span>
+<span class="nc bnc" id="L97" title="All 2 branches missed.">    for ( String logChannelId : logChannelIds ) {</span>
+<span class="nc" id="L98">      ILoggingObject object = LoggingRegistry.getInstance().getLoggingObject( logChannelId );</span>
+<span class="nc bnc" id="L99" title="All 2 branches missed.">      if ( object != null ) {</span>
+<span class="nc" id="L100">        durations.addAll( getDurations( logChannelId ) );</span>
+      }
+<span class="nc" id="L102">    }</span>
+
+<span class="nc" id="L104">    return durations;</span>
+  }
+
+  /**
+   * Calculates the durations between the START and STOP snapshots per metric description and subject (if any)
+   *
+   * @param logChannelId the id of the log channel to investigate
+   * @return the duration in ms
+   */
+  public static List&lt;MetricsDuration&gt; getDurations( String logChannelId ) {
+<span class="nc" id="L114">    Map&lt;String, IMetricsSnapshot&gt; last = new HashMap&lt;String, IMetricsSnapshot&gt;();</span>
+<span class="nc" id="L115">    Map&lt;String, MetricsDuration&gt; map = new HashMap&lt;String, MetricsDuration&gt;();</span>
+
+<span class="nc" id="L117">    Queue&lt;IMetricsSnapshot&gt; metrics = MetricsRegistry.getInstance().getSnapshotList( logChannelId );</span>
+
+<span class="nc" id="L119">    Iterator&lt;IMetricsSnapshot&gt; iterator = metrics.iterator();</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">    while ( iterator.hasNext() ) {</span>
+<span class="nc" id="L121">      IMetricsSnapshot snapshot = iterator.next();</span>
+
+      // Do we have a start point in the map?
+      //
+<span class="nc" id="L125">      String key =</span>
+<span class="nc" id="L126">        snapshot.getMetric().getDescription()</span>
+<span class="nc bnc" id="L127" title="All 2 branches missed.">          + ( snapshot.getSubject() == null ? &quot;&quot; : ( &quot; - &quot; + snapshot.getSubject() ) );</span>
+<span class="nc" id="L128">      IMetricsSnapshot lastSnapshot = last.get( key );</span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">      if ( lastSnapshot == null ) {</span>
+<span class="nc" id="L130">        lastSnapshot = snapshot;</span>
+<span class="nc" id="L131">        last.put( key, lastSnapshot );</span>
+      } else {
+        // If we have a START-STOP range, calculate the duration and add it to the duration map...
+        //
+<span class="nc" id="L135">        IMetrics metric = lastSnapshot.getMetric();</span>
+<span class="nc bnc" id="L136" title="All 2 branches missed.">        if ( metric.getType() == MetricsSnapshotType.START</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">          &amp;&amp; snapshot.getMetric().getType() == MetricsSnapshotType.STOP ) {</span>
+<span class="nc" id="L138">          long extraDuration = snapshot.getDate().getTime() - lastSnapshot.getDate().getTime();</span>
+
+<span class="nc" id="L140">          MetricsDuration metricsDuration = map.get( key );</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">          if ( metricsDuration == null ) {</span>
+<span class="nc" id="L142">            metricsDuration =</span>
+              new MetricsDuration(
+<span class="nc" id="L144">                lastSnapshot.getDate(), metric.getDescription(), lastSnapshot.getSubject(), logChannelId,</span>
+<span class="nc" id="L145">                extraDuration );</span>
+          } else {
+<span class="nc" id="L147">            metricsDuration.setDuration( metricsDuration.getDuration() + extraDuration );</span>
+<span class="nc" id="L148">            metricsDuration.incrementCount();</span>
+<span class="nc bnc" id="L149" title="All 2 branches missed.">            if ( metricsDuration.getEndDate().getTime() &lt; snapshot.getDate().getTime() ) {</span>
+<span class="nc" id="L150">              metricsDuration.setEndDate( snapshot.getDate() );</span>
+            }
+          }
+<span class="nc" id="L153">          map.put( key, metricsDuration );</span>
+        }
+      }
+<span class="nc" id="L156">    }</span>
+
+<span class="nc" id="L158">    return new ArrayList&lt;MetricsDuration&gt;( map.values() );</span>
+  }
+
+  public static List&lt;IMetricsSnapshot&gt; getResultsList( Metrics metric ) {
+<span class="nc" id="L162">    List&lt;IMetricsSnapshot&gt; snapshots = new ArrayList&lt;IMetricsSnapshot&gt;();</span>
+
+    Map&lt;String, Map&lt;String, IMetricsSnapshot&gt;&gt; snapshotMaps =
+<span class="nc" id="L165">      MetricsRegistry.getInstance().getSnapshotMaps();</span>
+<span class="nc" id="L166">    Iterator&lt;Map&lt;String, IMetricsSnapshot&gt;&gt; mapsIterator = snapshotMaps.values().iterator();</span>
+<span class="nc bnc" id="L167" title="All 2 branches missed.">    while ( mapsIterator.hasNext() ) {</span>
+<span class="nc" id="L168">      Map&lt;String, IMetricsSnapshot&gt; map = mapsIterator.next();</span>
+<span class="nc" id="L169">      Iterator&lt;IMetricsSnapshot&gt; snapshotIterator = map.values().iterator();</span>
+<span class="nc bnc" id="L170" title="All 2 branches missed.">      while ( snapshotIterator.hasNext() ) {</span>
+<span class="nc" id="L171">        IMetricsSnapshot snapshot = snapshotIterator.next();</span>
+<span class="nc bnc" id="L172" title="All 2 branches missed.">        if ( snapshot.getMetric().equals( metric ) ) {</span>
+<span class="nc" id="L173">          snapshots.add( snapshot );</span>
+        }
+<span class="nc" id="L175">      }</span>
+<span class="nc" id="L176">    }</span>
+
+<span class="nc" id="L178">    return snapshots;</span>
+  }
+
+  public static Long getResult( Metrics metric ) {
+    Map&lt;String, Map&lt;String, IMetricsSnapshot&gt;&gt; snapshotMaps =
+<span class="nc" id="L183">      MetricsRegistry.getInstance().getSnapshotMaps();</span>
+<span class="nc" id="L184">    Iterator&lt;Map&lt;String, IMetricsSnapshot&gt;&gt; mapsIterator = snapshotMaps.values().iterator();</span>
+<span class="nc bnc" id="L185" title="All 2 branches missed.">    while ( mapsIterator.hasNext() ) {</span>
+<span class="nc" id="L186">      Map&lt;String, IMetricsSnapshot&gt; map = mapsIterator.next();</span>
+<span class="nc" id="L187">      Iterator&lt;IMetricsSnapshot&gt; snapshotIterator = map.values().iterator();</span>
+<span class="nc bnc" id="L188" title="All 2 branches missed.">      while ( snapshotIterator.hasNext() ) {</span>
+<span class="nc" id="L189">        IMetricsSnapshot snapshot = snapshotIterator.next();</span>
+<span class="nc bnc" id="L190" title="All 2 branches missed.">        if ( snapshot.getMetric().equals( metric ) ) {</span>
+<span class="nc" id="L191">          return snapshot.getValue();</span>
+        }
+<span class="nc" id="L193">      }</span>
+<span class="nc" id="L194">    }</span>
+
+<span class="nc" id="L196">    return null;</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

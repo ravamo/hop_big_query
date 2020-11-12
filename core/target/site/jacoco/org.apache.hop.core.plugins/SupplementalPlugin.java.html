@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SupplementalPlugin.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.plugins</a> &gt; <span class="el_source">SupplementalPlugin.java</span></div><h1>SupplementalPlugin.java</h1><pre class="source lang-java linenums">/*
+ * *****************************************************************************
+ *
+ *  Hop : The Hop Orchestration Platform
+ *
+ *  http://www.project-hop.org
+ *
+ *  *******************************************************************************
+ *  Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not use
+ *  this file except in compliance with the License. You may obtain a copy of the
+ *  License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ * *****************************************************************************
+ *
+ */
+
+package org.apache.hop.core.plugins;
+
+import org.apache.hop.core.exception.HopPluginException;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.Callable;
+
+/**
+ * This is a holder of Plugin Class mappings which supplement those of the stock Plugin.
+ * &lt;p&gt;
+ * Created by nbaker on 3/17/17.
+ */
+public class SupplementalPlugin extends Plugin implements IClassLoadingPlugin {
+<span class="fc" id="L40">  Map&lt;Class, Callable&gt; factoryMap = new HashMap&lt;&gt;();</span>
+  private Class&lt;? extends IPluginType&gt; pluginClass;
+  private String id;
+
+  public SupplementalPlugin( Class&lt;? extends IPluginType&gt; pluginClass, String id ) {
+<span class="fc" id="L45">    super( new String[] { id }, pluginClass, null, &quot;&quot;, id, id, &quot;&quot;, false, false, Collections.emptyMap(), Collections.emptyList(), &quot;&quot;, new String[] {}, null, false );</span>
+<span class="fc" id="L46">    this.pluginClass = pluginClass;</span>
+<span class="fc" id="L47">    this.id = id;</span>
+<span class="fc" id="L48">  }</span>
+
+  @Override public &lt;T&gt; T loadClass( Class&lt;T&gt; pluginClass ) {
+<span class="pc bpc" id="L51" title="1 of 2 branches missed.">    if ( !factoryMap.containsKey( pluginClass ) ) {</span>
+<span class="nc" id="L52">      return null;</span>
+    }
+
+    try {
+<span class="fc" id="L56">      return (T) factoryMap.get( pluginClass ).call();</span>
+<span class="nc" id="L57">    } catch ( Exception e ) {</span>
+<span class="nc" id="L58">      throw new RuntimeException( new HopPluginException( &quot;Error creating plugin class&quot;, e ) );</span>
+    }
+  }
+
+  @Override public ClassLoader getClassLoader() {
+<span class="nc" id="L63">    return getClass().getClassLoader();</span>
+  }
+
+  public &lt;T&gt; void addFactory( Class&lt;T&gt; tClass, Callable&lt;T&gt; callable ) {
+<span class="fc" id="L67">    factoryMap.put( tClass, callable );</span>
+<span class="fc" id="L68">  }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

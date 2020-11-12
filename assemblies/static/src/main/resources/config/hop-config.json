@@ -1,0 +1,13 @@
+{
+  "projectsConfig": {
+    "enabled": true,
+    "openingLastProjectAtStartup": true,
+    "projectConfigurations": [
+      {
+        "projectName": "beam-demo",
+        "projectHome": "demo/beam",
+        "configFilename": "project-config.json"
+      }
+    ]
+  }
+}

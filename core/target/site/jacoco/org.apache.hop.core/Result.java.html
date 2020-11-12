@@ -1,0 +1,921 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Result.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core</a> &gt; <span class="el_source">Result.java</span></div><h1>Result.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core;
+
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.exception.HopFileException;
+import org.apache.hop.core.row.IRowMeta;
+import org.apache.hop.core.row.RowMeta;
+import org.apache.hop.core.xml.XmlHandler;
+import org.w3c.dom.Node;
+
+import javax.xml.bind.annotation.XmlRootElement;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * Describes the result of the execution of a Pipeline or a Job. The information available includes the following:
+ * &lt;p&gt;
+ * &lt;ul&gt;
+ * &lt;li&gt;Number of errors the workflow or pipeline encountered&lt;/li&gt;
+ * &lt;li&gt;Number of lines input&lt;/li&gt;
+ * &lt;li&gt;Number of lines output&lt;/li&gt;
+ * &lt;li&gt;Number of lines updated&lt;/li&gt;
+ * &lt;li&gt;Number of lines read&lt;/li&gt;
+ * &lt;li&gt;Number of lines written&lt;/li&gt;
+ * &lt;li&gt;Number of lines deleted&lt;/li&gt;
+ * &lt;li&gt;Number of lines rejected&lt;/li&gt;
+ * &lt;li&gt;Number of files retrieved&lt;/li&gt;
+ * &lt;li&gt;Boolean result of the execution&lt;/li&gt;
+ * &lt;li&gt;Exit status value&lt;/li&gt;
+ * &lt;li&gt;Whether the pipeline was stopped&lt;/li&gt;
+ * &lt;li&gt;Logging information (channel ID and text)&lt;/li&gt;
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * After execution of a workflow or pipeline, the Result can be evaluated.
+ *
+ * @author Matt
+ * @since 05-11-2003
+ */
+@XmlRootElement
+public class Result implements Cloneable {
+
+  /**
+   * A constant specifying the tag value for the XML node of the result object
+   */
+  public static final String XML_TAG = &quot;result&quot;;
+
+  /**
+   * A constant specifying the tag value for the XML node for result files entry
+   */
+  public static final String XML_FILES_TAG = &quot;result-file&quot;;
+
+  /**
+   * A constant specifying the tag value for the XML node for the result file entry
+   */
+  public static final String XML_FILE_TAG = &quot;result-file&quot;;
+
+  /**
+   * A constant specifying the tag value for the XML node for the result rows entry
+   */
+  public static final String XML_ROWS_TAG = &quot;result-rows&quot;;
+
+  /**
+   * The number of errors during the pipeline or workflow
+   */
+  private long nrErrors;
+
+  /**
+   * The number of lines input.
+   */
+  private long nrLinesInput;
+
+  /**
+   * The number of lines output.
+   */
+  private long nrLinesOutput;
+
+  /**
+   * The number of lines updated.
+   */
+  private long nrLinesUpdated;
+
+  /**
+   * The number of lines read.
+   */
+  private long nrLinesRead;
+
+  /**
+   * The number of lines written.
+   */
+  private long nrLinesWritten;
+
+  /**
+   * The number of lines deleted.
+   */
+  private long nrLinesDeleted;
+
+  /**
+   * The number of files retrieved.
+   */
+  private long nrFilesRetrieved;
+
+  /**
+   * The result of the workflow or pipeline, true if successful, false otherwise.
+   */
+  private boolean result;
+
+  /**
+   * The entry number.
+   */
+  private long entryNr;
+
+  /**
+   * The exit status.
+   */
+  private int exitStatus;
+
+  /**
+   * The rows.
+   */
+  private List&lt;RowMetaAndData&gt; rows;
+
+  /**
+   * The result files.
+   */
+  private Map&lt;String, ResultFile&gt; resultFiles;
+
+  /**
+   * Whether the workflow or pipeline was stopped.
+   */
+  public boolean stopped;
+
+  /**
+   * The number of lines rejected.
+   */
+  private long nrLinesRejected;
+
+  /**
+   * The log channel id.
+   */
+  private String logChannelId;
+
+  /**
+   * The log text.
+   */
+  private String logText;
+
+  /**
+   * Elapsed time of the ETL execution in milliseconds
+   */
+  private long elapsedTimeMillis;
+
+  /**
+   * Unique identifier of an ETL execution, should one ever care to declare one such
+   */
+  private String executionId;
+
+  /**
+   * Instantiates a new Result object, setting default values for all members
+   */
+<span class="nc" id="L185">  public Result() {</span>
+<span class="nc" id="L186">    nrErrors = 0L;</span>
+<span class="nc" id="L187">    nrLinesInput = 0L;</span>
+<span class="nc" id="L188">    nrLinesOutput = 0L;</span>
+<span class="nc" id="L189">    nrLinesUpdated = 0L;</span>
+<span class="nc" id="L190">    nrLinesRead = 0L;</span>
+<span class="nc" id="L191">    nrLinesWritten = 0L;</span>
+<span class="nc" id="L192">    result = false;</span>
+
+<span class="nc" id="L194">    exitStatus = 0;</span>
+<span class="nc" id="L195">    rows = new ArrayList&lt;RowMetaAndData&gt;();</span>
+<span class="nc" id="L196">    resultFiles = new ConcurrentHashMap&lt;String, ResultFile&gt;();</span>
+
+<span class="nc" id="L198">    stopped = false;</span>
+<span class="nc" id="L199">    entryNr = 0;</span>
+<span class="nc" id="L200">  }</span>
+
+  /**
+   * Instantiates a new Result object, setting default values for all members and the entry number
+   *
+   * @param nr the entry number for the Result
+   */
+  public Result( int nr ) {
+<span class="nc" id="L208">    this();</span>
+<span class="nc" id="L209">    this.entryNr = nr;</span>
+<span class="nc" id="L210">  }</span>
+
+  /**
+   * Performs a semi-deep copy/clone but does not clone the rows from the Result
+   *
+   * @return An almost-clone of the Result, minus the rows
+   */
+  public Result lightClone() {
+    // This light-weight clone doesn't clone rows
+    try {
+<span class="nc" id="L220">      Result result = (Result) super.clone();</span>
+<span class="nc" id="L221">      result.setRows( null );</span>
+<span class="nc bnc" id="L222" title="All 2 branches missed.">      if ( resultFiles != null ) {</span>
+<span class="nc" id="L223">        Map&lt;String, ResultFile&gt; clonedFiles = new ConcurrentHashMap&lt;String, ResultFile&gt;();</span>
+<span class="nc" id="L224">        Collection&lt;ResultFile&gt; files = resultFiles.values();</span>
+<span class="nc bnc" id="L225" title="All 2 branches missed.">        for ( ResultFile file : files ) {</span>
+<span class="nc" id="L226">          clonedFiles.put( file.getFile().toString(), file.clone() );</span>
+<span class="nc" id="L227">        }</span>
+<span class="nc" id="L228">        result.setResultFiles( clonedFiles );</span>
+      }
+<span class="nc" id="L230">      return result;</span>
+<span class="nc" id="L231">    } catch ( CloneNotSupportedException e ) {</span>
+<span class="nc" id="L232">      return null;</span>
+    }
+
+  }
+
+  /**
+   * Clones the Result, including rows and files. To perform a clone without rows, use lightClone()
+   *
+   * @return A clone of the Result object
+   * @see java.lang.Object#clone()
+   * @see Result#lightClone
+   */
+  @Override
+  public Result clone() {
+    try {
+<span class="nc" id="L247">      Result result = (Result) super.clone();</span>
+
+      // Clone result rows and files as well...
+<span class="nc bnc" id="L250" title="All 2 branches missed.">      if ( rows != null ) {</span>
+<span class="nc" id="L251">        List&lt;RowMetaAndData&gt; clonedRows = new ArrayList&lt;RowMetaAndData&gt;();</span>
+<span class="nc bnc" id="L252" title="All 2 branches missed.">        for ( int i = 0; i &lt; rows.size(); i++ ) {</span>
+<span class="nc" id="L253">          clonedRows.add( ( rows.get( i ) ).clone() );</span>
+        }
+<span class="nc" id="L255">        result.setRows( clonedRows );</span>
+      }
+
+<span class="nc bnc" id="L258" title="All 2 branches missed.">      if ( resultFiles != null ) {</span>
+<span class="nc" id="L259">        Map&lt;String, ResultFile&gt; clonedFiles = new ConcurrentHashMap&lt;String, ResultFile&gt;();</span>
+<span class="nc" id="L260">        Collection&lt;ResultFile&gt; files = resultFiles.values();</span>
+<span class="nc bnc" id="L261" title="All 2 branches missed.">        for ( ResultFile file : files ) {</span>
+<span class="nc" id="L262">          clonedFiles.put( file.getFile().toString(), file.clone() );</span>
+<span class="nc" id="L263">        }</span>
+<span class="nc" id="L264">        result.setResultFiles( clonedFiles );</span>
+      }
+
+<span class="nc" id="L267">      return result;</span>
+<span class="nc" id="L268">    } catch ( CloneNotSupportedException e ) {</span>
+<span class="nc" id="L269">      return null;</span>
+    }
+  }
+
+  /**
+   * Creates a string containing the read/write throughput. Throughput in this case is defined as two measures, number
+   * of lines read or written and number of lines read/written per second.
+   *
+   * @param seconds the number of seconds with which to determine the read/write throughput
+   * @return a string containing the read write throughput measures with labelling text
+   */
+  public String getReadWriteThroughput( int seconds ) {
+<span class="nc" id="L281">    String throughput = null;</span>
+<span class="nc bnc" id="L282" title="All 2 branches missed.">    if ( seconds != 0 ) {</span>
+<span class="nc" id="L283">      String readClause = null, writtenClause = null;</span>
+<span class="nc bnc" id="L284" title="All 2 branches missed.">      if ( getNrLinesRead() &gt; 0 ) {</span>
+<span class="nc" id="L285">        readClause =</span>
+<span class="nc" id="L286">          String.format( &quot;lines read: %d ( %d lines/s)&quot;, getNrLinesRead(), ( getNrLinesRead() / seconds ) );</span>
+      }
+<span class="nc bnc" id="L288" title="All 2 branches missed.">      if ( getNrLinesWritten() &gt; 0 ) {</span>
+<span class="nc" id="L289">        writtenClause =</span>
+<span class="nc" id="L290">          String.format(</span>
+<span class="nc bnc" id="L291" title="All 2 branches missed.">            &quot;%slines written: %d ( %d lines/s)&quot;, ( getNrLinesRead() &gt; 0 ? &quot;; &quot; : &quot;&quot; ), getNrLinesWritten(),</span>
+<span class="nc" id="L292">            ( getNrLinesWritten() / seconds ) );</span>
+      }
+<span class="nc bnc" id="L294" title="All 4 branches missed.">      if ( readClause != null || writtenClause != null ) {</span>
+<span class="nc" id="L295">        throughput =</span>
+<span class="nc" id="L296">          String.format(</span>
+<span class="nc bnc" id="L297" title="All 4 branches missed.">            &quot;Pipeline %s%s&quot;, ( getNrLinesRead() &gt; 0 ? readClause : &quot;&quot; ), ( getNrLinesWritten() &gt; 0</span>
+              ? writtenClause : &quot;&quot; ) );
+      }
+    }
+<span class="nc" id="L301">    return throughput;</span>
+  }
+
+  /**
+   * Returns a string representation of the Result object
+   *
+   * @see java.lang.Object#toString()
+   */
+  @Override
+  public String toString() {
+<span class="nc bnc" id="L311" title="All 2 branches missed.">    return &quot;nr=&quot;</span>
+      + entryNr + &quot;, errors=&quot; + nrErrors + &quot;, exit_status=&quot; + exitStatus
+      + ( stopped ? &quot; (Stopped)&quot; : &quot;&quot; + &quot;, result=&quot; + result );
+  }
+
+  /**
+   * Returns the number of files retrieved during execution of this pipeline or workflow
+   *
+   * @return the number of files retrieved
+   */
+  public long getNrFilesRetrieved() {
+<span class="nc" id="L322">    return nrFilesRetrieved;</span>
+  }
+
+  /**
+   * Sets the number of files retrieved to the specified value
+   *
+   * @param filesRetrieved The number of files retrieved to set.
+   */
+  public void setNrFilesRetrieved( long filesRetrieved ) {
+<span class="nc" id="L331">    this.nrFilesRetrieved = filesRetrieved;</span>
+<span class="nc" id="L332">  }</span>
+
+  /**
+   * Returns the entry number
+   *
+   * @return the entry number
+   */
+  public long getEntryNr() {
+<span class="nc" id="L340">    return entryNr;</span>
+  }
+
+  /**
+   * Sets the entry number to the specified value
+   *
+   * @param entryNr The entry number to set.
+   */
+  public void setEntryNr( long entryNr ) {
+<span class="nc" id="L349">    this.entryNr = entryNr;</span>
+<span class="nc" id="L350">  }</span>
+
+  /**
+   * Returns the exit status value.
+   *
+   * @return the exit status.
+   */
+  public int getExitStatus() {
+<span class="nc" id="L358">    return exitStatus;</span>
+  }
+
+  /**
+   * Sets the exit status value to the specified value
+   *
+   * @param exitStatus The exit status to set.
+   */
+  public void setExitStatus( int exitStatus ) {
+<span class="nc" id="L367">    this.exitStatus = exitStatus;</span>
+<span class="nc" id="L368">  }</span>
+
+  /**
+   * Returns the number of errors that occurred during this pipeline or workflow
+   *
+   * @return the number of errors
+   */
+  public long getNrErrors() {
+<span class="nc" id="L376">    return nrErrors;</span>
+  }
+
+  /**
+   * Sets the number of errors that occurred during execution of this pipeline or workflow
+   *
+   * @param nrErrors The number of errors to set
+   */
+  public void setNrErrors( long nrErrors ) {
+<span class="nc" id="L385">    this.nrErrors = nrErrors;</span>
+<span class="nc" id="L386">  }</span>
+
+  /**
+   * Returns the number of lines input during execution of this pipeline or workflow
+   *
+   * @return the number of lines input
+   */
+  public long getNrLinesInput() {
+<span class="nc" id="L394">    return nrLinesInput;</span>
+  }
+
+  /**
+   * Sets the number of lines input during execution of this pipeline or workflow
+   *
+   * @param nrLinesInput The number of lines input to set.
+   */
+  public void setNrLinesInput( long nrLinesInput ) {
+<span class="nc" id="L403">    this.nrLinesInput = nrLinesInput;</span>
+<span class="nc" id="L404">  }</span>
+
+  /**
+   * Returns the number of lines output during execution of this pipeline or workflow
+   *
+   * @return the number of lines output
+   */
+  public long getNrLinesOutput() {
+<span class="nc" id="L412">    return nrLinesOutput;</span>
+  }
+
+  /**
+   * Sets the number of lines output during execution of this pipeline or workflow
+   *
+   * @param nrLinesOutput The number of lines output to set
+   */
+  public void setNrLinesOutput( long nrLinesOutput ) {
+<span class="nc" id="L421">    this.nrLinesOutput = nrLinesOutput;</span>
+<span class="nc" id="L422">  }</span>
+
+  /**
+   * Returns the number of lines read during execution of this pipeline or workflow
+   *
+   * @return the number of lines read
+   */
+  public long getNrLinesRead() {
+<span class="nc" id="L430">    return nrLinesRead;</span>
+  }
+
+  /**
+   * Sets the number of lines read during execution of this pipeline or workflow
+   *
+   * @param nrLinesRead The number of lines read to set.
+   */
+  public void setNrLinesRead( long nrLinesRead ) {
+<span class="nc" id="L439">    this.nrLinesRead = nrLinesRead;</span>
+<span class="nc" id="L440">  }</span>
+
+  /**
+   * Returns the number of lines updated during execution of this pipeline or workflow
+   *
+   * @return the number of lines updated
+   */
+  public long getNrLinesUpdated() {
+<span class="nc" id="L448">    return nrLinesUpdated;</span>
+  }
+
+  /**
+   * Sets the number of lines updated during execution of this pipeline or workflow
+   *
+   * @param nrLinesUpdated The number of lines updated to set.
+   */
+  public void setNrLinesUpdated( long nrLinesUpdated ) {
+<span class="nc" id="L457">    this.nrLinesUpdated = nrLinesUpdated;</span>
+<span class="nc" id="L458">  }</span>
+
+  /**
+   * Returns the number of lines written during execution of this pipeline or workflow
+   *
+   * @return the number of lines written
+   */
+  public long getNrLinesWritten() {
+<span class="nc" id="L466">    return nrLinesWritten;</span>
+  }
+
+  /**
+   * Sets the number of lines written during execution of this pipeline or workflow
+   *
+   * @param nrLinesWritten The number of lines written to set.
+   */
+  public void setNrLinesWritten( long nrLinesWritten ) {
+<span class="nc" id="L475">    this.nrLinesWritten = nrLinesWritten;</span>
+<span class="nc" id="L476">  }</span>
+
+  /**
+   * Returns the number of lines deleted during execution of this pipeline or workflow
+   *
+   * @return the number of lines deleted
+   */
+  public long getNrLinesDeleted() {
+<span class="nc" id="L484">    return nrLinesDeleted;</span>
+  }
+
+  /**
+   * Sets the number of lines deleted during execution of this pipeline or workflow
+   *
+   * @param nrLinesDeleted The number of lines deleted to set.
+   */
+  public void setNrLinesDeleted( long nrLinesDeleted ) {
+<span class="nc" id="L493">    this.nrLinesDeleted = nrLinesDeleted;</span>
+<span class="nc" id="L494">  }</span>
+
+  /**
+   * Returns the boolean result of this pipeline or workflow
+   *
+   * @return true if the pipeline or workflow was successful, false otherwise
+   */
+  public boolean getResult() {
+<span class="nc" id="L502">    return result;</span>
+  }
+
+  /**
+   * Sets the result of the pipeline or workflow. A value of true should indicate a successful execution, a value of
+   * false should indicate an error condition.
+   *
+   * @param result The boolean result to set.
+   */
+  public void setResult( boolean result ) {
+<span class="nc" id="L512">    this.result = result;</span>
+<span class="nc" id="L513">  }</span>
+
+  /**
+   * Returns the resulting rowset from the workflow or pipeline. For example, Result rows are used in workflows where
+   * entries wish to receive the results of previous executions of workflows or pipelines. The Result rows can be used
+   * to do many kinds of pipeline or workflow post-processing.
+   *
+   * @return a List of rows associated with the result of execution of a workflow or pipeline
+   */
+  public List&lt;RowMetaAndData&gt; getRows() {
+<span class="nc" id="L523">    return rows;</span>
+  }
+
+  /**
+   * Sets the resulting rowset from the workflow or pipeline execution
+   *
+   * @param rows The List of rows to set.
+   */
+  public void setRows( List&lt;RowMetaAndData&gt; rows ) {
+<span class="nc" id="L532">    this.rows = rows;</span>
+<span class="nc" id="L533">  }</span>
+
+  /**
+   * Returns whether the pipeline or workflow was stopped before completion
+   *
+   * @return true if stopped, false otherwise
+   */
+  public boolean isStopped() {
+<span class="nc" id="L541">    return stopped;</span>
+  }
+
+  /**
+   * Sets whether the pipeline or workflow was stopped before completion
+   *
+   * @param stopped true if the pipeline or workflow was stopped, false otherwise
+   */
+  public void setStopped( boolean stopped ) {
+<span class="nc" id="L550">    this.stopped = stopped;</span>
+<span class="nc" id="L551">  }</span>
+
+  /**
+   * Clears the numbers in this result, setting them all to zero. Also deletes the logging text
+   */
+  public void clear() {
+<span class="nc" id="L557">    nrLinesInput = 0;</span>
+<span class="nc" id="L558">    nrLinesOutput = 0;</span>
+<span class="nc" id="L559">    nrLinesRead = 0;</span>
+<span class="nc" id="L560">    nrLinesWritten = 0;</span>
+<span class="nc" id="L561">    nrLinesUpdated = 0;</span>
+<span class="nc" id="L562">    nrLinesRejected = 0;</span>
+<span class="nc" id="L563">    nrLinesDeleted = 0;</span>
+<span class="nc" id="L564">    nrErrors = 0;</span>
+<span class="nc" id="L565">    nrFilesRetrieved = 0;</span>
+<span class="nc" id="L566">    logText = null;</span>
+<span class="nc" id="L567">  }</span>
+
+  /**
+   * Add the numbers of lines from a different result to this result
+   *
+   * @param res The Result object from which to add
+   */
+  public void add( Result res ) {
+<span class="nc" id="L575">    nrLinesInput += res.getNrLinesInput();</span>
+<span class="nc" id="L576">    nrLinesOutput += res.getNrLinesOutput();</span>
+<span class="nc" id="L577">    nrLinesRead += res.getNrLinesRead();</span>
+<span class="nc" id="L578">    nrLinesWritten += res.getNrLinesWritten();</span>
+<span class="nc" id="L579">    nrLinesUpdated += res.getNrLinesUpdated();</span>
+<span class="nc" id="L580">    nrLinesRejected += res.getNrLinesRejected();</span>
+<span class="nc" id="L581">    nrLinesDeleted += res.getNrLinesDeleted();</span>
+<span class="nc" id="L582">    nrErrors += res.getNrErrors();</span>
+<span class="nc" id="L583">    nrFilesRetrieved += res.getNrFilesRetrieved();</span>
+<span class="nc" id="L584">    resultFiles.putAll( res.getResultFiles() );</span>
+<span class="nc" id="L585">    logChannelId = res.getLogChannelId();</span>
+<span class="nc" id="L586">    logText = res.getLogText();</span>
+<span class="nc" id="L587">    rows.addAll( res.getRows() );</span>
+<span class="nc" id="L588">  }</span>
+
+  /**
+   * Returns a String object with the Result object serialized as XML
+   *
+   * @return This Result object serialized as XML
+   */
+  public String getXml() {
+    try {
+
+<span class="nc" id="L598">      StringBuilder xml = new StringBuilder();</span>
+<span class="nc" id="L599">      xml.append( XmlHandler.openTag( XML_TAG ) );</span>
+<span class="nc" id="L600">      setBasicXmlAttrs( xml );</span>
+
+      // Export the result files
+      //
+<span class="nc" id="L604">      xml.append( XmlHandler.openTag( XML_FILES_TAG ) );</span>
+<span class="nc bnc" id="L605" title="All 2 branches missed.">      for ( ResultFile resultFile : resultFiles.values() ) {</span>
+<span class="nc" id="L606">        xml.append( resultFile.getXml() );</span>
+<span class="nc" id="L607">      }</span>
+<span class="nc" id="L608">      xml.append( XmlHandler.closeTag( XML_FILES_TAG ) );</span>
+
+<span class="nc" id="L610">      xml.append( XmlHandler.openTag( XML_ROWS_TAG ) );</span>
+<span class="nc" id="L611">      boolean firstRow = true;</span>
+<span class="nc" id="L612">      IRowMeta rowMeta = null;</span>
+<span class="nc bnc" id="L613" title="All 2 branches missed.">      for ( RowMetaAndData row : rows ) {</span>
+<span class="nc bnc" id="L614" title="All 2 branches missed.">        if ( firstRow ) {</span>
+<span class="nc" id="L615">          firstRow = false;</span>
+<span class="nc" id="L616">          rowMeta = row.getRowMeta();</span>
+<span class="nc" id="L617">          xml.append( rowMeta.getMetaXml() );</span>
+        }
+<span class="nc" id="L619">        xml.append( rowMeta.getDataXml( row.getData() ) );</span>
+<span class="nc" id="L620">      }</span>
+<span class="nc" id="L621">      xml.append( XmlHandler.closeTag( XML_ROWS_TAG ) );</span>
+
+<span class="nc" id="L623">      xml.append( XmlHandler.closeTag( XML_TAG ) );</span>
+
+<span class="nc" id="L625">      return xml.toString();</span>
+<span class="nc" id="L626">    } catch ( IOException e ) {</span>
+<span class="nc" id="L627">      throw new RuntimeException( &quot;Unexpected error encoding workflow result as XML&quot;, e );</span>
+    }
+  }
+
+  private StringBuilder setBasicXmlAttrs( StringBuilder xml ) {
+    // First the metrics...
+    //
+<span class="nc" id="L634">    xml.append( XmlHandler.addTagValue( &quot;lines_input&quot;, nrLinesInput ) );</span>
+<span class="nc" id="L635">    xml.append( XmlHandler.addTagValue( &quot;lines_output&quot;, nrLinesOutput ) );</span>
+<span class="nc" id="L636">    xml.append( XmlHandler.addTagValue( &quot;lines_read&quot;, nrLinesRead ) );</span>
+<span class="nc" id="L637">    xml.append( XmlHandler.addTagValue( &quot;lines_written&quot;, nrLinesWritten ) );</span>
+<span class="nc" id="L638">    xml.append( XmlHandler.addTagValue( &quot;lines_updated&quot;, nrLinesUpdated ) );</span>
+<span class="nc" id="L639">    xml.append( XmlHandler.addTagValue( &quot;lines_rejected&quot;, nrLinesRejected ) );</span>
+<span class="nc" id="L640">    xml.append( XmlHandler.addTagValue( &quot;lines_deleted&quot;, nrLinesDeleted ) );</span>
+<span class="nc" id="L641">    xml.append( XmlHandler.addTagValue( &quot;nr_errors&quot;, nrErrors ) );</span>
+<span class="nc" id="L642">    xml.append( XmlHandler.addTagValue( &quot;nr_files_retrieved&quot;, nrFilesRetrieved ) );</span>
+<span class="nc" id="L643">    xml.append( XmlHandler.addTagValue( &quot;entry_nr&quot;, entryNr ) );</span>
+
+    // The high level results...
+    //
+<span class="nc" id="L647">    xml.append( XmlHandler.addTagValue( &quot;result&quot;, result ) );</span>
+<span class="nc" id="L648">    xml.append( XmlHandler.addTagValue( &quot;exit_status&quot;, exitStatus ) );</span>
+<span class="nc" id="L649">    xml.append( XmlHandler.addTagValue( &quot;is_stopped&quot;, stopped ) );</span>
+<span class="nc" id="L650">    xml.append( XmlHandler.addTagValue( &quot;log_channel_id&quot;, logChannelId ) );</span>
+<span class="nc" id="L651">    xml.append( XmlHandler.addTagValue( &quot;log_text&quot;, logText ) );</span>
+<span class="nc" id="L652">    xml.append( XmlHandler.addTagValue( &quot;elapsedTimeMillis&quot;, elapsedTimeMillis ) );</span>
+<span class="nc" id="L653">    xml.append( XmlHandler.addTagValue( &quot;executionId&quot;, executionId ) );</span>
+
+<span class="nc" id="L655">    return xml;</span>
+  }
+
+  public String getBasicXml() {
+<span class="nc" id="L659">    StringBuilder xml = new StringBuilder();</span>
+<span class="nc" id="L660">    xml.append( XmlHandler.openTag( XML_TAG ) );</span>
+<span class="nc" id="L661">    setBasicXmlAttrs( xml );</span>
+<span class="nc" id="L662">    xml.append( XmlHandler.closeTag( XML_TAG ) );</span>
+<span class="nc" id="L663">    return xml.toString();</span>
+  }
+
+  /**
+   * Instantiates a new Result object from a DOM node
+   *
+   * @param node the DOM root node representing the desired Result
+   * @throws HopException if any errors occur during instantiation
+   */
+  public Result( Node node ) throws HopException {
+<span class="nc" id="L673">    this();</span>
+
+    // First we read the metrics...
+    //
+<span class="nc" id="L677">    nrLinesInput = Const.toLong( XmlHandler.getTagValue( node, &quot;lines_input&quot; ), 0L );</span>
+<span class="nc" id="L678">    nrLinesOutput = Const.toLong( XmlHandler.getTagValue( node, &quot;lines_output&quot; ), 0L );</span>
+<span class="nc" id="L679">    nrLinesRead = Const.toLong( XmlHandler.getTagValue( node, &quot;lines_read&quot; ), 0L );</span>
+<span class="nc" id="L680">    nrLinesWritten = Const.toLong( XmlHandler.getTagValue( node, &quot;lines_written&quot; ), 0L );</span>
+<span class="nc" id="L681">    nrLinesUpdated = Const.toLong( XmlHandler.getTagValue( node, &quot;lines_updated&quot; ), 0L );</span>
+<span class="nc" id="L682">    nrLinesRejected = Const.toLong( XmlHandler.getTagValue( node, &quot;lines_rejected&quot; ), 0L );</span>
+<span class="nc" id="L683">    nrLinesDeleted = Const.toLong( XmlHandler.getTagValue( node, &quot;lines_deleted&quot; ), 0L );</span>
+<span class="nc" id="L684">    nrErrors = Const.toLong( XmlHandler.getTagValue( node, &quot;nr_errors&quot; ), 0L );</span>
+<span class="nc" id="L685">    nrFilesRetrieved = Const.toLong( XmlHandler.getTagValue( node, &quot;nr_files_retrieved&quot; ), 0L );</span>
+<span class="nc" id="L686">    entryNr = Const.toLong( XmlHandler.getTagValue( node, &quot;entry_nr&quot; ), 0L );</span>
+
+    // The high level results...
+    //
+<span class="nc" id="L690">    result = &quot;Y&quot;.equalsIgnoreCase( XmlHandler.getTagValue( node, &quot;result&quot; ) );</span>
+<span class="nc" id="L691">    exitStatus = Integer.parseInt( XmlHandler.getTagValue( node, &quot;exit_status&quot; ) );</span>
+<span class="nc" id="L692">    stopped = &quot;Y&quot;.equalsIgnoreCase( XmlHandler.getTagValue( node, &quot;is_stopped&quot; ) );</span>
+
+<span class="nc" id="L694">    logChannelId = XmlHandler.getTagValue( node, &quot;log_channel_id&quot; );</span>
+<span class="nc" id="L695">    logText = XmlHandler.getTagValue( node, &quot;log_text&quot; );</span>
+
+<span class="nc" id="L697">    elapsedTimeMillis = Const.toLong( XmlHandler.getTagValue( node, &quot;elapsedTimeMillis&quot; ), 0L );</span>
+<span class="nc" id="L698">    executionId = XmlHandler.getTagValue( node, &quot;executionId&quot; );</span>
+
+    // Now read back the result files...
+    //
+<span class="nc" id="L702">    Node resultFilesNode = XmlHandler.getSubNode( node, XML_FILES_TAG );</span>
+<span class="nc" id="L703">    int nrResultFiles = XmlHandler.countNodes( resultFilesNode, XML_FILE_TAG );</span>
+<span class="nc bnc" id="L704" title="All 2 branches missed.">    for ( int i = 0; i &lt; nrResultFiles; i++ ) {</span>
+      try {
+<span class="nc" id="L706">        ResultFile resultFile = new ResultFile( XmlHandler.getSubNodeByNr( resultFilesNode, XML_FILE_TAG, i ) );</span>
+<span class="nc" id="L707">        resultFiles.put( resultFile.getFile().toString(), resultFile );</span>
+<span class="nc" id="L708">      } catch ( HopFileException e ) {</span>
+<span class="nc" id="L709">        throw new HopException( &quot;Unexpected error reading back a ResultFile object from XML&quot;, e );</span>
+<span class="nc" id="L710">      }</span>
+    }
+
+    // Let's also read back the result rows...
+    //
+<span class="nc" id="L715">    Node resultRowsNode = XmlHandler.getSubNode( node, XML_ROWS_TAG );</span>
+<span class="nc" id="L716">    List&lt;Node&gt; resultNodes = XmlHandler.getNodes( resultRowsNode, RowMeta.XML_DATA_TAG );</span>
+<span class="nc bnc" id="L717" title="All 2 branches missed.">    if ( !resultNodes.isEmpty() ) {</span>
+      // OK, get the metadata first...
+      //
+<span class="nc" id="L720">      RowMeta rowMeta = new RowMeta( XmlHandler.getSubNode( resultRowsNode, RowMeta.XML_META_TAG ) );</span>
+<span class="nc bnc" id="L721" title="All 2 branches missed.">      for ( Node resultNode : resultNodes ) {</span>
+<span class="nc" id="L722">        Object[] rowData = rowMeta.getRow( resultNode );</span>
+<span class="nc" id="L723">        rows.add( new RowMetaAndData( rowMeta, rowData ) );</span>
+<span class="nc" id="L724">      }</span>
+    }
+
+<span class="nc" id="L727">  }</span>
+
+  /**
+   * Returns the result files as a Map with the filename as key and the ResultFile object as value
+   *
+   * @return a Map with String as key and ResultFile as value.
+   * @see org.apache.hop.core.ResultFile
+   */
+  public Map&lt;String, ResultFile&gt; getResultFiles() {
+<span class="nc" id="L736">    return resultFiles;</span>
+  }
+
+  /**
+   * Returns the result files as a List of type ResultFile
+   *
+   * @return a list of type ResultFile containing this Result's ResultFile objects
+   * @see org.apache.hop.core.ResultFile
+   */
+  public List&lt;ResultFile&gt; getResultFilesList() {
+<span class="nc" id="L746">    return new ArrayList&lt;ResultFile&gt;( resultFiles.values() );</span>
+  }
+
+  /**
+   * Sets the result files for this Result to the specified Map of ResultFile objects
+   *
+   * @param usedFiles The Map of result files to set. This is a Map with the filename as key and ResultFile object as value
+   * @see org.apache.hop.core.ResultFile
+   */
+  public void setResultFiles( Map&lt;String, ResultFile&gt; usedFiles ) {
+<span class="nc" id="L756">    this.resultFiles = usedFiles;</span>
+<span class="nc" id="L757">  }</span>
+
+  /**
+   * Returns the number of lines rejected during execution of this pipeline or workflow
+   *
+   * @return the number of lines rejected
+   */
+  public long getNrLinesRejected() {
+<span class="nc" id="L765">    return nrLinesRejected;</span>
+  }
+
+  /**
+   * Sets the number of lines rejected during execution of this pipeline or workflow
+   *
+   * @param nrLinesRejected the number of lines rejected to set
+   */
+  public void setNrLinesRejected( long nrLinesRejected ) {
+<span class="nc" id="L774">    this.nrLinesRejected = nrLinesRejected;</span>
+<span class="nc" id="L775">  }</span>
+
+  /**
+   * Returns the log channel id of the object that was executed (pipeline, workflow, action, etc)
+   *
+   * @return the log channel id
+   */
+  public String getLogChannelId() {
+<span class="nc" id="L783">    return logChannelId;</span>
+  }
+
+  /**
+   * Sets the log channel id of the object that was executed (pipeline, workflow, action, etc)
+   *
+   * @param logChannelId the logChannelId to set
+   */
+  public void setLogChannelId( String logChannelId ) {
+<span class="nc" id="L792">    this.logChannelId = logChannelId;</span>
+<span class="nc" id="L793">  }</span>
+
+  /**
+   * Increases the number of lines read by the specified value
+   *
+   * @param incr the amount to increment
+   */
+  public void increaseLinesRead( long incr ) {
+<span class="nc" id="L801">    nrLinesRead += incr;</span>
+<span class="nc" id="L802">  }</span>
+
+  /**
+   * Increases the number of lines written by the specified value
+   *
+   * @param incr the amount to increment
+   */
+  public void increaseLinesWritten( long incr ) {
+<span class="nc" id="L810">    nrLinesWritten += incr;</span>
+<span class="nc" id="L811">  }</span>
+
+  /**
+   * Increases the number of lines input by the specified value
+   *
+   * @param incr the amount to increment
+   */
+  public void increaseLinesInput( long incr ) {
+<span class="nc" id="L819">    nrLinesInput += incr;</span>
+<span class="nc" id="L820">  }</span>
+
+  /**
+   * Increases the number of lines output by the specified value
+   *
+   * @param incr the amount to increment
+   */
+  public void increaseLinesOutput( long incr ) {
+<span class="nc" id="L828">    nrLinesOutput += incr;</span>
+<span class="nc" id="L829">  }</span>
+
+  /**
+   * Increases the number of lines updated by the specified value
+   *
+   * @param incr the amount to increment
+   */
+  public void increaseLinesUpdated( long incr ) {
+<span class="nc" id="L837">    nrLinesUpdated += incr;</span>
+<span class="nc" id="L838">  }</span>
+
+  /**
+   * Increases the number of lines deleted by the specified value
+   *
+   * @param incr the amount to increment
+   */
+  public void increaseLinesDeleted( long incr ) {
+<span class="nc" id="L846">    nrLinesDeleted += incr;</span>
+<span class="nc" id="L847">  }</span>
+
+  /**
+   * Increases the number of lines rejected by the specified value
+   *
+   * @param incr the amount to increment
+   */
+  public void increaseLinesRejected( long incr ) {
+<span class="nc" id="L855">    nrLinesRejected += incr;</span>
+<span class="nc" id="L856">  }</span>
+
+  /**
+   * Increases the number of errors by the specified value
+   *
+   * @param incr the amount to increment
+   */
+  public void increaseErrors( long incr ) {
+<span class="nc" id="L864">    nrErrors += incr;</span>
+<span class="nc" id="L865">  }</span>
+
+  /**
+   * Returns all the text from any logging performed by the pipeline or workflow
+   *
+   * @return the logging text as a string
+   */
+  public String getLogText() {
+<span class="nc" id="L873">    return logText;</span>
+  }
+
+  /**
+   * Sets the logging text to the specified String
+   *
+   * @param logText the logText to set
+   */
+  public void setLogText( String logText ) {
+<span class="nc" id="L882">    this.logText = logText;</span>
+<span class="nc" id="L883">  }</span>
+
+  /**
+   * Returns the elapsed time of the ETL execution in milliseconds
+   *
+   * @returns elapsed time of the ETL execution in milliseconds
+   */
+  public long getElapsedTimeMillis() {
+<span class="nc" id="L891">    return elapsedTimeMillis;</span>
+  }
+
+  /**
+   * Sets the elapsed time of the ETL execution in milliseconds
+   *
+   * @param elapsedTimeMillis elapsed time of the ETL execution in milliseconds
+   */
+  public void setElapsedTimeMillis( long elapsedTimeMillis ) {
+<span class="nc" id="L900">    this.elapsedTimeMillis = elapsedTimeMillis;</span>
+<span class="nc" id="L901">  }</span>
+
+  /**
+   * Returns the unique identifier of an ETL execution, should one ever care to declare one such
+   *
+   * @return unique identifier of an ETL execution, should one ever care to declare one such
+   */
+  public String getExecutionId() {
+<span class="nc" id="L909">    return executionId;</span>
+  }
+
+  /**
+   * Sets a unique identifier of an ETL execution, should one ever care to declare one such
+   *
+   * @param executionId unique identifier of an ETL execution, should one ever care to declare one such
+   */
+  public void setExecutionId( String executionId ) {
+<span class="nc" id="L918">    this.executionId = executionId;</span>
+<span class="nc" id="L919">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

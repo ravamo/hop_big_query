@@ -1,0 +1,394 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JsonMetadataParser.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.metadata.serializer.json</a> &gt; <span class="el_source">JsonMetadataParser.java</span></div><h1>JsonMetadataParser.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.metadata.serializer.json;
+
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
+import org.apache.commons.lang.StringUtils;
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.metadata.api.HopMetadataObject;
+import org.apache.hop.metadata.api.HopMetadataProperty;
+import org.apache.hop.metadata.api.IHopMetadata;
+import org.apache.hop.metadata.api.IHopMetadataObjectFactory;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
+import org.apache.hop.metadata.api.IHopMetadataSerializer;
+import org.apache.hop.metadata.util.ReflectionUtil;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.ParameterizedType;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public class JsonMetadataParser&lt;T extends IHopMetadata&gt; {
+
+  private Class&lt;T&gt; managedClass;
+  private IHopMetadataProvider metadataProvider;
+
+<span class="fc" id="L53">  public JsonMetadataParser( Class&lt;T&gt; managedClass, IHopMetadataProvider metadataProvider ) {</span>
+<span class="fc" id="L54">    this.managedClass = managedClass;</span>
+<span class="fc" id="L55">    this.metadataProvider = metadataProvider;</span>
+<span class="fc" id="L56">  }</span>
+
+  public T loadJsonObject( Class&lt;T&gt; managedClass, JsonParser jsonParser ) throws HopException {
+    try {
+      // Now we can load the annotated fields, the properties:
+      //
+<span class="fc" id="L62">      T object = managedClass.newInstance();</span>
+<span class="fc" id="L63">      loadProperties( object, jsonParser );</span>
+<span class="fc" id="L64">      return object;</span>
+<span class="nc" id="L65">    } catch(Exception e) {</span>
+<span class="nc" id="L66">      throw new HopException(&quot;Unable to load JSON object&quot;, e);</span>
+    }
+  }
+
+  private void loadProperties( Object object, com.fasterxml.jackson.core.JsonParser jsonParser ) throws HopException {
+<span class="fc" id="L71">    Class&lt;?&gt; objectClass = object.getClass();</span>
+<span class="fc" id="L72">    Map&lt;String, Field&gt; keyFieldMap = new HashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L73" title="All 2 branches covered.">    for ( Field field : ReflectionUtil.findAllFields( objectClass ) ) {</span>
+<span class="fc" id="L74">      HopMetadataProperty metadataProperty = field.getAnnotation( HopMetadataProperty.class );</span>
+<span class="fc bfc" id="L75" title="All 2 branches covered.">      if ( metadataProperty != null ) {</span>
+        String key;
+<span class="pc bpc" id="L77" title="1 of 2 branches missed.">        if ( StringUtils.isNotEmpty( metadataProperty.key() ) ) {</span>
+<span class="nc" id="L78">          key = metadataProperty.key();</span>
+        } else {
+<span class="fc" id="L80">          key = field.getName();</span>
+        }
+<span class="fc" id="L82">        keyFieldMap.put( key, field );</span>
+      }
+<span class="fc" id="L84">    }</span>
+
+    try {
+<span class="fc bfc" id="L87" title="All 2 branches covered.">      while ( jsonParser.nextToken() != JsonToken.END_OBJECT ) {</span>
+<span class="fc" id="L88">        String key = jsonParser.getCurrentName();</span>
+<span class="fc" id="L89">        Field field = keyFieldMap.get( key );</span>
+<span class="fc bfc" id="L90" title="All 2 branches covered.">        if ( field != null ) {</span>
+          // This is a recognized piece of data. We can load this...
+          //
+<span class="fc" id="L93">          loadProperty( object, jsonParser, key, field );</span>
+        }
+
+<span class="fc" id="L96">      }</span>
+<span class="nc" id="L97">    } catch ( Exception e ) {</span>
+<span class="nc" id="L98">      throw new HopException( &quot;Error loading fields for object class &quot; + objectClass.getName(), e );</span>
+<span class="fc" id="L99">    }</span>
+<span class="fc" id="L100">  }</span>
+
+  private void loadProperty( Object object, com.fasterxml.jackson.core.JsonParser jsonParser, String key, Field field ) throws HopException {
+<span class="fc" id="L103">    Class&lt;?&gt; objectClass = object.getClass();</span>
+<span class="fc" id="L104">    Class&lt;?&gt; fieldType = field.getType();</span>
+<span class="fc" id="L105">    HopMetadataProperty metadataProperty = field.getAnnotation( HopMetadataProperty.class );</span>
+
+    try {
+      // Position on the value in the JSON
+      //
+<span class="fc" id="L110">      jsonParser.nextToken();</span>
+<span class="fc" id="L111">      Object fieldValue = null;</span>
+
+<span class="pc bpc" id="L113" title="3 of 4 branches missed.">      if (&quot;null&quot;.equals(jsonParser.getText()) &amp;&amp; jsonParser.getValueAsString() == null) {</span>
+        // This is the case { &quot;name&quot; : null }
+        //
+<span class="nc" id="L116">        fieldValue=null;</span>
+      } else {
+<span class="fc bfc" id="L118" title="All 2 branches covered.">        if ( fieldType.isEnum() ) {</span>
+<span class="fc" id="L119">          final Class&lt;? extends Enum&gt; enumerationClass = (Class&lt;? extends Enum&gt;) field.getType();</span>
+<span class="fc" id="L120">          String enumerationName = jsonParser.getText();</span>
+<span class="pc bpc" id="L121" title="1 of 2 branches missed.">          if ( StringUtils.isNotEmpty( enumerationName ) ) {</span>
+<span class="fc" id="L122">            fieldValue = Enum.valueOf( enumerationClass, enumerationName );</span>
+          }
+<span class="fc bfc" id="L124" title="All 2 branches covered.">        } else if ( String.class.equals( fieldType ) ) {</span>
+<span class="fc" id="L125">          String string = jsonParser.getText();</span>
+<span class="pc bpc" id="L126" title="1 of 2 branches missed.">          if ( metadataProperty.password() ) {</span>
+<span class="nc" id="L127">            string = metadataProvider.getTwoWayPasswordEncoder().decode( string, true );</span>
+          }
+<span class="fc" id="L129">          fieldValue = string;</span>
+<span class="pc bpc" id="L130" title="1 of 4 branches missed.">        } else if ( int.class.equals( fieldType ) || Integer.class.equals( fieldType ) ) {</span>
+<span class="fc" id="L131">          fieldValue = jsonParser.getIntValue();</span>
+<span class="pc bpc" id="L132" title="2 of 4 branches missed.">        } else if ( long.class.equals( fieldType ) || Long.class.equals( fieldType ) ) {</span>
+<span class="nc" id="L133">          fieldValue = jsonParser.getLongValue();</span>
+<span class="pc bpc" id="L134" title="2 of 4 branches missed.">        } else if ( Boolean.class.equals( fieldType ) || boolean.class.equals( fieldType ) ) {</span>
+<span class="nc" id="L135">          fieldValue = jsonParser.getBooleanValue();</span>
+<span class="pc bpc" id="L136" title="1 of 2 branches missed.">        } else if ( Date.class.equals( fieldType ) ) {</span>
+<span class="nc" id="L137">          String dateString = jsonParser.getText();</span>
+<span class="nc" id="L138">          fieldValue = new SimpleDateFormat( &quot;yyyy/MM/dd'T'HH:mm:ss&quot; ).parse( dateString );</span>
+<span class="pc bfc" id="L139" title="All 2 branches covered.">        } else if ( Map.class.equals( fieldType ) ) {</span>
+<span class="fc" id="L140">          Map&lt;String, String&gt; map = new HashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L141" title="All 2 branches covered.">          while ( jsonParser.nextToken() != JsonToken.END_OBJECT ) {</span>
+<span class="fc" id="L142">            String mapKey = jsonParser.getText();</span>
+<span class="fc" id="L143">            jsonParser.nextToken();</span>
+<span class="fc" id="L144">            String mapValue = jsonParser.getText();</span>
+<span class="fc" id="L145">            map.put( mapKey, mapValue );</span>
+<span class="fc" id="L146">          }</span>
+<span class="fc" id="L147">          fieldValue = map;</span>
+<span class="fc bfc" id="L148" title="All 2 branches covered.">        } else if ( List.class.equals( fieldType ) ) {</span>
+<span class="fc" id="L149">          ParameterizedType parameterizedType = (ParameterizedType) field.getGenericType();</span>
+<span class="fc" id="L150">          Class&lt;?&gt; listClass = (Class&lt;?&gt;) parameterizedType.getActualTypeArguments()[ 0 ];</span>
+<span class="pc bpc" id="L151" title="1 of 2 branches missed.">          if ( String.class.equals( listClass ) ) {</span>
+<span class="nc" id="L152">            List&lt;String&gt; list = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L153" title="All 2 branches missed.">            while ( jsonParser.nextToken() != JsonToken.END_ARRAY ) {</span>
+<span class="nc" id="L154">              list.add( jsonParser.getText() );</span>
+            }
+<span class="nc" id="L156">            fieldValue = list;</span>
+<span class="nc" id="L157">          } else {</span>
+            // List of POJO
+            //
+<span class="fc" id="L160">            IHopMetadataSerializer&lt;?&gt; serializer = null;</span>
+<span class="pc bpc" id="L161" title="1 of 2 branches missed.">            if ( metadataProperty.storeWithName() ) {</span>
+<span class="nc bnc" id="L162" title="All 2 branches missed.">              if ( !IHopMetadata.class.isAssignableFrom( listClass ) ) {</span>
+<span class="nc" id="L163">                throw new HopException( &quot;Error: metadata objects that need to be stored with a name reference need to implement IHopMetadata: &quot; + listClass.getName() );</span>
+              }
+<span class="nc" id="L165">              serializer = metadataProvider.getSerializer( (Class&lt;? extends IHopMetadata&gt;) listClass );</span>
+            }
+<span class="fc" id="L167">            List list = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L168" title="All 2 branches covered.">            while ( jsonParser.nextToken() != JsonToken.END_ARRAY ) {</span>
+<span class="pc bpc" id="L169" title="1 of 2 branches missed.">              if ( metadataProperty.storeWithName() ) {</span>
+                // Load by name reference
+                //
+<span class="nc" id="L172">                String name = jsonParser.getText();</span>
+<span class="nc" id="L173">                Object listObject = serializer.load( name );</span>
+<span class="nc" id="L174">                list.add( listObject );</span>
+<span class="nc" id="L175">              } else {</span>
+                // Load the object itself
+                //
+<span class="fc" id="L178">                Object listObject = loadPojoProperties( listClass, jsonParser );</span>
+<span class="fc" id="L179">                list.add( listObject );</span>
+<span class="fc" id="L180">              }</span>
+            }
+<span class="fc" id="L182">            fieldValue = list;</span>
+          }
+<span class="fc" id="L184">        } else {</span>
+          // POJO
+          //
+<span class="fc bfc" id="L187" title="All 2 branches covered.">          if ( metadataProperty.storeWithName() ) {</span>
+            // Load using name reference
+            //
+<span class="pc bpc" id="L190" title="1 of 2 branches missed.">            if ( !IHopMetadata.class.isAssignableFrom( fieldType ) ) {</span>
+<span class="nc" id="L191">              throw new HopException( &quot;Error: metadata objects that need to be stored with a name reference need to implement IHopMetadata: &quot; + fieldType.getName() );</span>
+            }
+<span class="fc" id="L193">            IHopMetadataSerializer&lt;?&gt; serializer = metadataProvider.getSerializer( (Class&lt;? extends IHopMetadata&gt;) fieldType );</span>
+<span class="fc" id="L194">            String name = jsonParser.getText();</span>
+<span class="fc" id="L195">            fieldValue = serializer.load( name );</span>
+<span class="fc" id="L196">          } else {</span>
+<span class="fc" id="L197">            fieldValue = loadPojoProperties( fieldType, jsonParser );</span>
+          }
+        }
+      }
+
+      // Set the value on the object...
+      //
+<span class="fc" id="L204">      ReflectionUtil.setFieldValue( object, field.getName(), fieldType, fieldValue );</span>
+
+<span class="nc" id="L206">    } catch ( Exception e ) {</span>
+<span class="nc" id="L207">      throw new HopException( &quot;Error loading field with key '&quot; + key + &quot;' for field '&quot; + field.getName() + &quot; in class &quot; + objectClass.getName(), e );</span>
+<span class="fc" id="L208">    }</span>
+
+<span class="fc" id="L210">  }</span>
+
+  private Object loadPojoProperties( Class&lt;?&gt; fieldType, com.fasterxml.jackson.core.JsonParser jsonParser ) throws HopException {
+    try {
+      Object fieldValue;
+<span class="fc" id="L215">      HopMetadataObject hopMetadataObject = fieldType.getAnnotation( HopMetadataObject.class );</span>
+<span class="fc bfc" id="L216" title="All 2 branches covered.">      if ( hopMetadataObject == null ) {</span>
+<span class="fc" id="L217">        fieldValue = fieldType.newInstance();</span>
+<span class="fc" id="L218">        loadProperties( fieldValue, jsonParser );</span>
+      } else {
+<span class="fc" id="L220">        jsonParser.nextToken(); // skip {</span>
+<span class="fc" id="L221">        String fieldValueId = jsonParser.getText();</span>
+<span class="fc" id="L222">        IHopMetadataObjectFactory objectFactory = hopMetadataObject.objectFactory().newInstance();</span>
+<span class="fc" id="L223">        fieldValue = objectFactory.createObject( fieldValueId, null ); // No parent object</span>
+<span class="fc" id="L224">        loadProperties( fieldValue, jsonParser );</span>
+<span class="fc" id="L225">        jsonParser.nextToken(); // skip }</span>
+      }
+<span class="fc" id="L227">      return fieldValue;</span>
+<span class="nc" id="L228">    } catch ( Exception e ) {</span>
+<span class="nc" id="L229">      throw new HopException( &quot;Error loading POJO field '&quot; + fieldType.getName() + &quot;'&quot;, e );</span>
+    }
+  }
+
+
+
+
+
+  public JSONObject getJsonObject( T object ) throws HopException {
+<span class="fc" id="L238">    JSONObject jObject = new JSONObject();</span>
+<span class="fc" id="L239">    saveProperties( jObject, object, managedClass );</span>
+<span class="fc" id="L240">    return jObject;</span>
+  }
+
+
+
+  /**
+   * Go over all the fields in the object class and see if there are with a HopMetadataProperty annotation...
+   *
+   * @param jObject
+   * @param object
+   */
+  private void saveProperties( JSONObject jObject, Object object, Class&lt;?&gt; objectClass ) throws HopException {
+<span class="pc bpc" id="L252" title="1 of 2 branches missed.">    if ( object == null ) {</span>
+<span class="nc" id="L253">      return;</span>
+    }
+<span class="fc bfc" id="L255" title="All 2 branches covered.">    for ( Field objectField : ReflectionUtil.findAllFields( object.getClass() ) ) {</span>
+<span class="fc" id="L256">      HopMetadataProperty metadataProperty = objectField.getAnnotation( HopMetadataProperty.class );</span>
+<span class="fc bfc" id="L257" title="All 2 branches covered.">      if ( metadataProperty != null ) {</span>
+        // The contents of this field needs to be serialized...
+        //
+<span class="fc" id="L260">        saveProperty( jObject, object, metadataProperty, objectField );</span>
+      }
+<span class="fc" id="L262">    }</span>
+<span class="fc" id="L263">  }</span>
+
+  private void saveProperty( JSONObject jObject, Object object, HopMetadataProperty metadataProperty, Field objectField ) throws HopException {
+<span class="fc" id="L266">    String key = objectField.getName();</span>
+<span class="pc bpc" id="L267" title="1 of 2 branches missed.">    if ( StringUtils.isNotEmpty( metadataProperty.key() ) ) {</span>
+<span class="nc" id="L268">      key = metadataProperty.key();</span>
+    }
+<span class="fc" id="L270">    Class&lt;?&gt; fieldType = objectField.getType();</span>
+<span class="pc bpc" id="L271" title="2 of 4 branches missed.">    boolean isBoolean = Boolean.class.equals(fieldType) || boolean.class.equals( fieldType );</span>
+
+    try {
+<span class="fc" id="L274">      Object fieldValue = ReflectionUtil.getFieldValue( object, objectField.getName(), isBoolean );</span>
+<span class="fc bfc" id="L275" title="All 2 branches covered.">      if ( fieldValue == null ) {</span>
+<span class="fc" id="L276">        jObject.put( key, null );</span>
+      } else {
+        // Enumeration?
+<span class="fc bfc" id="L279" title="All 2 branches covered.">        if ( fieldType.isEnum() ) {</span>
+          // Save the enum as its name
+<span class="fc" id="L281">          jObject.put( key, ( (Enum) fieldValue ).name() );</span>
+<span class="fc bfc" id="L282" title="All 2 branches covered.">        } else if ( String.class.equals( fieldType ) ) {</span>
+<span class="fc" id="L283">          String fieldStringValue = (String) fieldValue;</span>
+<span class="pc bpc" id="L284" title="1 of 2 branches missed.">          if ( metadataProperty.password() ) {</span>
+<span class="nc" id="L285">            fieldStringValue = metadataProvider.getTwoWayPasswordEncoder().encode( fieldStringValue );</span>
+          }
+<span class="fc" id="L287">          jObject.put( key, fieldStringValue );</span>
+<span class="pc bpc" id="L288" title="1 of 4 branches missed.">        } else if ( int.class.equals( fieldType ) || Integer.class.equals( fieldType ) ) {</span>
+<span class="fc" id="L289">          jObject.put( key, fieldValue );</span>
+<span class="pc bpc" id="L290" title="2 of 4 branches missed.">        } else if ( long.class.equals( fieldType ) || Long.class.equals( fieldType ) ) {</span>
+<span class="nc" id="L291">          jObject.put( key, fieldValue );</span>
+<span class="pc bpc" id="L292" title="1 of 2 branches missed.">        } else if ( isBoolean ) {</span>
+<span class="nc" id="L293">          jObject.put( key, fieldValue );</span>
+<span class="pc bpc" id="L294" title="1 of 2 branches missed.">        } else if ( Date.class.equals( fieldType ) ) {</span>
+<span class="nc" id="L295">          String dateString = new SimpleDateFormat( &quot;yyyy/MM/dd'T'HH:mm:ss&quot; ).format( (Date) fieldValue );</span>
+<span class="nc" id="L296">          jObject.put( key, dateString );</span>
+<span class="pc bfc" id="L297" title="All 2 branches covered.">        } else if ( Map.class.equals( fieldType ) ) {</span>
+<span class="fc" id="L298">          jObject.put( key, new JSONObject( (Map) fieldValue ) );</span>
+<span class="fc bfc" id="L299" title="All 2 branches covered.">        } else if ( List.class.equals( fieldType ) ) {</span>
+<span class="fc" id="L300">          JSONArray jListObjects = new JSONArray();</span>
+<span class="fc" id="L301">          ParameterizedType parameterizedType = (ParameterizedType) objectField.getGenericType();</span>
+<span class="fc" id="L302">          Class&lt;?&gt; listClass = (Class&lt;?&gt;) parameterizedType.getActualTypeArguments()[ 0 ];</span>
+
+<span class="fc" id="L304">          List&lt;?&gt; fieldListObjects = (List&lt;?&gt;) fieldValue;</span>
+<span class="fc bfc" id="L305" title="All 2 branches covered.">          for ( Object fieldListObject : fieldListObjects ) {</span>
+<span class="pc bpc" id="L306" title="1 of 2 branches missed.">            if ( String.class.equals( listClass ) ) {</span>
+<span class="nc" id="L307">              jListObjects.add( fieldListObject );</span>
+<span class="pc bpc" id="L308" title="1 of 2 branches missed.">            } else if ( metadataProperty.storeWithName() ) {</span>
+<span class="nc" id="L309">              String name = ReflectionUtil.getObjectName( fieldListObject );</span>
+<span class="nc" id="L310">              jListObjects.add( name );</span>
+<span class="nc" id="L311">            } else {</span>
+<span class="fc" id="L312">              JSONObject jListObject = savePojoProperty( key, fieldListObject, listClass );</span>
+<span class="fc" id="L313">              jListObjects.add( jListObject );</span>
+            }
+<span class="fc" id="L315">          }</span>
+<span class="fc" id="L316">          jObject.put( key, jListObjects );</span>
+<span class="fc" id="L317">        } else {</span>
+<span class="fc bfc" id="L318" title="All 2 branches covered.">          if ( metadataProperty.storeWithName() ) {</span>
+            // Just save the name
+<span class="fc" id="L320">            String name = ReflectionUtil.getObjectName( fieldValue );</span>
+<span class="fc" id="L321">            jObject.put( key, name );</span>
+<span class="fc" id="L322">          } else {</span>
+<span class="fc" id="L323">            JSONObject jPojo = savePojoProperty( key, fieldValue, fieldType );</span>
+<span class="fc" id="L324">            jObject.put( key, jPojo );</span>
+          }
+        }
+      }
+<span class="nc" id="L328">    } catch ( Exception e ) {</span>
+<span class="nc" id="L329">      throw new HopException( &quot;Error serializing field '&quot; + objectField.getName() + &quot;' with type '&quot; + fieldType.toString() + &quot;'&quot;, e );</span>
+<span class="fc" id="L330">    }</span>
+<span class="fc" id="L331">  }</span>
+
+  private JSONObject savePojoProperty( String key, Object fieldValue, Class&lt;?&gt; fieldType ) throws HopException {
+    try {
+
+      // Check if we can serialize this POJO
+      // We're looking for annotation @HopMetadataObject on the POJO class indicating how to instantiate it...
+      // If not we assume it's in the current classpath.
+      // If we don't find the annotation, we don't serialize
+      //
+<span class="fc" id="L341">      JSONObject jPojoObject = new JSONObject();</span>
+
+      // We can just serialize this POJO just like any other object with properties...
+      //
+<span class="fc" id="L345">      saveProperties( jPojoObject, fieldValue, fieldType );</span>
+
+<span class="fc" id="L347">      HopMetadataObject hopMetadataObject = fieldType.getAnnotation( HopMetadataObject.class );</span>
+<span class="fc bfc" id="L348" title="All 2 branches covered.">      if ( hopMetadataObject == null ) {</span>
+<span class="fc" id="L349">        return jPojoObject;</span>
+      } else {
+<span class="fc" id="L351">        IHopMetadataObjectFactory objectFactory = hopMetadataObject.objectFactory().newInstance();</span>
+<span class="fc" id="L352">        String fieldValueId = objectFactory.getObjectId( fieldValue );</span>
+
+        // We need to store the object ID (plugin ID, class name, ...)
+        // To prevent re-ordering by JSON formatters (or humans) we use the ID as the key for a new JSON block
+        // We'll wrap the POJO JSON in that block
+        //
+<span class="fc" id="L358">        JSONObject jPojoBlock = new JSONObject();</span>
+
+        // The POJO JSON goes into the block
+        //
+<span class="fc" id="L362">        jPojoBlock.put( fieldValueId, jPojoObject );</span>
+
+<span class="fc" id="L364">        return jPojoBlock;</span>
+      }
+<span class="nc" id="L366">    } catch ( Exception e ) {</span>
+<span class="nc" id="L367">      throw new HopException( &quot;Error saving POJO field with key &quot; + key + &quot;, field type '&quot; + fieldType.getName() + &quot;'&quot;, e );</span>
+    }
+  }
+
+
+
+
+
+
+  /**
+   * Gets provider
+   *
+   * @return value of provider
+   */
+  public IHopMetadataProvider getMetadataProvider() {
+<span class="nc" id="L382">    return metadataProvider;</span>
+  }
+
+  /**
+   * @param metadataProvider The provider to set
+   */
+  public void setMetadataProvider( IHopMetadataProvider metadataProvider ) {
+<span class="nc" id="L389">    this.metadataProvider = metadataProvider;</span>
+<span class="nc" id="L390">  }</span>
+
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

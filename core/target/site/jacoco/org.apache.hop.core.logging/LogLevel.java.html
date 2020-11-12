@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LogLevel.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.logging</a> &gt; <span class="el_source">LogLevel.java</span></div><h1>LogLevel.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.logging;
+
+import org.apache.hop.i18n.BaseMessages;
+
+<span class="fc" id="L27">public enum LogLevel {</span>
+
+<span class="fc" id="L29">  NOTHING( 0, &quot;Nothing&quot; ), ERROR( 1, &quot;Error&quot; ), MINIMAL( 2, &quot;Minimal&quot; ), BASIC( 3, &quot;Basic&quot; ), DETAILED(</span>
+<span class="fc" id="L30">    4, &quot;Detailed&quot; ), DEBUG( 5, &quot;Debug&quot; ), ROWLEVEL( 6, &quot;Rowlevel&quot; );</span>
+
+  /**
+   * for i18n purposes, needed by Translator!!
+   */
+<span class="fc" id="L35">  private static Class&lt;?&gt; PKG = LogLevel.class;</span>
+
+<span class="fc" id="L37">  public static final String[] logLevelDescriptions = {</span>
+<span class="fc" id="L38">    BaseMessages.getString( PKG, &quot;LogWriter.Level.Nothing.LongDesc&quot; ),</span>
+<span class="fc" id="L39">    BaseMessages.getString( PKG, &quot;LogWriter.Level.Error.LongDesc&quot; ),</span>
+<span class="fc" id="L40">    BaseMessages.getString( PKG, &quot;LogWriter.Level.Minimal.LongDesc&quot; ),</span>
+<span class="fc" id="L41">    BaseMessages.getString( PKG, &quot;LogWriter.Level.Basic.LongDesc&quot; ),</span>
+<span class="fc" id="L42">    BaseMessages.getString( PKG, &quot;LogWriter.Level.Detailed.LongDesc&quot; ),</span>
+<span class="fc" id="L43">    BaseMessages.getString( PKG, &quot;LogWriter.Level.Debug.LongDesc&quot; ),</span>
+<span class="fc" id="L44">    BaseMessages.getString( PKG, &quot;LogWriter.Level.Rowlevel.LongDesc&quot; ), };</span>
+
+  private int level;
+  private String code;
+
+<span class="fc" id="L49">  private LogLevel( int level, String code ) {</span>
+<span class="fc" id="L50">    this.level = level;</span>
+<span class="fc" id="L51">    this.code = code;</span>
+<span class="fc" id="L52">  }</span>
+
+  public int getLevel() {
+<span class="fc" id="L55">    return level;</span>
+  }
+
+  public String getCode() {
+<span class="nc" id="L59">    return code;</span>
+  }
+
+  public String getDescription() {
+<span class="nc" id="L63">    return logLevelDescriptions[ level ];</span>
+  }
+
+  /**
+   * Return the log level for a certain log level code
+   *
+   * @param code the code to look for
+   * @return the log level or BASIC if nothing matches.
+   */
+  public static LogLevel getLogLevelForCode( String code ) {
+<span class="nc bnc" id="L73" title="All 2 branches missed.">    for ( LogLevel logLevel : values() ) {</span>
+<span class="nc bnc" id="L74" title="All 2 branches missed.">      if ( logLevel.getCode().equalsIgnoreCase( code ) ) {</span>
+<span class="nc" id="L75">        return logLevel;</span>
+      }
+    }
+<span class="nc" id="L78">    return BASIC;</span>
+  }
+
+  /**
+   * @param filterLogLevel the filter log level
+   * @return true if the log level is visible compared to the filter log level specified
+   */
+  public boolean isVisible( LogLevel filterLogLevel ) {
+<span class="fc bfc" id="L86" title="All 2 branches covered.">    return getLevel() &lt;= filterLogLevel.getLevel();</span>
+  }
+
+  /**
+   * @return true if this level is Error or lower
+   */
+  public boolean isError() {
+<span class="fc bfc" id="L93" title="All 2 branches covered.">    return this == ERROR;</span>
+  }
+
+  /**
+   * @return True if this level is Minimal or lower (which is nothing)
+   */
+  public boolean isNothing() {
+<span class="nc bnc" id="L100" title="All 2 branches missed.">    return this.level &gt;= NOTHING.level;</span>
+  }
+
+  /**
+   * @return True if this level is Minimal
+   */
+  public boolean isMinimal() {
+<span class="nc bnc" id="L107" title="All 2 branches missed.">    return this.level &gt;= MINIMAL.level;</span>
+  }
+
+  /**
+   * @return True if this level is Basic
+   */
+  public boolean isBasic() {
+<span class="nc bnc" id="L114" title="All 2 branches missed.">    return this.level &gt;= BASIC.level;</span>
+  }
+
+  /**
+   * @return True if this level is Detailed
+   */
+  public boolean isDetailed() {
+<span class="pc bpc" id="L121" title="1 of 2 branches missed.">    return this.level &gt;= DETAILED.level;</span>
+  }
+
+  /**
+   * @return True if this level is Debug
+   */
+  public boolean isDebug() {
+<span class="pc bpc" id="L128" title="1 of 2 branches missed.">    return this.level &gt;= DEBUG.level;</span>
+  }
+
+  /**
+   * @return True if this level is Row level
+   */
+  public boolean isRowlevel() {
+<span class="pc bpc" id="L135" title="1 of 2 branches missed.">    return this.level &gt;= ROWLEVEL.level;</span>
+  }
+
+  /**
+   * @return An array of log level descriptions, sorted by level (0==Nothing, 6=Row Level)
+   */
+  public static String[] getLogLevelDescriptions() {
+<span class="nc" id="L142">    return logLevelDescriptions;</span>
+  }
+
+  /**
+   * @return An array of log level codes, sorted by level (0==Nothing, 6=Row Level)
+   */
+  public static String[] logLogLevelCodes() {
+<span class="nc" id="L149">    String[] codes = new String[ values().length ];</span>
+<span class="nc bnc" id="L150" title="All 2 branches missed.">    for ( int i = 0; i &lt; codes.length; i++ ) {</span>
+<span class="nc" id="L151">      codes[ i ] = values()[ i ].getCode();</span>
+    }
+<span class="nc" id="L153">    return codes;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

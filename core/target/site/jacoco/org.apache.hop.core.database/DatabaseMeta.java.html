@@ -1,0 +1,2355 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DatabaseMeta.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.database</a> &gt; <span class="el_source">DatabaseMeta.java</span></div><h1>DatabaseMeta.java</h1><pre class="source lang-java linenums">// CHECKSTYLE:FileLength:OFF
+/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.database;
+
+import org.apache.commons.lang.StringUtils;
+import org.apache.hop.core.Const;
+import org.apache.hop.core.RowMetaAndData;
+import org.apache.hop.core.exception.HopDatabaseException;
+import org.apache.hop.core.exception.HopPluginException;
+import org.apache.hop.core.exception.HopValueException;
+import org.apache.hop.core.exception.HopXmlException;
+import org.apache.hop.core.logging.ILogChannel;
+import org.apache.hop.core.logging.LogChannel;
+import org.apache.hop.core.plugins.IPlugin;
+import org.apache.hop.core.plugins.IPluginTypeListener;
+import org.apache.hop.core.plugins.PluginRegistry;
+import org.apache.hop.core.row.IRowMeta;
+import org.apache.hop.core.row.IValueMeta;
+import org.apache.hop.core.row.value.ValueMetaBase;
+import org.apache.hop.core.row.value.ValueMetaString;
+import org.apache.hop.core.util.ExecutorUtil;
+import org.apache.hop.core.util.Utils;
+import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.core.variables.Variables;
+import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.metadata.api.HopMetadata;
+import org.apache.hop.metadata.api.HopMetadataProperty;
+import org.apache.hop.metadata.api.IHopMetadata;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
+
+import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Future;
+
+/**
+ * This class defines the database specific parameters for a certain database type. It also provides static information
+ * regarding a number of well known databases.
+ *
+ * @author Matt
+ * @since 18-05-2003
+ */
+@HopMetadata(
+  key = &quot;rdbms&quot;,
+  name = &quot;Relational Database Connection&quot;,
+  description = &quot;This contains all the metadata needed to connect to a relational database&quot;,
+  iconImage = &quot;ui/images/CNC.svg&quot;
+)
+public class DatabaseMeta implements Cloneable, IVariables, IHopMetadata {
+<span class="fc" id="L78">  private static Class&lt;?&gt; PKG = Database.class; // for i18n purposes, needed by Translator!!</span>
+
+  public static final String XML_TAG = &quot;connection&quot;;
+
+  public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = &quot;DatabaseMeta-PluginSpecific-Options&quot;;
+
+  // Comparator for sorting databases alphabetically by name
+<span class="fc" id="L85">  public static final Comparator&lt;DatabaseMeta&gt; comparator = ( DatabaseMeta dbm1, DatabaseMeta dbm2 ) -&gt; {</span>
+<span class="nc" id="L86">    return dbm1.getName().compareToIgnoreCase( dbm2.getName() );</span>
+  };
+
+  @HopMetadataProperty
+  private String name;
+
+  @HopMetadataProperty( key = &quot;rdbms&quot; )
+  private IDatabase iDatabase;
+
+  private static volatile Future&lt;Map&lt;String, IDatabase&gt;&gt; allDatabaseInterfaces;
+
+  static {
+<span class="fc" id="L98">    init();</span>
+  }
+
+  public static void init() {
+<span class="fc" id="L102">    PluginRegistry.getInstance().addPluginListener( DatabasePluginType.class,</span>
+<span class="fc" id="L103">      new IPluginTypeListener() {</span>
+        @Override public void pluginAdded( Object serviceObject ) {
+<span class="nc" id="L105">          clearDatabaseInterfacesMap();</span>
+<span class="nc" id="L106">        }</span>
+
+        @Override public void pluginRemoved( Object serviceObject ) {
+<span class="nc" id="L109">          clearDatabaseInterfacesMap();</span>
+
+<span class="nc" id="L111">        }</span>
+
+        @Override public void pluginChanged( Object serviceObject ) {
+<span class="fc" id="L114">          clearDatabaseInterfacesMap();</span>
+<span class="fc" id="L115">        }</span>
+      } );
+<span class="fc" id="L117">  }</span>
+
+<span class="fc" id="L119">  private IVariables variables = new Variables();</span>
+
+<span class="fc" id="L121">  private boolean readOnly = false;</span>
+
+  /**
+   * Connect natively through JDBC thin driver to the database.
+   */
+  public static final int TYPE_ACCESS_NATIVE = 0;
+
+
+  /**
+   * Short description of the access type, used in serialization.
+   */
+<span class="fc" id="L132">  public static final String[] dbAccessTypeCode = { &quot;Native&quot; };</span>
+
+  /**
+   * Longer description for user interactions.
+   */
+<span class="fc" id="L137">  public static final String[] dbAccessTypeDesc = {</span>
+    &quot;Native (JDBC)&quot; };
+
+  /**
+   * Use this length in a String value to indicate that you want to use a CLOB in stead of a normal text field.
+   */
+  public static final int CLOB_LENGTH = 9999999;
+
+  /**
+   * The value to store in the attributes so that an empty value doesn't get lost...
+   */
+  public static final String EMPTY_OPTIONS_STRING = &quot;&gt;&lt;EMPTY&gt;&lt;&quot;;
+
+  /**
+   * Construct a new database connections. Note that not all these parameters are not always mandatory.
+   *
+   * @param name   The database name
+   * @param type   The type of database
+   * @param access The type of database access
+   * @param host   The hostname or IP address
+   * @param db     The database name
+   * @param port   The port on which the database listens.
+   * @param user   The username
+   * @param pass   The password
+   */
+<span class="fc" id="L162">  public DatabaseMeta( String name, String type, String access, String host, String db, String port, String user, String pass ) {</span>
+<span class="fc" id="L163">    setValues( name, type, access, host, db, port, user, pass );</span>
+<span class="fc" id="L164">    addOptions();</span>
+<span class="fc" id="L165">  }</span>
+
+  /**
+   * Create an empty database connection
+   */
+<span class="fc" id="L170">  public DatabaseMeta() {</span>
+<span class="fc" id="L171">    setDefault();</span>
+<span class="fc" id="L172">    addOptions();</span>
+<span class="fc" id="L173">  }</span>
+
+  public static DatabaseMeta loadDatabase( IHopMetadataProvider metadataProvider, String connectionName ) throws HopXmlException {
+<span class="nc bnc" id="L176" title="All 4 branches missed.">    if ( metadataProvider == null || StringUtils.isEmpty( connectionName ) ) {</span>
+<span class="nc" id="L177">      return null; // Nothing to find or load</span>
+    }
+    try {
+<span class="nc" id="L180">      return metadataProvider.getSerializer( DatabaseMeta.class ).load(connectionName);</span>
+<span class="nc" id="L181">    } catch ( Exception e ) {</span>
+<span class="nc" id="L182">      throw new HopXmlException( &quot;Unable to load relational database connection '&quot; + connectionName + &quot;'&quot;, e );</span>
+    }
+  }
+
+  /**
+   * Set default values for an Generic database.
+   */
+  public void setDefault() {
+<span class="fc" id="L190">    setValues( &quot;&quot;, &quot;GENERIC&quot;, &quot;Native&quot;, &quot;&quot;, &quot;&quot;, &quot;&quot;, &quot;&quot;, &quot;&quot; );</span>
+<span class="fc" id="L191">  }</span>
+
+  /**
+   * Add a list of common options for some databases.
+   */
+  public void addOptions() {
+<span class="fc" id="L197">    iDatabase.addDefaultOptions();</span>
+<span class="fc" id="L198">    setSupportsBooleanDataType( true );</span>
+<span class="fc" id="L199">    setSupportsTimestampDataType( true );</span>
+<span class="fc" id="L200">  }</span>
+
+  public DatabaseMeta( DatabaseMeta databaseMeta ) {
+<span class="nc" id="L203">    this();</span>
+<span class="nc" id="L204">    replaceMeta( databaseMeta );</span>
+<span class="nc" id="L205">  }</span>
+
+  /**
+   * @return the system dependend database interface for this database metadata definition
+   */
+  public IDatabase getIDatabase() {
+<span class="fc" id="L211">    return iDatabase;</span>
+  }
+
+  /**
+   * Set the system dependend database interface for this database metadata definition
+   *
+   * @param iDatabase the system dependend database interface
+   */
+  public void setIDatabase( IDatabase iDatabase ) {
+<span class="fc" id="L220">    this.iDatabase = iDatabase;</span>
+<span class="fc" id="L221">  }</span>
+
+  /**
+   * Search for the right type of IDatabase object and clone it.
+   *
+   * @param databaseType the type of IDatabase to look for (description)
+   * @return The requested IDatabase
+   * @throws HopDatabaseException when the type could not be found or referenced.
+   */
+  public static final IDatabase getIDatabase( String databaseType ) throws HopDatabaseException {
+<span class="fc" id="L231">    IDatabase di = findIDatabase( databaseType );</span>
+<span class="pc bpc" id="L232" title="1 of 2 branches missed.">    if ( di == null ) {</span>
+<span class="nc" id="L233">      throw new HopDatabaseException( BaseMessages.getString(</span>
+        PKG, &quot;DatabaseMeta.Error.DatabaseInterfaceNotFound&quot;, databaseType ) );
+    }
+<span class="fc" id="L236">    return (IDatabase) di.clone();</span>
+  }
+
+  /**
+   * Search for the right type of IDatabase object and return it.
+   *
+   * @param databaseTypeDesc the type of IDatabase to look for (id or description)
+   * @return The requested IDatabase
+   * @throws HopDatabaseException when the type could not be found or referenced.
+   */
+  private static final IDatabase findIDatabase( String databaseTypeDesc ) throws HopDatabaseException {
+<span class="fc" id="L247">    PluginRegistry registry = PluginRegistry.getInstance();</span>
+<span class="fc" id="L248">    IPlugin plugin = registry.getPlugin( DatabasePluginType.class, databaseTypeDesc );</span>
+<span class="pc bpc" id="L249" title="1 of 2 branches missed.">    if ( plugin == null ) {</span>
+<span class="nc" id="L250">      plugin = registry.findPluginWithName( DatabasePluginType.class, databaseTypeDesc );</span>
+    }
+
+<span class="pc bpc" id="L253" title="1 of 2 branches missed.">    if ( plugin == null ) {</span>
+<span class="nc" id="L254">      throw new HopDatabaseException( &quot;database type with plugin id [&quot;</span>
+        + databaseTypeDesc + &quot;] couldn't be found!&quot; );
+    }
+
+<span class="fc" id="L258">    return getIDatabaseMap().get( plugin.getIds()[ 0 ] );</span>
+  }
+
+  @Override
+  public Object clone() {
+<span class="nc" id="L263">    return new DatabaseMeta( this );</span>
+  }
+
+  public void replaceMeta( DatabaseMeta databaseMeta ) {
+<span class="nc" id="L267">    this.setValues( databaseMeta.getName(), databaseMeta.getPluginId(), databaseMeta.getAccessTypeDesc(),</span>
+<span class="nc" id="L268">      databaseMeta.getHostname(), databaseMeta.getDatabaseName(), databaseMeta.getPort(),</span>
+<span class="nc" id="L269">      databaseMeta.getUsername(), databaseMeta.getPassword() );</span>
+<span class="nc" id="L270">    this.setServername( databaseMeta.getServername() );</span>
+<span class="nc" id="L271">    this.setDataTablespace( databaseMeta.getDataTablespace() );</span>
+<span class="nc" id="L272">    this.setIndexTablespace( databaseMeta.getIndexTablespace() );</span>
+
+<span class="nc" id="L274">    this.iDatabase = (IDatabase) databaseMeta.iDatabase.clone();</span>
+
+    // Replace all attributes
+<span class="nc" id="L277">    this.getAttributes().putAll(databaseMeta.getAttributes());</span>
+
+<span class="nc" id="L279">    this.setChanged();</span>
+<span class="nc" id="L280">  }</span>
+
+  public void setValues( String name, String type, String access, String host, String db, String port, String user, String pass ) {
+    try {
+<span class="fc" id="L284">      iDatabase = getIDatabase( type );</span>
+<span class="nc" id="L285">    } catch ( HopDatabaseException kde ) {</span>
+<span class="nc" id="L286">      throw new RuntimeException( &quot;Database type not found!&quot;, kde );</span>
+<span class="fc" id="L287">    }</span>
+
+<span class="fc" id="L289">    setName( name );</span>
+<span class="fc" id="L290">    setAccessType( getAccessType( access ) );</span>
+<span class="fc" id="L291">    setHostname( host );</span>
+<span class="fc" id="L292">    setDBName( db );</span>
+<span class="fc" id="L293">    setPort( port );</span>
+<span class="fc" id="L294">    setUsername( user );</span>
+<span class="fc" id="L295">    setPassword( pass );</span>
+<span class="fc" id="L296">    setServername( null );</span>
+<span class="fc" id="L297">    setChanged( false );</span>
+<span class="fc" id="L298">  }</span>
+
+  public void setDatabaseType( String type ) {
+<span class="nc" id="L301">    IDatabase oldInterface = iDatabase;</span>
+
+    try {
+<span class="nc" id="L304">      iDatabase = getIDatabase( type );</span>
+<span class="nc" id="L305">    } catch ( HopDatabaseException kde ) {</span>
+<span class="nc" id="L306">      throw new RuntimeException( &quot;Database type [&quot; + type + &quot;] not found!&quot;, kde );</span>
+<span class="nc" id="L307">    }</span>
+
+<span class="nc" id="L309">    setAccessType( oldInterface.getAccessType() );</span>
+<span class="nc" id="L310">    setHostname( oldInterface.getHostname() );</span>
+<span class="nc" id="L311">    setDBName( oldInterface.getDatabaseName() );</span>
+<span class="nc" id="L312">    setPort( oldInterface.getPort() );</span>
+<span class="nc" id="L313">    setUsername( oldInterface.getUsername() );</span>
+<span class="nc" id="L314">    setPassword( oldInterface.getPassword() );</span>
+<span class="nc" id="L315">    setServername( oldInterface.getServername() );</span>
+<span class="nc" id="L316">    setDataTablespace( oldInterface.getDataTablespace() );</span>
+<span class="nc" id="L317">    setIndexTablespace( oldInterface.getIndexTablespace() );</span>
+<span class="nc" id="L318">    setChanged( oldInterface.isChanged() );</span>
+<span class="nc" id="L319">  }</span>
+
+  public void setValues( DatabaseMeta info ) {
+<span class="nc" id="L322">    iDatabase = (IDatabase) info.iDatabase.clone();</span>
+<span class="nc" id="L323">  }</span>
+
+  /**
+   * Gets name
+   *
+   * @return value of name
+   */
+  public String getName() {
+<span class="fc" id="L331">    return name;</span>
+  }
+
+  /**
+   * @param name The name to set
+   */
+  public void setName( String name ) {
+<span class="fc" id="L338">    this.name = name;</span>
+<span class="fc" id="L339">  }</span>
+
+  /**
+   * @return The plugin ID of the database interface
+   */
+  public String getPluginId() {
+<span class="nc" id="L345">    return iDatabase.getPluginId();</span>
+  }
+
+  /**
+   * @return The name of the database plugin type
+   */
+  public String getPluginName() {
+<span class="nc" id="L352">    return iDatabase.getPluginName();</span>
+  }
+
+  /*
+   * Sets the type of database.
+   *
+   * @param db_type The database type public void setDatabaseType(int db_type) { iDatabase this.databaseType =
+   * db_type; }
+   */
+
+  /**
+   * Return the type of database access. One of
+   * &lt;p&gt;
+   * TYPE_ACCESS_NATIVE
+   * &lt;p&gt;
+   * TYPE_ACCESS_OCI
+   * &lt;p&gt;
+   *
+   * @return The type of database access.
+   */
+  public int getAccessType() {
+<span class="nc" id="L373">    return iDatabase.getAccessType();</span>
+  }
+
+  /**
+   * Set the type of database access.
+   *
+   * @param access_type The access type.
+   */
+  public void setAccessType( int access_type ) {
+<span class="fc" id="L382">    iDatabase.setAccessType( access_type );</span>
+<span class="fc" id="L383">  }</span>
+
+  /**
+   * Returns a short description of the type of database.
+   *
+   * @return A short description of the type of database.
+   * @deprecated This is actually the plugin ID
+   */
+  @Deprecated
+  public String getDatabaseTypeDesc() {
+<span class="nc" id="L393">    return getPluginId();</span>
+  }
+
+  /**
+   * Gets you a short description of the type of database access.
+   *
+   * @return A short description of the type of database access.
+   */
+  public String getAccessTypeDesc() {
+<span class="nc" id="L402">    return dbAccessTypeCode[ getAccessType() ];</span>
+  }
+
+  /**
+   * Return the hostname of the machine on which the database runs.
+   *
+   * @return The hostname of the database.
+   */
+  public String getHostname() {
+<span class="nc" id="L411">    return iDatabase.getHostname();</span>
+  }
+
+  /**
+   * Sets the hostname of the machine on which the database runs.
+   *
+   * @param hostname The hostname of the machine on which the database runs.
+   */
+  public void setHostname( String hostname ) {
+<span class="fc" id="L420">    iDatabase.setHostname( hostname );</span>
+<span class="fc" id="L421">  }</span>
+
+  /**
+   * Return the port on which the database listens as a String. Allows for parameterisation.
+   *
+   * @return The database port.
+   */
+  public String getPort() {
+<span class="nc" id="L429">    return iDatabase.getPort();</span>
+  }
+
+  /**
+   * Sets the port on which the database listens.
+   *
+   * @param port The port number on which the database listens
+   */
+  public void setPort( String port ) {
+<span class="fc" id="L438">    iDatabase.setPort( port );</span>
+<span class="fc" id="L439">  }</span>
+
+  /**
+   * Return the name of the database.
+   *
+   * @return The database name.
+   */
+  public String getDatabaseName() {
+<span class="nc" id="L447">    return iDatabase.getDatabaseName();</span>
+  }
+
+  /**
+   * Set the name of the database.
+   *
+   * @param databaseName The new name of the database
+   */
+  public void setDBName( String databaseName ) {
+<span class="fc" id="L456">    iDatabase.setDatabaseName( databaseName );</span>
+<span class="fc" id="L457">  }</span>
+
+  /**
+   * Get the username to log into the database on this connection.
+   *
+   * @return The username to log into the database on this connection.
+   */
+  public String getUsername() {
+<span class="nc" id="L465">    return iDatabase.getUsername();</span>
+  }
+
+  /**
+   * Sets the username to log into the database on this connection.
+   *
+   * @param username The username
+   */
+  public void setUsername( String username ) {
+<span class="fc" id="L474">    iDatabase.setUsername( username );</span>
+<span class="fc" id="L475">  }</span>
+
+  /**
+   * Get the password to log into the database on this connection.
+   *
+   * @return the password to log into the database on this connection.
+   */
+  public String getPassword() {
+<span class="nc" id="L483">    return iDatabase.getPassword();</span>
+  }
+
+  /**
+   * Sets the password to log into the database on this connection.
+   *
+   * @param password the password to log into the database on this connection.
+   */
+  public void setPassword( String password ) {
+<span class="fc" id="L492">    iDatabase.setPassword( password );</span>
+<span class="fc" id="L493">  }</span>
+
+  /**
+   * @param servername the Informix servername
+   */
+  public void setServername( String servername ) {
+<span class="fc" id="L499">    iDatabase.setServername( servername );</span>
+<span class="fc" id="L500">  }</span>
+
+  /**
+   * @return the Informix servername
+   */
+  public String getServername() {
+<span class="nc" id="L506">    return iDatabase.getServername();</span>
+  }
+
+  public String getDataTablespace() {
+<span class="nc" id="L510">    return iDatabase.getDataTablespace();</span>
+  }
+
+  public void setDataTablespace( String data_tablespace ) {
+<span class="nc" id="L514">    iDatabase.setDataTablespace( data_tablespace );</span>
+<span class="nc" id="L515">  }</span>
+
+  public String getIndexTablespace() {
+<span class="nc" id="L518">    return iDatabase.getIndexTablespace();</span>
+  }
+
+  public void setIndexTablespace( String index_tablespace ) {
+<span class="nc" id="L522">    iDatabase.setIndexTablespace( index_tablespace );</span>
+<span class="nc" id="L523">  }</span>
+
+  public void setChanged() {
+<span class="nc" id="L526">    setChanged( true );</span>
+<span class="nc" id="L527">  }</span>
+
+  public void setChanged( boolean ch ) {
+<span class="fc" id="L530">    iDatabase.setChanged( ch );</span>
+<span class="fc" id="L531">  }</span>
+
+  public boolean hasChanged() {
+<span class="nc" id="L534">    return iDatabase.isChanged();</span>
+  }
+
+  public void clearChanged() {
+<span class="nc" id="L538">    iDatabase.setChanged( false );</span>
+<span class="nc" id="L539">  }</span>
+
+
+  /**
+   * @return A manually entered URL which will be used over the internally generated one
+   */
+  public String getManualUrl() {
+<span class="nc" id="L546">    return iDatabase.getManualUrl();</span>
+  }
+
+  /**
+   * @param manualUrl A manually entered URL which will be used over the internally generated one
+   */
+  public void setManualUrl( String manualUrl ) {
+<span class="nc" id="L553">    iDatabase.setManualUrl( manualUrl );</span>
+<span class="nc" id="L554">  }</span>
+
+  @Override
+  public String toString() {
+<span class="nc" id="L558">    return getName();</span>
+  }
+
+  /**
+   * @return The extra attributes for this database connection
+   */
+  public Map&lt;String, String&gt; getAttributes() {
+<span class="fc" id="L565">    return iDatabase.getAttributes();</span>
+  }
+
+  /**
+   * Set extra attributes on this database connection
+   *
+   * @param attributes The extra attributes to set on this database connection.
+   */
+  public void setAttributes( Map&lt;String, String&gt; attributes ) {
+<span class="nc" id="L574">    iDatabase.setAttributes( attributes );</span>
+<span class="nc" id="L575">  }</span>
+
+  @Override
+  public int hashCode() {
+<span class="nc" id="L579">    return getName().hashCode(); // name of connection is unique!</span>
+  }
+
+  @Override
+  public boolean equals( Object obj ) {
+<span class="nc bnc" id="L584" title="All 4 branches missed.">    return obj instanceof DatabaseMeta &amp;&amp; getName().equals( ( (DatabaseMeta) obj ).getName() );</span>
+  }
+
+  public String getURL() throws HopDatabaseException {
+
+    /**
+     * A manually constructed URL overrides all other options.
+     * We make sure to see that there's no space or tab in the field
+     */
+<span class="nc bnc" id="L593" title="All 4 branches missed.">    if ( StringUtils.isNotEmpty( getManualUrl() ) &amp;&amp; StringUtils.isNotBlank( getManualUrl() ) ) {</span>
+<span class="nc" id="L594">      return getManualUrl();</span>
+    }
+
+<span class="nc" id="L597">    String hostname = environmentSubstitute( getHostname() );</span>
+<span class="nc" id="L598">    String port = environmentSubstitute( getPort() );</span>
+<span class="nc" id="L599">    String databaseName = environmentSubstitute( getDatabaseName() );</span>
+
+<span class="nc" id="L601">    String baseUrl = iDatabase.getURL( environmentSubstitute( hostname ), environmentSubstitute( port ), environmentSubstitute( databaseName ) );</span>
+<span class="nc" id="L602">    String url = environmentSubstitute( baseUrl );</span>
+
+<span class="nc bnc" id="L604" title="All 2 branches missed.">    if ( iDatabase.supportsOptionsInURL() ) {</span>
+<span class="nc" id="L605">      url = appendExtraOptions( url, getExtraOptions() );</span>
+    }
+    // else {
+    // We need to put all these options in a Properties file later (Oracle &amp; Co.)
+    // This happens at connect time...
+    // }
+
+<span class="nc" id="L612">    return url;</span>
+  }
+
+  protected String appendExtraOptions( String url, Map&lt;String, String&gt; extraOptions ) {
+<span class="nc bnc" id="L616" title="All 2 branches missed.">    if ( extraOptions.isEmpty() ) {</span>
+<span class="nc" id="L617">      return url;</span>
+    }
+
+<span class="nc" id="L620">    StringBuilder urlBuilder = new StringBuilder( url );</span>
+
+<span class="nc" id="L622">    final String optionIndicator = getExtraOptionIndicator();</span>
+<span class="nc" id="L623">    final String optionSeparator = getExtraOptionSeparator();</span>
+<span class="nc" id="L624">    final String valueSeparator = getExtraOptionValueSeparator();</span>
+
+<span class="nc" id="L626">    Iterator&lt;String&gt; iterator = extraOptions.keySet().iterator();</span>
+<span class="nc" id="L627">    boolean first = true;</span>
+<span class="nc bnc" id="L628" title="All 2 branches missed.">    while ( iterator.hasNext() ) {</span>
+<span class="nc" id="L629">      String typedParameter = iterator.next();</span>
+<span class="nc" id="L630">      int dotIndex = typedParameter.indexOf( '.' );</span>
+<span class="nc bnc" id="L631" title="All 2 branches missed.">      if ( dotIndex == -1 ) {</span>
+<span class="nc" id="L632">        continue;</span>
+      }
+
+<span class="nc" id="L635">      final String value = extraOptions.get( typedParameter );</span>
+<span class="nc bnc" id="L636" title="All 4 branches missed.">      if ( Utils.isEmpty( value ) || value.equals( EMPTY_OPTIONS_STRING ) ) {</span>
+        // skip this science no value is provided
+<span class="nc" id="L638">        continue;</span>
+      }
+
+<span class="nc" id="L641">      final String typeCode = typedParameter.substring( 0, dotIndex );</span>
+<span class="nc" id="L642">      final String parameter = typedParameter.substring( dotIndex + 1 );</span>
+
+      // Only add to the URL if it's the same database type code,
+      // or underlying database is the same for both id's, and any subset of
+      // connection settings for one database is valid for another
+<span class="nc" id="L647">      boolean dbForBothDbInterfacesIsSame = false;</span>
+      try {
+<span class="nc" id="L649">        IDatabase primaryDb = getDbInterface( typeCode );</span>
+<span class="nc" id="L650">        dbForBothDbInterfacesIsSame = databaseForBothDbInterfacesIsTheSame( primaryDb, getIDatabase() );</span>
+<span class="nc" id="L651">      } catch ( HopDatabaseException e ) {</span>
+<span class="nc" id="L652">        getGeneralLogger().logError(</span>
+          &quot;IDatabase with &quot; + typeCode + &quot; database type is not found! Parameter &quot; + parameter
+            + &quot;won't be appended to URL&quot; );
+<span class="nc" id="L655">      }</span>
+<span class="nc bnc" id="L656" title="All 2 branches missed.">      if ( dbForBothDbInterfacesIsSame ) {</span>
+<span class="nc bnc" id="L657" title="All 4 branches missed.">        if ( first &amp;&amp; url.indexOf( valueSeparator ) == -1 ) {</span>
+<span class="nc" id="L658">          urlBuilder.append( optionIndicator );</span>
+        } else {
+<span class="nc" id="L660">          urlBuilder.append( optionSeparator );</span>
+        }
+
+<span class="nc" id="L663">        urlBuilder.append( environmentSubstitute( parameter ) ).append( valueSeparator ).append( environmentSubstitute( value ) );</span>
+<span class="nc" id="L664">        first = false;</span>
+      }
+<span class="nc" id="L666">    }</span>
+
+<span class="nc" id="L668">    return urlBuilder.toString();</span>
+  }
+
+  /**
+   * This method is designed to identify whether the actual database for two database connection types is the same.
+   * This situation can occur in two cases:
+   * 1. plugin id of {@code primary} is the same as plugin id of {@code secondary}
+   * 2. {@code secondary} is a descendant {@code primary} (with any deepness).
+   */
+  protected boolean databaseForBothDbInterfacesIsTheSame( IDatabase primary, IDatabase secondary ) {
+<span class="nc bnc" id="L678" title="All 4 branches missed.">    if ( primary == null || secondary == null ) {</span>
+<span class="nc" id="L679">      throw new IllegalArgumentException( &quot;IDatabase shouldn't be null!&quot; );</span>
+    }
+
+<span class="nc bnc" id="L682" title="All 4 branches missed.">    if ( primary.getPluginId() == null || secondary.getPluginId() == null ) {</span>
+<span class="nc" id="L683">      return false;</span>
+    }
+
+<span class="nc bnc" id="L686" title="All 2 branches missed.">    if ( primary.getPluginId().equals( secondary.getPluginId() ) ) {</span>
+<span class="nc" id="L687">      return true;</span>
+    }
+
+<span class="nc" id="L690">    return primary.getClass().isAssignableFrom( secondary.getClass() );</span>
+  }
+
+  /**
+   * @return The extra JDBC options for this connection type with the variables in options and values expanded
+   */
+  public Properties getConnectionProperties() {
+<span class="nc" id="L697">    Properties properties = new Properties();</span>
+
+<span class="nc" id="L699">    Map&lt;String, String&gt; map = getExtraOptionsMap();</span>
+<span class="nc bnc" id="L700" title="All 2 branches missed.">    for ( String option : map.keySet() ) {</span>
+<span class="nc" id="L701">      String value = map.get( option );</span>
+<span class="nc" id="L702">      properties.put(</span>
+<span class="nc" id="L703">        environmentSubstitute( option ),</span>
+<span class="nc" id="L704">        environmentSubstitute( Const.NVL( value, &quot;&quot; ) )</span>
+      );
+<span class="nc" id="L706">    }</span>
+
+<span class="nc" id="L708">    return properties;</span>
+  }
+
+  public String getExtraOptionIndicator() {
+<span class="nc" id="L712">    return getIDatabase().getExtraOptionIndicator();</span>
+  }
+
+  /**
+   * @return The extra option separator in database URL for this platform (usually this is semicolon ; )
+   */
+  public String getExtraOptionSeparator() {
+<span class="nc" id="L719">    return getIDatabase().getExtraOptionSeparator();</span>
+  }
+
+  /**
+   * @return The extra option value separator in database URL for this platform (usually this is the equal sign = )
+   */
+  public String getExtraOptionValueSeparator() {
+<span class="nc" id="L726">    return getIDatabase().getExtraOptionValueSeparator();</span>
+  }
+
+  /**
+   * @return all the extra JDBC options, in their original form, for this specific database type
+   */
+  public Map&lt;String, String&gt; getExtraOptionsMap() {
+<span class="nc" id="L733">    Map&lt;String, String&gt; optionsMap = new HashMap&lt;&gt;();</span>
+
+<span class="nc" id="L735">    Map&lt;String, String&gt; map = getExtraOptions();</span>
+<span class="nc bnc" id="L736" title="All 2 branches missed.">    if ( map.size() &gt; 0 ) {</span>
+<span class="nc" id="L737">      Iterator&lt;String&gt; iterator = map.keySet().iterator();</span>
+<span class="nc bnc" id="L738" title="All 2 branches missed.">      while ( iterator.hasNext() ) {</span>
+<span class="nc" id="L739">        String typedParameter = iterator.next();</span>
+<span class="nc" id="L740">        int dotIndex = typedParameter.indexOf( '.' );</span>
+<span class="nc bnc" id="L741" title="All 2 branches missed.">        if ( dotIndex &gt;= 0 ) {</span>
+<span class="nc" id="L742">          String typeCode = typedParameter.substring( 0, dotIndex );</span>
+<span class="nc" id="L743">          String parameter = typedParameter.substring( dotIndex + 1 );</span>
+<span class="nc" id="L744">          String value = map.get( typedParameter );</span>
+
+          // Only add to the URL if it's the same database type code...
+          //
+<span class="nc bnc" id="L748" title="All 2 branches missed.">          if ( iDatabase.getPluginId().equals( typeCode ) ) {</span>
+<span class="nc bnc" id="L749" title="All 4 branches missed.">            if ( value != null &amp;&amp; value.equals( EMPTY_OPTIONS_STRING ) ) {</span>
+<span class="nc" id="L750">              value = &quot;&quot;;</span>
+            }
+<span class="nc" id="L752">            optionsMap.put( parameter, value );</span>
+          }
+        }
+<span class="nc" id="L755">      }</span>
+    }
+
+<span class="nc" id="L758">    return optionsMap;</span>
+  }
+
+  /**
+   * Add an extra option to the attributes list
+   *
+   * @param databaseTypeCode The database type code for which the option applies
+   * @param option           The option to set
+   * @param value            The value of the option
+   */
+  public void addExtraOption( String databaseTypeCode, String option, String value ) {
+<span class="fc" id="L769">    iDatabase.addExtraOption( databaseTypeCode, option, value );</span>
+<span class="fc" id="L770">  }</span>
+
+  public void applyDefaultOptions( IDatabase iDatabase ) {
+<span class="fc" id="L773">    final Map&lt;String, String&gt; extraOptions = getExtraOptions();</span>
+
+<span class="fc" id="L775">    final Map&lt;String, String&gt; defaultOptions = iDatabase.getDefaultOptions();</span>
+<span class="fc bfc" id="L776" title="All 2 branches covered.">    for ( String option : defaultOptions.keySet() ) {</span>
+<span class="fc" id="L777">      String value = defaultOptions.get( option );</span>
+<span class="fc" id="L778">      String[] split = option.split( &quot;[.]&quot;, 2 );</span>
+<span class="pc bpc" id="L779" title="1 of 4 branches missed.">      if ( !extraOptions.containsKey( option ) &amp;&amp; split.length == 2 ) {</span>
+<span class="fc" id="L780">        addExtraOption( split[ 0 ], split[ 1 ], value );</span>
+      }
+<span class="fc" id="L782">    }</span>
+<span class="fc" id="L783">  }</span>
+
+  /**
+   * @return true if the database supports transactions
+   * @deprecated because the same database can support transactions or not. It all depends on the database setup.
+   * Therefor, we look at the database metadata DatabaseMetaData.supportsTransactions() in stead of this.
+   */
+  @Deprecated
+  public boolean supportsTransactions() {
+<span class="nc" id="L792">    return iDatabase.supportsTransactions();</span>
+  }
+
+  public boolean supportsAutoinc() {
+<span class="nc" id="L796">    return iDatabase.supportsAutoInc();</span>
+  }
+
+  public boolean supportsSequences() {
+<span class="nc" id="L800">    return iDatabase.supportsSequences();</span>
+  }
+
+  public String getSqlSequenceExists( String sequenceName ) {
+<span class="nc" id="L804">    return iDatabase.getSqlSequenceExists( sequenceName );</span>
+  }
+
+  public boolean supportsBitmapIndex() {
+<span class="nc" id="L808">    return iDatabase.supportsBitmapIndex();</span>
+  }
+
+  public boolean supportsSetLong() {
+<span class="nc" id="L812">    return iDatabase.supportsSetLong();</span>
+  }
+
+  /**
+   * @return true if the database supports schemas
+   */
+  public boolean supportsSchemas() {
+<span class="nc" id="L819">    return iDatabase.supportsSchemas();</span>
+  }
+
+  /**
+   * @return true if the database supports catalogs
+   */
+  public boolean supportsCatalogs() {
+<span class="nc" id="L826">    return iDatabase.supportsCatalogs();</span>
+  }
+
+  /**
+   * @return true when the database engine supports empty transaction. (for example Informix does not on a non-ANSI
+   * database type!)
+   */
+  public boolean supportsEmptyTransactions() {
+<span class="nc" id="L834">    return iDatabase.supportsEmptyTransactions();</span>
+  }
+
+  /**
+   * See if this database supports the setCharacterStream() method on a PreparedStatement.
+   *
+   * @return true if we can set a Stream on a field in a PreparedStatement. False if not.
+   */
+  public boolean supportsSetCharacterStream() {
+<span class="nc" id="L843">    return iDatabase.supportsSetCharacterStream();</span>
+  }
+
+  /**
+   * Get the maximum length of a text field for this database connection. This includes optional CLOB, Memo and Text
+   * fields. (the maximum!)
+   *
+   * @return The maximum text field length for this database type. (mostly CLOB_LENGTH)
+   */
+  public int getMaxTextFieldLength() {
+<span class="nc" id="L853">    return iDatabase.getMaxTextFieldLength();</span>
+  }
+
+  public static final int getAccessType( String dbaccess ) {
+    int i;
+
+<span class="pc bpc" id="L859" title="1 of 2 branches missed.">    if ( dbaccess == null ) {</span>
+<span class="nc" id="L860">      return TYPE_ACCESS_NATIVE;</span>
+    }
+
+<span class="fc bfc" id="L863" title="All 2 branches covered.">    for ( i = 0; i &lt; dbAccessTypeCode.length; i++ ) {</span>
+<span class="fc bfc" id="L864" title="All 2 branches covered.">      if ( dbAccessTypeCode[ i ].equalsIgnoreCase( dbaccess ) ) {</span>
+<span class="fc" id="L865">        return i;</span>
+      }
+    }
+<span class="fc bfc" id="L868" title="All 2 branches covered.">    for ( i = 0; i &lt; dbAccessTypeDesc.length; i++ ) {</span>
+<span class="pc bpc" id="L869" title="1 of 2 branches missed.">      if ( dbAccessTypeDesc[ i ].equalsIgnoreCase( dbaccess ) ) {</span>
+<span class="nc" id="L870">        return i;</span>
+      }
+    }
+
+<span class="fc" id="L874">    return TYPE_ACCESS_NATIVE;</span>
+  }
+
+  public static final String getAccessTypeDesc( int dbaccess ) {
+<span class="nc bnc" id="L878" title="All 2 branches missed.">    if ( dbaccess &lt; 0 ) {</span>
+<span class="nc" id="L879">      return null;</span>
+    }
+<span class="nc bnc" id="L881" title="All 2 branches missed.">    if ( dbaccess &gt; dbAccessTypeCode.length ) {</span>
+<span class="nc" id="L882">      return null;</span>
+    }
+
+<span class="nc" id="L885">    return dbAccessTypeCode[ dbaccess ];</span>
+  }
+
+  public static final String getAccessTypeDescLong( int dbaccess ) {
+<span class="nc bnc" id="L889" title="All 2 branches missed.">    if ( dbaccess &lt; 0 ) {</span>
+<span class="nc" id="L890">      return null;</span>
+    }
+<span class="nc bnc" id="L892" title="All 2 branches missed.">    if ( dbaccess &gt; dbAccessTypeDesc.length ) {</span>
+<span class="nc" id="L893">      return null;</span>
+    }
+
+<span class="nc" id="L896">    return dbAccessTypeDesc[ dbaccess ];</span>
+  }
+
+  public static final IDatabase[] getDatabaseInterfaces() {
+<span class="nc" id="L900">    List&lt;IDatabase&gt; list = new ArrayList&lt;&gt;( getIDatabaseMap().values() );</span>
+<span class="nc" id="L901">    return list.toArray( new IDatabase[ list.size() ] );</span>
+  }
+
+  /**
+   * Clear the database interfaces map. The map is cached by getDatabaseInterfacesMap(), but in some instances it may
+   * need to be reloaded (such as adding/updating Database plugins). After calling clearDatabaseInterfacesMap(), the
+   * next call to getDatabaseInterfacesMap() will reload the map.
+   */
+  public static final void clearDatabaseInterfacesMap() {
+<span class="fc" id="L910">    allDatabaseInterfaces = null;</span>
+<span class="fc" id="L911">  }</span>
+
+  private static final Future&lt;Map&lt;String, IDatabase&gt;&gt; createDatabaseInterfacesMap() {
+<span class="fc" id="L914">    return ExecutorUtil.getExecutor().submit( new Callable&lt;Map&lt;String, IDatabase&gt;&gt;() {</span>
+      private Map&lt;String, IDatabase&gt; doCreate() {
+<span class="fc" id="L916">        ILogChannel log = LogChannel.GENERAL;</span>
+<span class="fc" id="L917">        PluginRegistry registry = PluginRegistry.getInstance();</span>
+
+<span class="fc" id="L919">        List&lt;IPlugin&gt; plugins = registry.getPlugins( DatabasePluginType.class );</span>
+<span class="fc" id="L920">        HashMap&lt;String, IDatabase&gt; tmpAllDatabaseInterfaces = new HashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L921" title="All 2 branches covered.">        for ( IPlugin plugin : plugins ) {</span>
+          try {
+<span class="fc" id="L923">            IDatabase iDatabase = (IDatabase) registry.loadClass( plugin );</span>
+<span class="fc" id="L924">            iDatabase.setPluginId( plugin.getIds()[ 0 ] );</span>
+<span class="fc" id="L925">            iDatabase.setPluginName( plugin.getName() );</span>
+<span class="fc" id="L926">            tmpAllDatabaseInterfaces.put( plugin.getIds()[ 0 ], iDatabase );</span>
+<span class="nc" id="L927">          } catch ( HopPluginException cnfe ) {</span>
+<span class="nc" id="L928">            log.logError( &quot;Could not create connection entry for &quot;</span>
+<span class="nc" id="L929">              + plugin.getName() + &quot;.  &quot; + cnfe.getCause().getClass().getName() );</span>
+<span class="nc bnc" id="L930" title="All 2 branches missed.">            if ( log.isDebug() ) {</span>
+<span class="nc" id="L931">              log.logDebug( &quot;Debug-Error loading plugin: &quot; + plugin, cnfe );</span>
+            }
+<span class="nc" id="L933">          } catch ( Exception e ) {</span>
+<span class="nc" id="L934">            log.logError( &quot;Error loading plugin: &quot; + plugin, e );</span>
+<span class="pc" id="L935">          }</span>
+<span class="fc" id="L936">        }</span>
+<span class="fc" id="L937">        return Collections.unmodifiableMap( tmpAllDatabaseInterfaces );</span>
+      }
+
+      @Override public Map&lt;String, IDatabase&gt; call() throws Exception {
+<span class="fc" id="L941">        return doCreate();</span>
+      }
+    } );
+  }
+
+  public static final Map&lt;String, IDatabase&gt; getIDatabaseMap() {
+<span class="fc" id="L947">    Future&lt;Map&lt;String, IDatabase&gt;&gt; allDatabaseInterfaces = DatabaseMeta.allDatabaseInterfaces;</span>
+<span class="fc bfc" id="L948" title="All 2 branches covered.">    while ( allDatabaseInterfaces == null ) {</span>
+<span class="fc" id="L949">      DatabaseMeta.allDatabaseInterfaces = createDatabaseInterfacesMap();</span>
+<span class="fc" id="L950">      allDatabaseInterfaces = DatabaseMeta.allDatabaseInterfaces;</span>
+    }
+    try {
+<span class="fc" id="L953">      return allDatabaseInterfaces.get();</span>
+<span class="nc" id="L954">    } catch ( Exception e ) {</span>
+<span class="nc" id="L955">      clearDatabaseInterfacesMap();</span>
+      // doCreate() above doesn't declare any exceptions so anything that comes out SHOULD be a runtime exception
+<span class="nc bnc" id="L957" title="All 2 branches missed.">      if ( e instanceof RuntimeException ) {</span>
+<span class="nc" id="L958">        throw (RuntimeException) e;</span>
+      } else {
+<span class="nc" id="L960">        throw new RuntimeException( e );</span>
+      }
+    }
+  }
+
+  public static final int[] getAccessTypeList( String dbTypeDesc ) {
+    try {
+<span class="nc" id="L967">      IDatabase di = findIDatabase( dbTypeDesc );</span>
+<span class="nc" id="L968">      return di.getAccessTypeList();</span>
+<span class="nc" id="L969">    } catch ( HopDatabaseException kde ) {</span>
+<span class="nc" id="L970">      return null;</span>
+    }
+  }
+
+  public static final int getPortForDBType( String strtype, String straccess ) {
+    try {
+<span class="nc" id="L976">      IDatabase di = getIDatabase( strtype );</span>
+<span class="nc" id="L977">      di.setAccessType( getAccessType( straccess ) );</span>
+<span class="nc" id="L978">      return di.getDefaultDatabasePort();</span>
+<span class="nc" id="L979">    } catch ( HopDatabaseException kde ) {</span>
+<span class="nc" id="L980">      return -1;</span>
+    }
+  }
+
+  public int getDefaultDatabasePort() {
+<span class="nc" id="L985">    return iDatabase.getDefaultDatabasePort();</span>
+  }
+
+  public int getNotFoundTK( boolean use_autoinc ) {
+<span class="nc" id="L989">    return iDatabase.getNotFoundTK( use_autoinc );</span>
+  }
+
+  public String getDriverClass() {
+<span class="nc" id="L993">      return environmentSubstitute( iDatabase.getDriverClass() );</span>
+  }
+
+  public String stripCR( String sbsql ) {
+<span class="nc bnc" id="L997" title="All 2 branches missed.">    if ( sbsql == null ) {</span>
+<span class="nc" id="L998">      return null;</span>
+    }
+<span class="nc" id="L1000">    return stripCR( new StringBuilder( sbsql ) );</span>
+  }
+
+  public String stripCR( StringBuffer sbsql ) {
+    // DB2 Can't handle \n in SQL Statements...
+<span class="nc bnc" id="L1005" title="All 2 branches missed.">    if ( !supportsNewLinesInSql() ) {</span>
+      // Remove CR's
+<span class="nc bnc" id="L1007" title="All 2 branches missed.">      for ( int i = sbsql.length() - 1; i &gt;= 0; i-- ) {</span>
+<span class="nc bnc" id="L1008" title="All 4 branches missed.">        if ( sbsql.charAt( i ) == '\n' || sbsql.charAt( i ) == '\r' ) {</span>
+<span class="nc" id="L1009">          sbsql.setCharAt( i, ' ' );</span>
+        }
+      }
+    }
+
+<span class="nc" id="L1014">    return sbsql.toString();</span>
+  }
+
+  public String stripCR( StringBuilder sbsql ) {
+    // DB2 Can't handle \n in SQL Statements...
+<span class="nc bnc" id="L1019" title="All 2 branches missed.">    if ( !supportsNewLinesInSql() ) {</span>
+      // Remove CR's
+<span class="nc bnc" id="L1021" title="All 2 branches missed.">      for ( int i = sbsql.length() - 1; i &gt;= 0; i-- ) {</span>
+<span class="nc bnc" id="L1022" title="All 4 branches missed.">        if ( sbsql.charAt( i ) == '\n' || sbsql.charAt( i ) == '\r' ) {</span>
+<span class="nc" id="L1023">          sbsql.setCharAt( i, ' ' );</span>
+        }
+      }
+    }
+
+<span class="nc" id="L1028">    return sbsql.toString();</span>
+  }
+
+  public String getSeqNextvalSql( String sequenceName ) {
+<span class="nc" id="L1032">    return iDatabase.getSqlNextSequenceValue( sequenceName );</span>
+  }
+
+  public String getSqlCurrentSequenceValue( String sequenceName ) {
+<span class="nc" id="L1036">    return iDatabase.getSqlCurrentSequenceValue( sequenceName );</span>
+  }
+
+  public boolean isFetchSizeSupported() {
+<span class="nc" id="L1040">    return iDatabase.isFetchSizeSupported();</span>
+  }
+
+  /**
+   * Indicates the need to insert a placeholder (0) for auto increment fields.
+   *
+   * @return true if we need a placeholder for auto increment fields in insert statements.
+   */
+  public boolean needsPlaceHolder() {
+<span class="nc" id="L1049">    return iDatabase.needsPlaceHolder();</span>
+  }
+
+  public String getFunctionSum() {
+<span class="nc" id="L1053">    return iDatabase.getFunctionSum();</span>
+  }
+
+  public String getFunctionAverage() {
+<span class="nc" id="L1057">    return iDatabase.getFunctionAverage();</span>
+  }
+
+  public String getFunctionMaximum() {
+<span class="nc" id="L1061">    return iDatabase.getFunctionMaximum();</span>
+  }
+
+  public String getFunctionMinimum() {
+<span class="nc" id="L1065">    return iDatabase.getFunctionMinimum();</span>
+  }
+
+  public String getFunctionCount() {
+<span class="nc" id="L1069">    return iDatabase.getFunctionCount();</span>
+  }
+
+  /**
+   * Check the database connection parameters and give back an array of remarks
+   *
+   * @return an array of remarks Strings
+   */
+  public String[] checkParameters() {
+<span class="fc" id="L1078">    ArrayList&lt;String&gt; remarks = new ArrayList&lt;&gt;();</span>
+
+<span class="pc bpc" id="L1080" title="1 of 2 branches missed.">    if ( getIDatabase() == null ) {</span>
+<span class="nc" id="L1081">      remarks.add( BaseMessages.getString( PKG, &quot;DatabaseMeta.BadInterface&quot; ) );</span>
+    }
+
+<span class="pc bpc" id="L1084" title="3 of 4 branches missed.">    if ( getName() == null || getName().length() == 0 ) {</span>
+<span class="fc" id="L1085">      remarks.add( BaseMessages.getString( PKG, &quot;DatabaseMeta.BadConnectionName&quot; ) );</span>
+    }
+
+<span class="pc bpc" id="L1088" title="1 of 2 branches missed.">    if ( ( ( (BaseDatabaseMeta) getIDatabase() ).requiresName()</span>
+<span class="pc bpc" id="L1089" title="1 of 2 branches missed.">      &amp;&amp; !( getIDatabase() instanceof GenericDatabaseMeta ) ) ) {</span>
+<span class="pc bpc" id="L1090" title="3 of 4 branches missed.">      if ( getDatabaseName() == null || getDatabaseName().length() == 0 ) {</span>
+<span class="fc" id="L1091">        remarks.add( BaseMessages.getString( PKG, &quot;DatabaseMeta.BadDatabaseName&quot; ) );</span>
+      }
+    }
+
+<span class="fc" id="L1095">    return remarks.toArray( new String[ remarks.size() ] );</span>
+  }
+
+  /**
+   * This is now replaced with getQuotedSchemaTableCombination(), enforcing the use of the quoteFields call
+   *
+   * @param schemaName
+   * @param tableName
+   * @return
+   * @deprecated please use getQuotedSchemaTableCombination()
+   */
+  @Deprecated
+  public String getSchemaTableCombination( String schemaName, String tableName ) {
+<span class="nc" id="L1108">    return getQuotedSchemaTableCombination( schemaName, tableName );</span>
+  }
+
+  /**
+   * Calculate the schema-table combination, usually this is the schema and table separated with a dot. (schema.table)
+   *
+   * @param schemaName the schema-name or null if no schema is used.
+   * @param tableName  the table name
+   * @return the schemaname-tablename combination
+   */
+  public String getQuotedSchemaTableCombination( String schemaName, String tableName ) {
+<span class="pc bpc" id="L1119" title="1 of 2 branches missed.">    if ( Utils.isEmpty( schemaName ) ) {</span>
+<span class="pc bpc" id="L1120" title="1 of 2 branches missed.">      if ( Utils.isEmpty( getPreferredSchemaName() ) ) {</span>
+<span class="fc" id="L1121">        return quoteField( environmentSubstitute( tableName ) ); // no need to look further</span>
+      } else {
+<span class="nc" id="L1123">        return iDatabase.getSchemaTableCombination(</span>
+<span class="nc" id="L1124">          quoteField( environmentSubstitute( getPreferredSchemaName() ) ),</span>
+<span class="nc" id="L1125">          quoteField( environmentSubstitute( tableName ) ) );</span>
+      }
+    } else {
+<span class="nc" id="L1128">      return iDatabase.getSchemaTableCombination(</span>
+<span class="nc" id="L1129">        quoteField( environmentSubstitute( schemaName ) ), quoteField( environmentSubstitute( tableName ) ) );</span>
+    }
+  }
+
+  public boolean isClob( IValueMeta v ) {
+<span class="nc" id="L1134">    boolean retval = true;</span>
+
+<span class="nc bnc" id="L1136" title="All 4 branches missed.">    if ( v == null || v.getLength() &lt; DatabaseMeta.CLOB_LENGTH ) {</span>
+<span class="nc" id="L1137">      retval = false;</span>
+    } else {
+<span class="nc" id="L1139">      return true;</span>
+    }
+<span class="nc" id="L1141">    return retval;</span>
+  }
+
+  public String getFieldDefinition( IValueMeta v, String tk, String pk, boolean use_autoinc ) {
+<span class="nc" id="L1145">    return getFieldDefinition( v, tk, pk, use_autoinc, true, true );</span>
+  }
+
+  public String getFieldDefinition( IValueMeta v, String tk, String pk, boolean use_autoinc,
+                                    boolean add_fieldname, boolean add_cr ) {
+
+<span class="nc" id="L1151">    String definition =</span>
+<span class="nc" id="L1152">      v.getDatabaseColumnTypeDefinition( iDatabase, tk, pk, use_autoinc, add_fieldname, add_cr );</span>
+<span class="nc bnc" id="L1153" title="All 2 branches missed.">    if ( !Utils.isEmpty( definition ) ) {</span>
+<span class="nc" id="L1154">      return definition;</span>
+    }
+
+<span class="nc" id="L1157">    return iDatabase.getFieldDefinition( v, tk, pk, use_autoinc, add_fieldname, add_cr );</span>
+  }
+
+  public String getLimitClause( int nrRows ) {
+<span class="nc" id="L1161">    return iDatabase.getLimitClause( nrRows );</span>
+  }
+
+  /**
+   * @param tableName The table or schema-table combination. We expect this to be quoted properly already!
+   * @return the SQL for to get the fields of this table.
+   */
+  public String getSqlQueryFields( String tableName ) {
+<span class="fc" id="L1169">    return iDatabase.getSqlQueryFields( tableName );</span>
+  }
+
+  public String getAddColumnStatement( String tablename, IValueMeta v, String tk, boolean use_autoinc,
+                                       String pk, boolean semicolon ) {
+<span class="nc" id="L1174">    String retval = iDatabase.getAddColumnStatement( tablename, v, tk, use_autoinc, pk, semicolon );</span>
+<span class="nc" id="L1175">    retval += Const.CR;</span>
+<span class="nc bnc" id="L1176" title="All 2 branches missed.">    if ( semicolon ) {</span>
+<span class="nc" id="L1177">      retval += &quot;;&quot; + Const.CR;</span>
+    }
+<span class="nc" id="L1179">    return retval;</span>
+  }
+
+  public String getDropColumnStatement( String tablename, IValueMeta v, String tk, boolean use_autoinc,
+                                        String pk, boolean semicolon ) {
+<span class="nc" id="L1184">    String retval = iDatabase.getDropColumnStatement( tablename, v, tk, use_autoinc, pk, semicolon );</span>
+<span class="nc" id="L1185">    retval += Const.CR;</span>
+<span class="nc bnc" id="L1186" title="All 2 branches missed.">    if ( semicolon ) {</span>
+<span class="nc" id="L1187">      retval += &quot;;&quot; + Const.CR;</span>
+    }
+<span class="nc" id="L1189">    return retval;</span>
+  }
+
+  public String getModifyColumnStatement( String tablename, IValueMeta v, String tk, boolean use_autoinc,
+                                          String pk, boolean semicolon ) {
+<span class="nc" id="L1194">    String retval = iDatabase.getModifyColumnStatement( tablename, v, tk, use_autoinc, pk, semicolon );</span>
+<span class="nc" id="L1195">    retval += Const.CR;</span>
+<span class="nc bnc" id="L1196" title="All 2 branches missed.">    if ( semicolon ) {</span>
+<span class="nc" id="L1197">      retval += &quot;;&quot; + Const.CR;</span>
+    }
+
+<span class="nc" id="L1200">    return retval;</span>
+  }
+
+  /**
+   * @return an array of reserved words for the database type...
+   */
+  public String[] getReservedWords() {
+<span class="nc" id="L1207">    return iDatabase.getReservedWords();</span>
+  }
+
+  /**
+   * @return true if reserved words need to be double quoted (&quot;password&quot;, &quot;select&quot;, ...)
+   */
+  public boolean quoteReservedWords() {
+<span class="nc" id="L1214">    return iDatabase.quoteReservedWords();</span>
+  }
+
+  /**
+   * @return The start quote sequence, mostly just double quote, but sometimes [, ...
+   */
+  public String getStartQuote() {
+<span class="nc" id="L1221">    return iDatabase.getStartQuote();</span>
+  }
+
+  /**
+   * @return The end quote sequence, mostly just double quote, but sometimes ], ...
+   */
+  public String getEndQuote() {
+<span class="nc" id="L1228">    return iDatabase.getEndQuote();</span>
+  }
+
+  /**
+   * Returns a quoted field if this is needed: contains spaces, is a reserved word, ...
+   *
+   * @param field The fieldname to check for quoting
+   * @return The quoted field (if this is needed.
+   */
+  public String quoteField( String field ) {
+<span class="fc bfc" id="L1238" title="All 2 branches covered.">    if ( Utils.isEmpty( field ) ) {</span>
+<span class="fc" id="L1239">      return null;</span>
+    }
+
+<span class="pc bpc" id="L1242" title="1 of 2 branches missed.">    if ( isForcingIdentifiersToLowerCase() ) {</span>
+<span class="nc" id="L1243">      field = field.toLowerCase();</span>
+<span class="pc bpc" id="L1244" title="1 of 2 branches missed.">    } else if ( isForcingIdentifiersToUpperCase() ) {</span>
+<span class="nc" id="L1245">      field = field.toUpperCase();</span>
+    }
+
+    // If the field already contains quotes, we don't touch it anymore, just return the same string...
+<span class="pc bpc" id="L1249" title="1 of 4 branches missed.">    if ( field.indexOf( getStartQuote() ) &gt;= 0 || field.indexOf( getEndQuote() ) &gt;= 0 ) {</span>
+<span class="fc" id="L1250">      return field;</span>
+    }
+
+<span class="pc bpc" id="L1253" title="3 of 4 branches missed.">    if ( isReservedWord( field ) &amp;&amp; quoteReservedWords() ) {</span>
+<span class="nc" id="L1254">      return handleCase( getStartQuote() + field + getEndQuote() );</span>
+    } else {
+<span class="pc bpc" id="L1256" title="1 of 2 branches missed.">      if ( iDatabase.isQuoteAllFields()</span>
+<span class="nc bnc" id="L1257" title="All 6 branches missed.">        || hasSpacesInField( field ) || hasSpecialCharInField( field ) || hasDotInField( field ) ) {</span>
+<span class="fc" id="L1258">        return getStartQuote() + field + getEndQuote();</span>
+      } else {
+<span class="nc" id="L1260">        return field;</span>
+      }
+    }
+  }
+
+  private String handleCase( String field ) {
+<span class="nc bnc" id="L1266" title="All 2 branches missed.">    if ( preserveReservedCase() ) {</span>
+<span class="nc" id="L1267">      return field;</span>
+    } else {
+<span class="nc bnc" id="L1269" title="All 2 branches missed.">      if ( iDatabase.isDefaultingToUppercase() ) {</span>
+<span class="nc" id="L1270">        return field.toUpperCase();</span>
+      } else {
+<span class="nc" id="L1272">        return field.toLowerCase();</span>
+      }
+    }
+  }
+
+  /**
+   * Determines whether or not this field is in need of quoting:&lt;br&gt;
+   * - When the fieldname contains spaces&lt;br&gt;
+   * - When the fieldname is a reserved word&lt;br&gt;
+   *
+   * @param fieldname the fieldname to check if there is a need for quoting
+   * @return true if the fieldname needs to be quoted.
+   */
+  public boolean isInNeedOfQuoting( String fieldname ) {
+<span class="nc bnc" id="L1286" title="All 4 branches missed.">    return isReservedWord( fieldname ) || hasSpacesInField( fieldname );</span>
+  }
+
+  /**
+   * Returns true if the string specified is a reserved word on this database type.
+   *
+   * @param word The word to check
+   * @return true if word is a reserved word on this database.
+   */
+  public boolean isReservedWord( String word ) {
+<span class="nc" id="L1296">    String[] reserved = getReservedWords();</span>
+<span class="nc bnc" id="L1297" title="All 2 branches missed.">    if ( Const.indexOfString( word, reserved ) &gt;= 0 ) {</span>
+<span class="nc" id="L1298">      return true;</span>
+    }
+<span class="nc" id="L1300">    return false;</span>
+  }
+
+  /**
+   * Detects if a field has spaces in the name. We need to quote the field in that case.
+   *
+   * @param fieldname The fieldname to check for spaces
+   * @return true if the fieldname contains spaces
+   */
+  public boolean hasSpacesInField( String fieldname ) {
+<span class="nc bnc" id="L1310" title="All 2 branches missed.">    if ( fieldname == null ) {</span>
+<span class="nc" id="L1311">      return false;</span>
+    }
+<span class="nc bnc" id="L1313" title="All 2 branches missed.">    if ( fieldname.indexOf( ' ' ) &gt;= 0 ) {</span>
+<span class="nc" id="L1314">      return true;</span>
+    }
+<span class="nc" id="L1316">    return false;</span>
+  }
+
+  /**
+   * Detects if a field has spaces in the name. We need to quote the field in that case.
+   *
+   * @param fieldname The fieldname to check for spaces
+   * @return true if the fieldname contains spaces
+   */
+  public boolean hasSpecialCharInField( String fieldname ) {
+<span class="nc bnc" id="L1326" title="All 2 branches missed.">    if ( fieldname == null ) {</span>
+<span class="nc" id="L1327">      return false;</span>
+    }
+<span class="nc bnc" id="L1329" title="All 2 branches missed.">    if ( fieldname.indexOf( '/' ) &gt;= 0 ) {</span>
+<span class="nc" id="L1330">      return true;</span>
+    }
+<span class="nc bnc" id="L1332" title="All 2 branches missed.">    if ( fieldname.indexOf( '-' ) &gt;= 0 ) {</span>
+<span class="nc" id="L1333">      return true;</span>
+    }
+<span class="nc bnc" id="L1335" title="All 2 branches missed.">    if ( fieldname.indexOf( '+' ) &gt;= 0 ) {</span>
+<span class="nc" id="L1336">      return true;</span>
+    }
+<span class="nc bnc" id="L1338" title="All 2 branches missed.">    if ( fieldname.indexOf( ',' ) &gt;= 0 ) {</span>
+<span class="nc" id="L1339">      return true;</span>
+    }
+<span class="nc bnc" id="L1341" title="All 2 branches missed.">    if ( fieldname.indexOf( '*' ) &gt;= 0 ) {</span>
+<span class="nc" id="L1342">      return true;</span>
+    }
+<span class="nc bnc" id="L1344" title="All 2 branches missed.">    if ( fieldname.indexOf( '(' ) &gt;= 0 ) {</span>
+<span class="nc" id="L1345">      return true;</span>
+    }
+<span class="nc bnc" id="L1347" title="All 2 branches missed.">    if ( fieldname.indexOf( ')' ) &gt;= 0 ) {</span>
+<span class="nc" id="L1348">      return true;</span>
+    }
+<span class="nc bnc" id="L1350" title="All 2 branches missed.">    if ( fieldname.indexOf( '{' ) &gt;= 0 ) {</span>
+<span class="nc" id="L1351">      return true;</span>
+    }
+<span class="nc bnc" id="L1353" title="All 2 branches missed.">    if ( fieldname.indexOf( '}' ) &gt;= 0 ) {</span>
+<span class="nc" id="L1354">      return true;</span>
+    }
+<span class="nc bnc" id="L1356" title="All 2 branches missed.">    if ( fieldname.indexOf( '[' ) &gt;= 0 ) {</span>
+<span class="nc" id="L1357">      return true;</span>
+    }
+<span class="nc bnc" id="L1359" title="All 2 branches missed.">    if ( fieldname.indexOf( ']' ) &gt;= 0 ) {</span>
+<span class="nc" id="L1360">      return true;</span>
+    }
+<span class="nc bnc" id="L1362" title="All 2 branches missed.">    if ( fieldname.indexOf( '%' ) &gt;= 0 ) {</span>
+<span class="nc" id="L1363">      return true;</span>
+    }
+<span class="nc bnc" id="L1365" title="All 2 branches missed.">    if ( fieldname.indexOf( '@' ) &gt;= 0 ) {</span>
+<span class="nc" id="L1366">      return true;</span>
+    }
+<span class="nc bnc" id="L1368" title="All 2 branches missed.">    if ( fieldname.indexOf( '?' ) &gt;= 0 ) {</span>
+<span class="nc" id="L1369">      return true;</span>
+    }
+<span class="nc" id="L1371">    return false;</span>
+  }
+
+  public boolean hasDotInField( String fieldname ) {
+<span class="nc bnc" id="L1375" title="All 2 branches missed.">    if ( fieldname == null ) {</span>
+<span class="nc" id="L1376">      return false;</span>
+    }
+<span class="nc bnc" id="L1378" title="All 2 branches missed.">    if ( fieldname.indexOf( '.' ) &gt;= 0 ) {</span>
+<span class="nc" id="L1379">      return true;</span>
+    }
+<span class="nc" id="L1381">    return false;</span>
+  }
+
+  /**
+   * Checks the fields specified for reserved words and quotes them.
+   *
+   * @param fields the list of fields to check
+   * @return true if one or more values have a name that is a reserved word on this database type.
+   */
+  public boolean replaceReservedWords( IRowMeta fields ) {
+<span class="nc" id="L1391">    boolean hasReservedWords = false;</span>
+<span class="nc bnc" id="L1392" title="All 2 branches missed.">    for ( int i = 0; i &lt; fields.size(); i++ ) {</span>
+<span class="nc" id="L1393">      IValueMeta v = fields.getValueMeta( i );</span>
+<span class="nc bnc" id="L1394" title="All 2 branches missed.">      if ( isReservedWord( v.getName() ) ) {</span>
+<span class="nc" id="L1395">        hasReservedWords = true;</span>
+<span class="nc" id="L1396">        v.setName( quoteField( v.getName() ) );</span>
+      }
+    }
+<span class="nc" id="L1399">    return hasReservedWords;</span>
+  }
+
+  /**
+   * Checks the fields specified for reserved words
+   *
+   * @param fields the list of fields to check
+   * @return The nr of reserved words for this database.
+   */
+  public int getNrReservedWords( IRowMeta fields ) {
+<span class="nc" id="L1409">    int nrReservedWords = 0;</span>
+<span class="nc bnc" id="L1410" title="All 2 branches missed.">    for ( int i = 0; i &lt; fields.size(); i++ ) {</span>
+<span class="nc" id="L1411">      IValueMeta v = fields.getValueMeta( i );</span>
+<span class="nc bnc" id="L1412" title="All 2 branches missed.">      if ( isReservedWord( v.getName() ) ) {</span>
+<span class="nc" id="L1413">        nrReservedWords++;</span>
+      }
+    }
+<span class="nc" id="L1416">    return nrReservedWords;</span>
+  }
+
+  /**
+   * @return a list of types to get the available tables
+   */
+  public String[] getTableTypes() {
+<span class="nc" id="L1423">    return iDatabase.getTableTypes();</span>
+  }
+
+  /**
+   * @return a list of types to get the available views
+   */
+  public String[] getViewTypes() {
+<span class="nc" id="L1430">    return iDatabase.getViewTypes();</span>
+  }
+
+  /**
+   * @return a list of types to get the available synonyms
+   */
+  public String[] getSynonymTypes() {
+<span class="nc" id="L1437">    return iDatabase.getSynonymTypes();</span>
+  }
+
+  /**
+   * @return true if we need to supply the schema-name to getTables in order to get a correct list of items.
+   */
+  public boolean useSchemaNameForTableList() {
+<span class="nc" id="L1444">    return iDatabase.useSchemaNameForTableList();</span>
+  }
+
+  /**
+   * @return true if the database supports views
+   */
+  public boolean supportsViews() {
+<span class="nc" id="L1451">    return iDatabase.supportsViews();</span>
+  }
+
+  /**
+   * @return true if the database supports synonyms
+   */
+  public boolean supportsSynonyms() {
+<span class="nc" id="L1458">    return iDatabase.supportsSynonyms();</span>
+  }
+
+  /**
+   * @return The SQL on this database to get a list of stored procedures.
+   */
+  public String getSqlListOfProcedures() {
+<span class="nc" id="L1465">    return iDatabase.getSqlListOfProcedures();</span>
+  }
+
+  /**
+   * @param tableName The tablename to be truncated
+   * @return The SQL statement to remove all rows from the specified statement, if possible without using transactions
+   */
+  public String getTruncateTableStatement( String schema, String tableName ) {
+<span class="nc" id="L1473">    return iDatabase.getTruncateTableStatement( getQuotedSchemaTableCombination( schema, tableName ) );</span>
+  }
+
+  /**
+   * @return true if the database rounds floating point numbers to the right precision. For example if the target field
+   * is number(7,2) the value 12.399999999 is converted into 12.40
+   */
+  public boolean supportsFloatRoundingOnUpdate() {
+<span class="nc" id="L1481">    return iDatabase.supportsFloatRoundingOnUpdate();</span>
+  }
+
+  /**
+   * @param tableNames The names of the tables to lock
+   * @return The SQL commands to lock database tables for write purposes. null is returned in case locking is not
+   * supported on the target database.
+   */
+  public String getSqlLockTables( String[] tableNames ) {
+<span class="nc" id="L1490">    return iDatabase.getSqlLockTables( tableNames );</span>
+  }
+
+  /**
+   * @param tableNames The names of the tables to unlock
+   * @return The SQL commands to unlock databases tables. null is returned in case locking is not supported on the
+   * target database.
+   */
+  public String getSqlUnlockTables( String[] tableNames ) {
+<span class="nc" id="L1499">    return iDatabase.getSqlUnlockTables( tableNames );</span>
+  }
+
+  /**
+   * @return a feature list for the chosen database type.
+   */
+  public List&lt;RowMetaAndData&gt; getFeatureSummary() {
+<span class="fc" id="L1506">    List&lt;RowMetaAndData&gt; list = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L1507">    RowMetaAndData r = null;</span>
+<span class="fc" id="L1508">    final String par = &quot;Parameter&quot;;</span>
+<span class="fc" id="L1509">    final String val = &quot;Value&quot;;</span>
+
+<span class="fc" id="L1511">    IValueMeta testValue = new ValueMetaString( &quot;FIELD&quot; );</span>
+<span class="fc" id="L1512">    testValue.setLength( 30 );</span>
+
+<span class="pc bpc" id="L1514" title="1 of 2 branches missed.">    if ( iDatabase != null ) {</span>
+      // Type of database
+<span class="fc" id="L1516">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1517">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;Database type&quot; );</span>
+<span class="fc" id="L1518">      r.addValue( val, IValueMeta.TYPE_STRING, getPluginId() );</span>
+<span class="fc" id="L1519">      list.add( r );</span>
+      // Type of access
+<span class="fc" id="L1521">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1522">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;Access type&quot; );</span>
+<span class="fc" id="L1523">      r.addValue( val, IValueMeta.TYPE_STRING, getAccessTypeDesc() );</span>
+<span class="fc" id="L1524">      list.add( r );</span>
+      // Name of database
+<span class="fc" id="L1526">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1527">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;Database name&quot; );</span>
+<span class="fc" id="L1528">      r.addValue( val, IValueMeta.TYPE_STRING, getDatabaseName() );</span>
+<span class="fc" id="L1529">      list.add( r );</span>
+      // server host name
+<span class="fc" id="L1531">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1532">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;Server hostname&quot; );</span>
+<span class="fc" id="L1533">      r.addValue( val, IValueMeta.TYPE_STRING, getHostname() );</span>
+<span class="fc" id="L1534">      list.add( r );</span>
+      // Port number
+<span class="fc" id="L1536">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1537">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;Service port&quot; );</span>
+<span class="fc" id="L1538">      r.addValue( val, IValueMeta.TYPE_STRING, getPort() );</span>
+<span class="fc" id="L1539">      list.add( r );</span>
+      // Username
+<span class="fc" id="L1541">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1542">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;Username&quot; );</span>
+<span class="fc" id="L1543">      r.addValue( val, IValueMeta.TYPE_STRING, getUsername() );</span>
+<span class="fc" id="L1544">      list.add( r );</span>
+      // Informix server
+<span class="fc" id="L1546">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1547">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;Informix server name&quot; );</span>
+<span class="fc" id="L1548">      r.addValue( val, IValueMeta.TYPE_STRING, getServername() );</span>
+<span class="fc" id="L1549">      list.add( r );</span>
+      // Other properties...
+<span class="pc bpc" id="L1551" title="1 of 2 branches missed.">      for ( String key : getAttributes().keySet() ) {</span>
+<span class="nc" id="L1552">        String value = getAttributes().get( key );</span>
+<span class="nc" id="L1553">        r = new RowMetaAndData();</span>
+<span class="nc" id="L1554">        r.addValue( par, IValueMeta.TYPE_STRING, &quot;Extra attribute [&quot; + key + &quot;]&quot; );</span>
+<span class="nc" id="L1555">        r.addValue( val, IValueMeta.TYPE_STRING, value );</span>
+<span class="nc" id="L1556">        list.add( r );</span>
+<span class="nc" id="L1557">      }</span>
+
+      // driver class
+<span class="fc" id="L1560">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1561">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;Driver class&quot; );</span>
+<span class="fc" id="L1562">      r.addValue( val, IValueMeta.TYPE_STRING, getDriverClass() );</span>
+<span class="fc" id="L1563">      list.add( r );</span>
+      // URL
+<span class="fc" id="L1565">      String pwd = getPassword();</span>
+<span class="fc" id="L1566">      setPassword( &quot;password&quot; ); // Don't give away the password in the URL!</span>
+<span class="fc" id="L1567">      String url = &quot;&quot;;</span>
+      try {
+<span class="fc" id="L1569">        url = getURL();</span>
+<span class="nc" id="L1570">      } catch ( Exception e ) {</span>
+<span class="nc" id="L1571">        url = &quot;&quot;;</span>
+<span class="fc" id="L1572">      } // SAP etc.</span>
+<span class="fc" id="L1573">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1574">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;URL&quot; );</span>
+<span class="fc" id="L1575">      r.addValue( val, IValueMeta.TYPE_STRING, url );</span>
+<span class="fc" id="L1576">      list.add( r );</span>
+<span class="fc" id="L1577">      setPassword( pwd );</span>
+      // SQL: Next sequence value
+<span class="fc" id="L1579">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1580">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;SQL: next sequence value&quot; );</span>
+<span class="fc" id="L1581">      r.addValue( val, IValueMeta.TYPE_STRING, getSeqNextvalSql( &quot;SEQUENCE&quot; ) );</span>
+<span class="fc" id="L1582">      list.add( r );</span>
+      // is set fetch size supported
+<span class="fc" id="L1584">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1585">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;supported: set fetch size&quot; );</span>
+<span class="pc bpc" id="L1586" title="1 of 2 branches missed.">      r.addValue( val, IValueMeta.TYPE_STRING, isFetchSizeSupported() ? &quot;Y&quot; : &quot;N&quot; );</span>
+<span class="fc" id="L1587">      list.add( r );</span>
+      // needs place holder for auto increment
+<span class="fc" id="L1589">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1590">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;auto increment field needs placeholder&quot; );</span>
+<span class="pc bpc" id="L1591" title="1 of 2 branches missed.">      r.addValue( val, IValueMeta.TYPE_STRING, needsPlaceHolder() ? &quot;Y&quot; : &quot;N&quot; );</span>
+<span class="fc" id="L1592">      list.add( r );</span>
+      // Sum function
+<span class="fc" id="L1594">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1595">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;SUM aggregate function&quot; );</span>
+<span class="fc" id="L1596">      r.addValue( val, IValueMeta.TYPE_STRING, getFunctionSum() );</span>
+<span class="fc" id="L1597">      list.add( r );</span>
+      // Avg function
+<span class="fc" id="L1599">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1600">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;AVG aggregate function&quot; );</span>
+<span class="fc" id="L1601">      r.addValue( val, IValueMeta.TYPE_STRING, getFunctionAverage() );</span>
+<span class="fc" id="L1602">      list.add( r );</span>
+      // Minimum function
+<span class="fc" id="L1604">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1605">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;MIN aggregate function&quot; );</span>
+<span class="fc" id="L1606">      r.addValue( val, IValueMeta.TYPE_STRING, getFunctionMinimum() );</span>
+<span class="fc" id="L1607">      list.add( r );</span>
+      // Maximum function
+<span class="fc" id="L1609">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1610">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;MAX aggregate function&quot; );</span>
+<span class="fc" id="L1611">      r.addValue( val, IValueMeta.TYPE_STRING, getFunctionMaximum() );</span>
+<span class="fc" id="L1612">      list.add( r );</span>
+      // Count function
+<span class="fc" id="L1614">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1615">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;COUNT aggregate function&quot; );</span>
+<span class="fc" id="L1616">      r.addValue( val, IValueMeta.TYPE_STRING, getFunctionCount() );</span>
+<span class="fc" id="L1617">      list.add( r );</span>
+      // Schema-table combination
+<span class="fc" id="L1619">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1620">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;Schema / Table combination&quot; );</span>
+<span class="fc" id="L1621">      r.addValue( val, IValueMeta.TYPE_STRING, getQuotedSchemaTableCombination( &quot;SCHEMA&quot;, &quot;TABLE&quot; ) );</span>
+<span class="fc" id="L1622">      list.add( r );</span>
+      // Limit clause
+<span class="fc" id="L1624">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1625">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;LIMIT clause for 100 rows&quot; );</span>
+<span class="fc" id="L1626">      r.addValue( val, IValueMeta.TYPE_STRING, getLimitClause( 100 ) );</span>
+<span class="fc" id="L1627">      list.add( r );</span>
+      // add column statement
+<span class="fc" id="L1629">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1630">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;Add column statement&quot; );</span>
+<span class="fc" id="L1631">      r.addValue( val, IValueMeta.TYPE_STRING, getAddColumnStatement(</span>
+        &quot;TABLE&quot;, testValue, null, false, null, false ) );
+<span class="fc" id="L1633">      list.add( r );</span>
+      // drop column statement
+<span class="fc" id="L1635">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1636">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;Drop column statement&quot; );</span>
+<span class="fc" id="L1637">      r.addValue( val, IValueMeta.TYPE_STRING, getDropColumnStatement(</span>
+        &quot;TABLE&quot;, testValue, null, false, null, false ) );
+<span class="fc" id="L1639">      list.add( r );</span>
+      // Modify column statement
+<span class="fc" id="L1641">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1642">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;Modify column statement&quot; );</span>
+<span class="fc" id="L1643">      r.addValue( val, IValueMeta.TYPE_STRING, getModifyColumnStatement(</span>
+        &quot;TABLE&quot;, testValue, null, false, null, false ) );
+<span class="fc" id="L1645">      list.add( r );</span>
+
+      // List of reserved words
+<span class="fc" id="L1648">      String reserved = &quot;&quot;;</span>
+<span class="pc bpc" id="L1649" title="1 of 2 branches missed.">      if ( getReservedWords() != null ) {</span>
+<span class="nc bnc" id="L1650" title="All 2 branches missed.">        for ( int i = 0; i &lt; getReservedWords().length; i++ ) {</span>
+<span class="nc bnc" id="L1651" title="All 2 branches missed.">          reserved += ( i &gt; 0 ? &quot;, &quot; : &quot;&quot; ) + getReservedWords()[ i ];</span>
+        }
+      }
+<span class="fc" id="L1654">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1655">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;List of reserved words&quot; );</span>
+<span class="fc" id="L1656">      r.addValue( val, IValueMeta.TYPE_STRING, reserved );</span>
+<span class="fc" id="L1657">      list.add( r );</span>
+
+      // Quote reserved words?
+<span class="fc" id="L1660">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1661">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;Quote reserved words?&quot; );</span>
+<span class="pc bpc" id="L1662" title="1 of 2 branches missed.">      r.addValue( val, IValueMeta.TYPE_STRING, quoteReservedWords() ? &quot;Y&quot; : &quot;N&quot; );</span>
+<span class="fc" id="L1663">      list.add( r );</span>
+      // Start Quote
+<span class="fc" id="L1665">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1666">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;Start quote for reserved words&quot; );</span>
+<span class="fc" id="L1667">      r.addValue( val, IValueMeta.TYPE_STRING, getStartQuote() );</span>
+<span class="fc" id="L1668">      list.add( r );</span>
+      // End Quote
+<span class="fc" id="L1670">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1671">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;End quote for reserved words&quot; );</span>
+<span class="fc" id="L1672">      r.addValue( val, IValueMeta.TYPE_STRING, getEndQuote() );</span>
+<span class="fc" id="L1673">      list.add( r );</span>
+
+      // List of table types
+<span class="fc" id="L1676">      String types = &quot;&quot;;</span>
+<span class="fc" id="L1677">      String[] slist = getTableTypes();</span>
+<span class="pc bpc" id="L1678" title="1 of 2 branches missed.">      if ( slist != null ) {</span>
+<span class="nc bnc" id="L1679" title="All 2 branches missed.">        for ( int i = 0; i &lt; slist.length; i++ ) {</span>
+<span class="nc bnc" id="L1680" title="All 2 branches missed.">          types += ( i &gt; 0 ? &quot;, &quot; : &quot;&quot; ) + slist[ i ];</span>
+        }
+      }
+<span class="fc" id="L1683">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1684">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;List of JDBC table types&quot; );</span>
+<span class="fc" id="L1685">      r.addValue( val, IValueMeta.TYPE_STRING, types );</span>
+<span class="fc" id="L1686">      list.add( r );</span>
+
+      // List of view types
+<span class="fc" id="L1689">      types = &quot;&quot;;</span>
+<span class="fc" id="L1690">      slist = getViewTypes();</span>
+<span class="pc bpc" id="L1691" title="1 of 2 branches missed.">      if ( slist != null ) {</span>
+<span class="nc bnc" id="L1692" title="All 2 branches missed.">        for ( int i = 0; i &lt; slist.length; i++ ) {</span>
+<span class="nc bnc" id="L1693" title="All 2 branches missed.">          types += ( i &gt; 0 ? &quot;, &quot; : &quot;&quot; ) + slist[ i ];</span>
+        }
+      }
+<span class="fc" id="L1696">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1697">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;List of JDBC view types&quot; );</span>
+<span class="fc" id="L1698">      r.addValue( val, IValueMeta.TYPE_STRING, types );</span>
+<span class="fc" id="L1699">      list.add( r );</span>
+
+      // List of synonym types
+<span class="fc" id="L1702">      types = &quot;&quot;;</span>
+<span class="fc" id="L1703">      slist = getSynonymTypes();</span>
+<span class="pc bpc" id="L1704" title="1 of 2 branches missed.">      if ( slist != null ) {</span>
+<span class="nc bnc" id="L1705" title="All 2 branches missed.">        for ( int i = 0; i &lt; slist.length; i++ ) {</span>
+<span class="nc bnc" id="L1706" title="All 2 branches missed.">          types += ( i &gt; 0 ? &quot;, &quot; : &quot;&quot; ) + slist[ i ];</span>
+        }
+      }
+<span class="fc" id="L1709">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1710">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;List of JDBC synonym types&quot; );</span>
+<span class="fc" id="L1711">      r.addValue( val, IValueMeta.TYPE_STRING, types );</span>
+<span class="fc" id="L1712">      list.add( r );</span>
+
+      // Use schema-name to get list of tables?
+<span class="fc" id="L1715">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1716">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;use schema name to get table list?&quot; );</span>
+<span class="pc bpc" id="L1717" title="1 of 2 branches missed.">      r.addValue( val, IValueMeta.TYPE_STRING, useSchemaNameForTableList() ? &quot;Y&quot; : &quot;N&quot; );</span>
+<span class="fc" id="L1718">      list.add( r );</span>
+      // supports view?
+<span class="fc" id="L1720">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1721">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;supports views?&quot; );</span>
+<span class="pc bpc" id="L1722" title="1 of 2 branches missed.">      r.addValue( val, IValueMeta.TYPE_STRING, supportsViews() ? &quot;Y&quot; : &quot;N&quot; );</span>
+<span class="fc" id="L1723">      list.add( r );</span>
+      // supports synonyms?
+<span class="fc" id="L1725">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1726">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;supports synonyms?&quot; );</span>
+<span class="pc bpc" id="L1727" title="1 of 2 branches missed.">      r.addValue( val, IValueMeta.TYPE_STRING, supportsSynonyms() ? &quot;Y&quot; : &quot;N&quot; );</span>
+<span class="fc" id="L1728">      list.add( r );</span>
+      // SQL: get list of procedures?
+<span class="fc" id="L1730">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1731">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;SQL: list of procedures&quot; );</span>
+<span class="fc" id="L1732">      r.addValue( val, IValueMeta.TYPE_STRING, getSqlListOfProcedures() );</span>
+<span class="fc" id="L1733">      list.add( r );</span>
+      // SQL: get truncate table statement?
+<span class="fc" id="L1735">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1736">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;SQL: truncate table&quot; );</span>
+<span class="fc" id="L1737">      String truncateStatement = getTruncateTableStatement( null, &quot;TABLE&quot; );</span>
+<span class="pc bpc" id="L1738" title="1 of 2 branches missed.">      r.addValue( val, IValueMeta.TYPE_STRING, truncateStatement != null</span>
+        ? truncateStatement : &quot;Not supported by this database type&quot; );
+<span class="fc" id="L1740">      list.add( r );</span>
+      // supports float rounding on update?
+<span class="fc" id="L1742">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1743">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;supports floating point rounding on update/insert&quot; );</span>
+<span class="pc bpc" id="L1744" title="1 of 2 branches missed.">      r.addValue( val, IValueMeta.TYPE_STRING, supportsFloatRoundingOnUpdate() ? &quot;Y&quot; : &quot;N&quot; );</span>
+<span class="fc" id="L1745">      list.add( r );</span>
+      // supports time stamp to date conversion
+<span class="fc" id="L1747">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1748">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;supports timestamp-date conversion&quot; );</span>
+<span class="pc bpc" id="L1749" title="1 of 2 branches missed.">      r.addValue( val, IValueMeta.TYPE_STRING, supportsTimeStampToDateConversion() ? &quot;Y&quot; : &quot;N&quot; );</span>
+<span class="fc" id="L1750">      list.add( r );</span>
+      // supports batch updates
+<span class="fc" id="L1752">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1753">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;supports batch updates&quot; );</span>
+<span class="pc bpc" id="L1754" title="1 of 2 branches missed.">      r.addValue( val, IValueMeta.TYPE_STRING, supportsBatchUpdates() ? &quot;Y&quot; : &quot;N&quot; );</span>
+<span class="fc" id="L1755">      list.add( r );</span>
+      // supports boolean values
+<span class="fc" id="L1757">      r = new RowMetaAndData();</span>
+<span class="fc" id="L1758">      r.addValue( par, IValueMeta.TYPE_STRING, &quot;supports boolean data type&quot; );</span>
+<span class="pc bpc" id="L1759" title="1 of 2 branches missed.">      r.addValue( val, IValueMeta.TYPE_STRING, supportsBooleanDataType() ? &quot;Y&quot; : &quot;N&quot; );</span>
+<span class="fc" id="L1760">      list.add( r );</span>
+    }
+
+<span class="fc" id="L1763">    return list;</span>
+  }
+
+  /**
+   * @return true if the database result sets support getTimeStamp() to retrieve date-time. (Date)
+   */
+  public boolean supportsTimeStampToDateConversion() {
+<span class="nc" id="L1770">    return iDatabase.supportsTimeStampToDateConversion();</span>
+  }
+
+  /**
+   * @return true if the database JDBC driver supports batch updates For example Interbase doesn't support this!
+   */
+  public boolean supportsBatchUpdates() {
+<span class="nc" id="L1777">    return iDatabase.supportsBatchUpdates();</span>
+  }
+
+  /**
+   * @return true if the database supports a boolean, bit, logical, ... datatype
+   */
+  public boolean supportsBooleanDataType() {
+<span class="nc" id="L1784">    return iDatabase.supportsBooleanDataType();</span>
+  }
+
+  /**
+   * @param b Set to true if the database supports a boolean, bit, logical, ... datatype
+   */
+  public void setSupportsBooleanDataType( boolean b ) {
+<span class="fc" id="L1791">    iDatabase.setSupportsBooleanDataType( b );</span>
+<span class="fc" id="L1792">  }</span>
+
+  /**
+   * @return true if the database supports the Timestamp data type (nanosecond precision and all)
+   */
+  public boolean supportsTimestampDataType() {
+<span class="nc" id="L1798">    return iDatabase.supportsTimestampDataType();</span>
+  }
+
+  /**
+   * @param b Set to true if the database supports the Timestamp data type (nanosecond precision and all)
+   */
+  public void setSupportsTimestampDataType( boolean b ) {
+<span class="fc" id="L1805">    iDatabase.setSupportsTimestampDataType( b );</span>
+<span class="fc" id="L1806">  }</span>
+
+  /**
+   * @return true if reserved words' case should be preserved
+   */
+  public boolean preserveReservedCase() {
+<span class="nc" id="L1812">    return iDatabase.preserveReservedCase();</span>
+  }
+
+  /**
+   * @return true if reserved words' case should be preserved
+   */
+  public void setPreserveReservedCase( boolean b ) {
+<span class="nc" id="L1819">    iDatabase.setPreserveReservedCase( b );</span>
+<span class="nc" id="L1820">  }</span>
+
+  /**
+   * Changes the names of the fields to their quoted equivalent if this is needed
+   *
+   * @param fields The row of fields to change
+   */
+  public void quoteReservedWords( IRowMeta fields ) {
+<span class="fc bfc" id="L1828" title="All 2 branches covered.">    for ( int i = 0; i &lt; fields.size(); i++ ) {</span>
+<span class="fc" id="L1829">      IValueMeta v = fields.getValueMeta( i );</span>
+<span class="fc" id="L1830">      v.setName( quoteField( v.getName() ) );</span>
+    }
+<span class="fc" id="L1832">  }</span>
+
+  /**
+   * @return a map of all the extra URL options you want to set.
+   */
+  public Map&lt;String, String&gt; getExtraOptions() {
+<span class="fc" id="L1838">    return iDatabase.getExtraOptions();</span>
+  }
+
+  /**
+   * @return true if the database supports connection options in the URL, false if they are put in a Properties object.
+   */
+  public boolean supportsOptionsInURL() {
+<span class="nc" id="L1845">    return iDatabase.supportsOptionsInURL();</span>
+  }
+
+  /**
+   * @return extra help text on the supported options on the selected database platform.
+   */
+  public String getExtraOptionsHelpText() {
+<span class="nc" id="L1852">    return iDatabase.getExtraOptionsHelpText();</span>
+  }
+
+  /**
+   * @return true if the database JDBC driver supports getBlob on the resultset. If not we must use getBytes() to get
+   * the data.
+   */
+  public boolean supportsGetBlob() {
+<span class="nc" id="L1860">    return iDatabase.supportsGetBlob();</span>
+  }
+
+  /**
+   * @return The SQL to execute right after connecting
+   */
+  public String getConnectSql() {
+<span class="nc" id="L1867">    return iDatabase.getConnectSql();</span>
+  }
+
+  /**
+   * @param sql The SQL to execute right after connecting
+   */
+  public void setConnectSql( String sql ) {
+<span class="nc" id="L1874">    iDatabase.setConnectSql( sql );</span>
+<span class="nc" id="L1875">  }</span>
+
+  /**
+   * @return true if the database supports setting the maximum number of return rows in a resultset.
+   */
+  public boolean supportsSetMaxRows() {
+<span class="nc" id="L1881">    return iDatabase.supportsSetMaxRows();</span>
+  }
+
+  /**
+   * Verify the name of the database and if required, change it if it already exists in the list of databases.
+   *
+   * @param databases the databases to check against.
+   * @param oldname   the old name of the database
+   * @return the new name of the database connection
+   */
+  public String verifyAndModifyDatabaseName( List&lt;DatabaseMeta&gt; databases, String oldname ) {
+<span class="fc" id="L1892">    String name = getName();</span>
+<span class="pc bpc" id="L1893" title="1 of 2 branches missed.">    if ( name.equalsIgnoreCase( oldname ) ) {</span>
+<span class="nc" id="L1894">      return name; // nothing to see here: move along!</span>
+    }
+
+<span class="fc" id="L1897">    int nr = 2;</span>
+<span class="fc bfc" id="L1898" title="All 2 branches covered.">    while ( DatabaseMeta.findDatabase( databases, getName() ) != null ) {</span>
+<span class="fc" id="L1899">      setName( name + &quot; &quot; + nr );</span>
+<span class="fc" id="L1900">      nr++;</span>
+    }
+<span class="fc" id="L1902">    return getName();</span>
+  }
+
+  public String getSqlTableExists( String tablename ) {
+<span class="fc" id="L1906">    return iDatabase.getSqlTableExists( tablename );</span>
+  }
+
+  public String getSqlColumnExists( String columnname, String tablename ) {
+<span class="fc" id="L1910">    return iDatabase.getSqlColumnExists( columnname, tablename );</span>
+  }
+
+  /**
+   * @return true if the database is streaming results (normally this is an option just for MySQL).
+   */
+  public boolean isStreamingResults() {
+<span class="nc" id="L1917">    return iDatabase.isStreamingResults();</span>
+  }
+
+  /**
+   * @param useStreaming true if we want the database to stream results (normally this is an option just for MySQL).
+   */
+  public void setStreamingResults( boolean useStreaming ) {
+<span class="nc" id="L1924">    iDatabase.setStreamingResults( useStreaming );</span>
+<span class="nc" id="L1925">  }</span>
+
+  /**
+   * @return true if all fields should always be quoted in db
+   */
+  public boolean isQuoteAllFields() {
+<span class="nc" id="L1931">    return iDatabase.isQuoteAllFields();</span>
+  }
+
+  /**
+   * @param quoteAllFields true if all fields in DB should be quoted.
+   */
+  public void setQuoteAllFields( boolean quoteAllFields ) {
+<span class="nc" id="L1938">    iDatabase.setQuoteAllFields( quoteAllFields );</span>
+<span class="nc" id="L1939">  }</span>
+
+  /**
+   * @return true if all identifiers should be forced to lower case
+   */
+  public boolean isForcingIdentifiersToLowerCase() {
+<span class="nc" id="L1945">    return iDatabase.isForcingIdentifiersToLowerCase();</span>
+  }
+
+  /**
+   * @param forceLowerCase true if all identifiers should be forced to lower case
+   */
+  public void setForcingIdentifiersToLowerCase( boolean forceLowerCase ) {
+<span class="nc" id="L1952">    iDatabase.setForcingIdentifiersToLowerCase( forceLowerCase );</span>
+<span class="nc" id="L1953">  }</span>
+
+  /**
+   * @return true if all identifiers should be forced to upper case
+   */
+  public boolean isForcingIdentifiersToUpperCase() {
+<span class="nc" id="L1959">    return iDatabase.isForcingIdentifiersToUpperCase();</span>
+  }
+
+  /**
+   * @param forceUpperCase true if all identifiers should be forced to upper case
+   */
+  public void setForcingIdentifiersToUpperCase( boolean forceUpperCase ) {
+<span class="nc" id="L1966">    iDatabase.setForcingIdentifiersToUpperCase( forceUpperCase );</span>
+<span class="nc" id="L1967">  }</span>
+
+  /**
+   * Find a database with a certain name in an arraylist of databases.
+   *
+   * @param databases The ArrayList of databases
+   * @param dbname    The name of the database connection
+   * @return The database object if one was found, null otherwise.
+   */
+  public static final DatabaseMeta findDatabase( List&lt;DatabaseMeta&gt; databases, String dbname ) {
+<span class="pc bpc" id="L1977" title="2 of 4 branches missed.">    if ( databases == null || dbname == null ) {</span>
+<span class="nc" id="L1978">      return null;</span>
+    }
+
+<span class="fc bfc" id="L1981" title="All 2 branches covered.">    for ( int i = 0; i &lt; databases.size(); i++ ) {</span>
+<span class="fc" id="L1982">      DatabaseMeta ci = (DatabaseMeta) databases.get( i );</span>
+<span class="fc bfc" id="L1983" title="All 2 branches covered.">      if ( ci.getName().trim().equalsIgnoreCase( dbname.trim() ) ) {</span>
+<span class="fc" id="L1984">        return ci;</span>
+      }
+    }
+<span class="fc" id="L1987">    return null;</span>
+  }
+
+  public static int indexOfName( String[] databaseNames, String name ) {
+<span class="fc bfc" id="L1991" title="All 4 branches covered.">    if ( databaseNames == null || name == null ) {</span>
+<span class="fc" id="L1992">      return -1;</span>
+    }
+
+<span class="pc bpc" id="L1995" title="1 of 2 branches missed.">    for ( int i = 0; i &lt; databaseNames.length; i++ ) {</span>
+<span class="fc" id="L1996">      String databaseName = databaseNames[ i ];</span>
+<span class="fc bfc" id="L1997" title="All 2 branches covered.">      if ( name.equalsIgnoreCase( databaseName ) ) {</span>
+<span class="fc" id="L1998">        return i;</span>
+      }
+    }
+
+<span class="nc" id="L2002">    return -1;</span>
+  }
+
+  @Override
+  public void copyVariablesFrom( IVariables variables ) {
+<span class="nc" id="L2007">    this.variables.copyVariablesFrom( variables );</span>
+<span class="nc" id="L2008">  }</span>
+
+  @Override
+  public String environmentSubstitute( String aString ) {
+<span class="fc" id="L2012">    return variables.environmentSubstitute( aString );</span>
+  }
+
+  @Override
+  public String[] environmentSubstitute( String[] aString ) {
+<span class="nc" id="L2017">    return variables.environmentSubstitute( aString );</span>
+  }
+
+  @Override
+  public String fieldSubstitute( String aString, IRowMeta rowMeta, Object[] rowData ) throws HopValueException {
+<span class="nc" id="L2022">    return variables.fieldSubstitute( aString, rowMeta, rowData );</span>
+  }
+
+  @Override
+  public IVariables getParentVariableSpace() {
+<span class="nc" id="L2027">    return variables.getParentVariableSpace();</span>
+  }
+
+  @Override
+  public void setParentVariableSpace( IVariables parent ) {
+<span class="nc" id="L2032">    variables.setParentVariableSpace( parent );</span>
+<span class="nc" id="L2033">  }</span>
+
+  @Override
+  public String getVariable( String variableName, String defaultValue ) {
+<span class="fc" id="L2037">    return variables.getVariable( variableName, defaultValue );</span>
+  }
+
+  @Override
+  public String getVariable( String variableName ) {
+<span class="nc" id="L2042">    return variables.getVariable( variableName );</span>
+  }
+
+  @Override
+  public boolean getBooleanValueOfVariable( String variableName, boolean defaultValue ) {
+<span class="nc bnc" id="L2047" title="All 2 branches missed.">    if ( !Utils.isEmpty( variableName ) ) {</span>
+<span class="nc" id="L2048">      String value = environmentSubstitute( variableName );</span>
+<span class="nc bnc" id="L2049" title="All 2 branches missed.">      if ( !Utils.isEmpty( value ) ) {</span>
+<span class="nc" id="L2050">        return ValueMetaBase.convertStringToBoolean( value );</span>
+      }
+    }
+<span class="nc" id="L2053">    return defaultValue;</span>
+  }
+
+  @Override
+  public void initializeVariablesFrom( IVariables parent ) {
+<span class="nc" id="L2058">    variables.initializeVariablesFrom( parent );</span>
+<span class="nc" id="L2059">  }</span>
+
+  @Override
+  public String[] listVariables() {
+<span class="nc" id="L2063">    return variables.listVariables();</span>
+  }
+
+  @Override
+  public void setVariable( String variableName, String variableValue ) {
+<span class="fc" id="L2068">    variables.setVariable( variableName, variableValue );</span>
+<span class="fc" id="L2069">  }</span>
+
+  @Override
+  public void shareVariablesWith( IVariables variables ) {
+<span class="nc" id="L2073">    this.variables = variables;</span>
+<span class="nc" id="L2074">  }</span>
+
+  @Override
+  public void injectVariables( Map&lt;String, String&gt; prop ) {
+<span class="nc" id="L2078">    variables.injectVariables( prop );</span>
+<span class="nc" id="L2079">  }</span>
+
+  /**
+   * @return the SQL Server instance
+   */
+  public String getSqlServerInstance() {
+    // This is also covered/persisted by JDBC option MS SQL Server / instancename / &lt;somevalue&gt;
+    // We want to return &lt;somevalue&gt;
+    // --&gt; MSSQL.instancename
+<span class="nc" id="L2088">    return getExtraOptions().get( getPluginId() + &quot;.instance&quot; );</span>
+  }
+
+  /**
+   * @param instanceName the SQL Server instance
+   */
+  public void setSqlServerInstance( String instanceName ) {
+    // This is also covered/persisted by JDBC option MS SQL Server / instancename / &lt;somevalue&gt;
+    // We want to return set &lt;somevalue&gt;
+    // --&gt; MSSQL.instancename
+<span class="nc bnc" id="L2098" title="All 4 branches missed.">    if ( ( instanceName != null ) &amp;&amp; ( instanceName.length() &gt; 0 ) ) {</span>
+<span class="nc" id="L2099">      addExtraOption( getPluginId(), &quot;instance&quot;, instanceName );</span>
+    }
+<span class="nc" id="L2101">  }</span>
+
+
+  /**
+   * @return true if the Microsoft SQL server uses two decimals (..) to separate schema and table (default==false).
+   */
+  public boolean isUsingDoubleDecimalAsSchemaTableSeparator() {
+<span class="nc" id="L2108">    return iDatabase.isUsingDoubleDecimalAsSchemaTableSeparator();</span>
+  }
+
+  /**
+   * @param useDoubleDecimalSeparator true if we want the database to stream results (normally this is an option just for MySQL).
+   */
+  public void setUsingDoubleDecimalAsSchemaTableSeparator( boolean useDoubleDecimalSeparator ) {
+<span class="nc" id="L2115">    iDatabase.setUsingDoubleDecimalAsSchemaTableSeparator( useDoubleDecimalSeparator );</span>
+<span class="nc" id="L2116">  }</span>
+
+  /**
+   * @return true if this database needs a transaction to perform a query (auto-commit turned off).
+   */
+  public boolean isRequiringTransactionsOnQueries() {
+<span class="nc" id="L2122">    return iDatabase.isRequiringTransactionsOnQueries();</span>
+  }
+
+
+  public String testConnection() {
+
+<span class="nc" id="L2128">    StringBuilder report = new StringBuilder();</span>
+
+    // If the plug-in needs to provide connection information, we ask the IDatabase...
+    //
+    try {
+<span class="nc" id="L2133">      IDatabaseFactory factory = getDatabaseFactory();</span>
+<span class="nc" id="L2134">      return factory.getConnectionTestReport( this );</span>
+<span class="nc" id="L2135">    } catch ( ClassNotFoundException e ) {</span>
+<span class="nc" id="L2136">      report</span>
+<span class="nc" id="L2137">        .append( BaseMessages.getString( PKG, &quot;BaseDatabaseMeta.TestConnectionReportNotImplemented.Message&quot; ) )</span>
+<span class="nc" id="L2138">        .append( Const.CR );</span>
+<span class="nc" id="L2139">      report.append( BaseMessages.getString( PKG, &quot;DatabaseMeta.report.ConnectionError&quot;, getName() )</span>
+<span class="nc" id="L2140">        + e.toString() + Const.CR );</span>
+<span class="nc" id="L2141">      report.append( Const.getStackTracker( e ) + Const.CR );</span>
+<span class="nc" id="L2142">    } catch ( Exception e ) {</span>
+<span class="nc" id="L2143">      report.append( BaseMessages.getString( PKG, &quot;DatabaseMeta.report.ConnectionError&quot;, getName() )</span>
+<span class="nc" id="L2144">        + e.toString() + Const.CR );</span>
+<span class="nc" id="L2145">      report.append( Const.getStackTracker( e ) + Const.CR );</span>
+<span class="nc" id="L2146">    }</span>
+<span class="nc" id="L2147">    return report.toString();</span>
+  }
+
+  public DatabaseTestResults testConnectionSuccess() {
+
+<span class="nc" id="L2152">    StringBuilder report = new StringBuilder();</span>
+<span class="nc" id="L2153">    DatabaseTestResults databaseTestResults = new DatabaseTestResults();</span>
+
+    // If the plug-in needs to provide connection information, we ask the IDatabase...
+    //
+    try {
+<span class="nc" id="L2158">      IDatabaseFactory factory = getDatabaseFactory();</span>
+<span class="nc" id="L2159">      databaseTestResults = factory.getConnectionTestResults( this );</span>
+<span class="nc" id="L2160">    } catch ( ClassNotFoundException e ) {</span>
+<span class="nc" id="L2161">      report</span>
+<span class="nc" id="L2162">        .append( BaseMessages.getString( PKG, &quot;BaseDatabaseMeta.TestConnectionReportNotImplemented.Message&quot; ) )</span>
+<span class="nc" id="L2163">        .append( Const.CR );</span>
+<span class="nc" id="L2164">      report.append( BaseMessages.getString( PKG, &quot;DatabaseMeta.report.ConnectionError&quot;, getName() )</span>
+<span class="nc" id="L2165">        + e.toString() + Const.CR );</span>
+<span class="nc" id="L2166">      report.append( Const.getStackTracker( e ) + Const.CR );</span>
+<span class="nc" id="L2167">      databaseTestResults.setMessage( report.toString() );</span>
+<span class="nc" id="L2168">      databaseTestResults.setSuccess( false );</span>
+<span class="nc" id="L2169">    } catch ( Exception e ) {</span>
+<span class="nc" id="L2170">      report.append( BaseMessages.getString( PKG, &quot;DatabaseMeta.report.ConnectionError&quot;, getName() )</span>
+<span class="nc" id="L2171">        + e.toString() + Const.CR );</span>
+<span class="nc" id="L2172">      report.append( Const.getStackTracker( e ) + Const.CR );</span>
+<span class="nc" id="L2173">      databaseTestResults.setMessage( report.toString() );</span>
+<span class="nc" id="L2174">      databaseTestResults.setSuccess( false );</span>
+<span class="nc" id="L2175">    }</span>
+<span class="nc" id="L2176">    return databaseTestResults;</span>
+  }
+
+  public IDatabaseFactory getDatabaseFactory() throws Exception {
+<span class="nc" id="L2180">    PluginRegistry registry = PluginRegistry.getInstance();</span>
+<span class="nc" id="L2181">    IPlugin plugin = registry.getPlugin( DatabasePluginType.class, iDatabase.getPluginId() );</span>
+<span class="nc bnc" id="L2182" title="All 2 branches missed.">    if ( plugin == null ) {</span>
+<span class="nc" id="L2183">      throw new HopDatabaseException( &quot;database type with plugin id [&quot;</span>
+<span class="nc" id="L2184">        + iDatabase.getPluginId() + &quot;] couldn't be found!&quot; );</span>
+    }
+
+<span class="nc" id="L2187">    ClassLoader loader = registry.getClassLoader( plugin );</span>
+
+<span class="nc" id="L2189">    Class&lt;?&gt; clazz = Class.forName( iDatabase.getDatabaseFactoryName(), true, loader );</span>
+<span class="nc" id="L2190">    return (IDatabaseFactory) clazz.newInstance();</span>
+  }
+
+  public String getPreferredSchemaName() {
+<span class="fc" id="L2194">    return iDatabase.getPreferredSchemaName();</span>
+  }
+
+  public void setPreferredSchemaName( String preferredSchemaName ) {
+<span class="nc" id="L2198">    iDatabase.setPreferredSchemaName( preferredSchemaName );</span>
+<span class="nc" id="L2199">  }</span>
+
+  public boolean supportsSequenceNoMaxValueOption() {
+<span class="nc" id="L2202">    return iDatabase.supportsSequenceNoMaxValueOption();</span>
+  }
+
+  public boolean requiresCreateTablePrimaryKeyAppend() {
+<span class="nc" id="L2206">    return iDatabase.requiresCreateTablePrimaryKeyAppend();</span>
+  }
+
+  public boolean requiresCastToVariousForIsNull() {
+<span class="nc" id="L2210">    return iDatabase.requiresCastToVariousForIsNull();</span>
+  }
+
+  public boolean isDisplaySizeTwiceThePrecision() {
+<span class="nc" id="L2214">    return iDatabase.isDisplaySizeTwiceThePrecision();</span>
+  }
+
+  public boolean supportsPreparedStatementMetadataRetrieval() {
+<span class="nc" id="L2218">    return iDatabase.supportsPreparedStatementMetadataRetrieval();</span>
+  }
+
+  public boolean isSystemTable( String tableName ) {
+<span class="nc" id="L2222">    return iDatabase.isSystemTable( tableName );</span>
+  }
+
+  private boolean supportsNewLinesInSql() {
+<span class="nc" id="L2226">    return iDatabase.supportsNewLinesInSql();</span>
+  }
+
+  public String getSqlListOfSchemas() {
+<span class="nc" id="L2230">    return iDatabase.getSqlListOfSchemas();</span>
+  }
+
+  public int getMaxColumnsInIndex() {
+<span class="nc" id="L2234">    return iDatabase.getMaxColumnsInIndex();</span>
+  }
+
+  public boolean supportsErrorHandlingOnBatchUpdates() {
+<span class="nc" id="L2238">    return iDatabase.supportsErrorHandlingOnBatchUpdates();</span>
+  }
+
+  /**
+   * Get the SQL to insert a new empty unknown record in a dimension.
+   *
+   * @param schemaTable  the schema-table name to insert into
+   * @param keyField     The key field
+   * @param versionField the version field
+   * @return the SQL to insert the unknown record into the SCD.
+   */
+  public String getSqlInsertAutoIncUnknownDimensionRow( String schemaTable, String keyField, String versionField ) {
+<span class="nc" id="L2250">    return iDatabase.getSqlInsertAutoIncUnknownDimensionRow( schemaTable, keyField, versionField );</span>
+  }
+
+  /**
+   * @return true if this is a relational database you can explore. Return false for SAP, PALO, etc.
+   */
+  public boolean isExplorable() {
+<span class="nc" id="L2257">    return iDatabase.isExplorable();</span>
+  }
+
+  /**
+   * @return The SQL on this database to get a list of sequences.
+   */
+  public String getSqlListOfSequences() {
+<span class="nc" id="L2264">    return iDatabase.getSqlListOfSequences();</span>
+  }
+
+  public String quoteSqlString( String string ) {
+<span class="nc" id="L2268">    return iDatabase.quoteSqlString( string );</span>
+  }
+
+  /**
+   * @see IDatabase#generateColumnAlias(int, String)
+   */
+  public String generateColumnAlias( int columnIndex, String suggestedName ) {
+<span class="nc" id="L2275">    return iDatabase.generateColumnAlias( columnIndex, suggestedName );</span>
+  }
+
+  public boolean isMySqlVariant() {
+<span class="fc" id="L2279">    return iDatabase.isMySqlVariant();</span>
+  }
+
+  public Long getNextBatchId( Database ldb, String schemaName, String tableName, String fieldName ) throws HopDatabaseException {
+<span class="nc" id="L2283">    return iDatabase.getNextBatchId( this, ldb, schemaName, tableName, fieldName );</span>
+  }
+
+  public Object getValueFromResultSet( ResultSet rs, IValueMeta val, int i ) throws HopDatabaseException {
+<span class="nc" id="L2287">    return iDatabase.getValueFromResultSet( rs, val, i );</span>
+  }
+
+  /**
+   * Marker used to determine if the DatabaseMeta should be allowed to be modified/saved. It does NOT prevent object
+   * modification.
+   *
+   * @return
+   */
+  public boolean isReadOnly() {
+<span class="nc" id="L2297">    return readOnly;</span>
+  }
+
+  /**
+   * Sets the marker used to determine if the DatabaseMeta should be allowed to be modified/saved. Setting to true does
+   * NOT prevent object modification.
+   *
+   * @return
+   */
+  public void setReadOnly( boolean readOnly ) {
+<span class="nc" id="L2307">    this.readOnly = readOnly;</span>
+<span class="nc" id="L2308">  }</span>
+
+  public String getSequenceNoMaxValueOption() {
+<span class="nc" id="L2311">    return iDatabase.getSequenceNoMaxValueOption();</span>
+  }
+
+  /**
+   * @return true if the database supports autoGeneratedKeys
+   */
+  public boolean supportsAutoGeneratedKeys() {
+<span class="nc" id="L2318">    return iDatabase.supportsAutoGeneratedKeys();</span>
+  }
+
+
+  /**
+   * Customizes the IValueMeta defined in the base
+   *
+   * @return String the create table statement
+   */
+  public String getCreateTableStatement() {
+<span class="nc" id="L2328">    return iDatabase.getCreateTableStatement();</span>
+  }
+
+  /**
+   * Forms the drop table statement specific for a certain RDBMS.
+   *
+   * @param tableName Name of the table to drop
+   * @return Drop table statement specific for the current database
+   */
+  public String getDropTableIfExistsStatement( String tableName ) {
+<span class="fc" id="L2338">    return iDatabase.getDropTableIfExistsStatement( tableName );</span>
+  }
+
+  /**
+   * For testing
+   */
+  protected ILogChannel getGeneralLogger() {
+<span class="nc" id="L2345">    return LogChannel.GENERAL;</span>
+  }
+
+  /**
+   * For testing
+   */
+  protected IDatabase getDbInterface( String typeCode ) throws HopDatabaseException {
+<span class="nc" id="L2352">    return getIDatabase( typeCode );</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

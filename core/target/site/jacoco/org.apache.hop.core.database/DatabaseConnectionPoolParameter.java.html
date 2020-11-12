@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DatabaseConnectionPoolParameter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.database</a> &gt; <span class="el_source">DatabaseConnectionPoolParameter.java</span></div><h1>DatabaseConnectionPoolParameter.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.database;
+
+import org.apache.hop.core.RowMetaAndData;
+import org.apache.hop.core.row.IRowMeta;
+import org.apache.hop.core.row.RowMeta;
+import org.apache.hop.core.row.value.ValueMetaString;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class DatabaseConnectionPoolParameter {
+  private String parameter;
+  private String defaultValue;
+  private String description;
+
+<span class="nc" id="L38">  public DatabaseConnectionPoolParameter() {</span>
+<span class="nc" id="L39">  }</span>
+
+  /**
+   * @param parameter
+   * @param defaultValue
+   * @param description
+   */
+  public DatabaseConnectionPoolParameter( String parameter, String defaultValue, String description ) {
+<span class="nc" id="L47">    this();</span>
+<span class="nc" id="L48">    this.parameter = parameter;</span>
+<span class="nc" id="L49">    this.defaultValue = defaultValue;</span>
+<span class="nc" id="L50">    this.description = description;</span>
+<span class="nc" id="L51">  }</span>
+
+  /**
+   * @return the defaultValue
+   */
+  public String getDefaultValue() {
+<span class="nc" id="L57">    return defaultValue;</span>
+  }
+
+  /**
+   * @param defaultValue the defaultValue to set
+   */
+  public void setDefaultValue( String defaultValue ) {
+<span class="nc" id="L64">    this.defaultValue = defaultValue;</span>
+<span class="nc" id="L65">  }</span>
+
+  /**
+   * @return the description
+   */
+  public String getDescription() {
+<span class="nc" id="L71">    return description;</span>
+  }
+
+  /**
+   * @param description the description to set
+   */
+  public void setDescription( String description ) {
+<span class="nc" id="L78">    this.description = description;</span>
+<span class="nc" id="L79">  }</span>
+
+  /**
+   * @return the parameter
+   */
+  public String getParameter() {
+<span class="nc" id="L85">    return parameter;</span>
+  }
+
+  /**
+   * @param parameter the parameter to set
+   */
+  public void setParameter( String parameter ) {
+<span class="nc" id="L92">    this.parameter = parameter;</span>
+<span class="nc" id="L93">  }</span>
+
+  public static final String[] getParameterNames( DatabaseConnectionPoolParameter[] poolParameters ) {
+<span class="nc" id="L96">    String[] names = new String[ poolParameters.length ];</span>
+<span class="nc bnc" id="L97" title="All 2 branches missed.">    for ( int i = 0; i &lt; names.length; i++ ) {</span>
+<span class="nc" id="L98">      names[ i ] = poolParameters[ i ].getParameter();</span>
+    }
+<span class="nc" id="L100">    return names;</span>
+  }
+
+  public static final DatabaseConnectionPoolParameter findParameter( String parameterName,
+                                                                     DatabaseConnectionPoolParameter[] poolParameters ) {
+<span class="nc bnc" id="L105" title="All 2 branches missed.">    for ( int i = 0; i &lt; poolParameters.length; i++ ) {</span>
+<span class="nc bnc" id="L106" title="All 2 branches missed.">      if ( poolParameters[ i ].getParameter().equalsIgnoreCase( parameterName ) ) {</span>
+<span class="nc" id="L107">        return poolParameters[ i ];</span>
+      }
+    }
+<span class="nc" id="L110">    return null;</span>
+  }
+
+  public static final List&lt;RowMetaAndData&gt; getRowList( DatabaseConnectionPoolParameter[] poolParameters,
+                                                       String titleParameter, String titleDefaultValue, String titleDescription ) {
+<span class="nc" id="L115">    IRowMeta rowMeta = new RowMeta();</span>
+
+<span class="nc" id="L117">    rowMeta.addValueMeta( new ValueMetaString( titleParameter ) );</span>
+<span class="nc" id="L118">    rowMeta.addValueMeta( new ValueMetaString( titleDefaultValue ) );</span>
+<span class="nc" id="L119">    rowMeta.addValueMeta( new ValueMetaString( titleDescription ) );</span>
+
+<span class="nc" id="L121">    List&lt;RowMetaAndData&gt; list = new ArrayList&lt;RowMetaAndData&gt;();</span>
+
+<span class="nc bnc" id="L123" title="All 2 branches missed.">    for ( int i = 0; i &lt; poolParameters.length; i++ ) {</span>
+<span class="nc" id="L124">      DatabaseConnectionPoolParameter p = poolParameters[ i ];</span>
+
+<span class="nc" id="L126">      Object[] row = new Object[ rowMeta.size() ];</span>
+<span class="nc" id="L127">      row[ 0 ] = p.getParameter();</span>
+<span class="nc" id="L128">      row[ 1 ] = p.getDefaultValue();</span>
+<span class="nc" id="L129">      row[ 2 ] = p.getDescription();</span>
+
+<span class="nc" id="L131">      list.add( new RowMetaAndData( rowMeta, row ) );</span>
+    }
+
+<span class="nc" id="L134">    return list;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

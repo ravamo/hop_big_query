@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UuidUtil.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.util</a> &gt; <span class="el_source">UuidUtil.java</span></div><h1>UuidUtil.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.util;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.apache.hop.i18n.BaseMessages;
+import org.safehaus.uuid.UUID;
+import org.safehaus.uuid.UUIDGenerator;
+
+<span class="nc" id="L31">public class UuidUtil {</span>
+<span class="fc" id="L32">  private static Class&lt;?&gt; PKG = UuidUtil.class; // for i18n purposes, needed by Translator!!</span>
+
+<span class="fc" id="L34">  private static Log log = LogFactory.getLog( UuidUtil.class );</span>
+
+<span class="fc" id="L36">  static boolean nativeInitialized = false;</span>
+
+  static UUIDGenerator ug;
+
+  static org.safehaus.uuid.EthernetAddress eAddr;
+
+  static {
+    // Try loading the EthernetAddress library. If this fails, then fallback
+    // to
+    // using another method for generating UUID's.
+    /*
+     * This is always going to fail at the moment try { System.loadLibrary(&quot;EthernetAddress&quot;); nativeInitialized = true;
+     * } catch (Throwable t) { // log.warn(BaseMessages.getString(PKG, &quot;UuidUtil.ERROR_0001_LOADING_ETHERNET_ADDRESS&quot;)
+     * ); // Ignore for now. }
+     */
+<span class="fc" id="L51">    ug = UUIDGenerator.getInstance();</span>
+<span class="pc bpc" id="L52" title="1 of 2 branches missed.">    if ( nativeInitialized ) {</span>
+      try {
+<span class="nc" id="L54">        com.ccg.net.ethernet.EthernetAddress ea = com.ccg.net.ethernet.EthernetAddress.getPrimaryAdapter();</span>
+<span class="nc" id="L55">        eAddr = new org.safehaus.uuid.EthernetAddress( ea.getBytes() );</span>
+<span class="nc" id="L56">      } catch ( Exception ex ) {</span>
+<span class="nc" id="L57">        log.error( BaseMessages.getString( PKG, &quot;UUIDUtil.ERROR_0002_GET_MAC_ADDR&quot; ), ex );</span>
+<span class="nc" id="L58">      } catch ( UnsatisfiedLinkError ule ) {</span>
+<span class="nc" id="L59">        log.error( BaseMessages.getString( PKG, &quot;UUIDUtil.ERROR_0002_GET_MAC_ADDR&quot; ), ule );</span>
+<span class="nc" id="L60">        nativeInitialized = false;</span>
+<span class="nc" id="L61">      }</span>
+    }
+
+    /*
+     * Add support for running in clustered environments. In this way, the MAC address of the running server can be
+     * added to the environment with a -DMAC_ADDRESS=00:50:56:C0:00:01
+     */
+<span class="pc bpc" id="L68" title="1 of 2 branches missed.">    if ( eAddr == null ) {</span>
+<span class="fc" id="L69">      String macAddr = System.getProperty( &quot;MAC_ADDRESS&quot; );</span>
+<span class="pc bpc" id="L70" title="1 of 2 branches missed.">      if ( macAddr != null ) {</span>
+        // On Windows machines, people would be inclined to get the MAC
+        // address with ipconfig /all. The format of this would be
+        // something like 00-50-56-C0-00-08. So, replace '-' with ':' before
+        // creating the address.
+        //
+<span class="nc" id="L76">        macAddr = macAddr.replace( '-', ':' );</span>
+<span class="nc" id="L77">        eAddr = new org.safehaus.uuid.EthernetAddress( macAddr );</span>
+      }
+    }
+
+<span class="pc bpc" id="L81" title="1 of 2 branches missed.">    if ( eAddr == null ) {</span>
+      // Still don't have an Ethernet Address - generate a dummy one.
+<span class="fc" id="L83">      eAddr = ug.getDummyAddress();</span>
+    }
+
+    // Generate a UUID to make sure everything is running OK.
+<span class="fc" id="L87">    UUID olduuId = ug.generateTimeBasedUUID( eAddr );</span>
+<span class="pc bpc" id="L88" title="1 of 2 branches missed.">    if ( olduuId == null ) {</span>
+<span class="nc" id="L89">      log.error( BaseMessages.getString( PKG, &quot;UUIDUtil.ERROR_0003_GENERATEFAILED&quot; ) );</span>
+    }
+
+<span class="fc" id="L92">  }</span>
+
+  public static String getUUIDAsString() {
+<span class="fc" id="L95">    return getUUID().toString();</span>
+  }
+
+  public static UUID getUUID() {
+<span class="fc" id="L99">    return ug.generateTimeBasedUUID( eAddr );</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ConfigFile.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.config.plugin</a> &gt; <span class="el_source">ConfigFile.java</span></div><h1>ConfigFile.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.config.plugin;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
+import org.apache.hop.core.config.ConfigFileSerializer;
+import org.apache.hop.core.config.ConfigNoFileSerializer;
+import org.apache.hop.core.config.DescribedVariable;
+import org.apache.hop.core.config.IConfigFile;
+import org.apache.hop.core.config.IHopConfigSerializer;
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.logging.LogChannel;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public abstract class ConfigFile implements IConfigFile {
+
+  public static final String HOP_VARIABLES_KEY = &quot;variables&quot;;
+
+  @JsonProperty( &quot;config&quot; )
+  protected Map&lt;String, Object&gt; configMap;
+
+  @JsonIgnore
+  protected IHopConfigSerializer serializer;
+
+<span class="fc" id="L53">  public ConfigFile() {</span>
+<span class="fc" id="L54">    configMap = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L55">    serializer = new ConfigNoFileSerializer();</span>
+<span class="fc" id="L56">  }</span>
+
+  public void readFromFile() throws HopException {
+    try {
+<span class="pc bpc" id="L60" title="1 of 2 branches missed.">      if ( new File( getConfigFilename() ).exists() ) {</span>
+        // Let's write to the file
+        //
+<span class="nc" id="L63">        this.serializer = new ConfigFileSerializer();</span>
+      } else {
+        // Doesn't serialize anything really, reads an empty map with an empty file
+        //
+<span class="fc" id="L67">        System.out.println( &quot;Hop configuration file not found, not serializing: &quot; + getConfigFilename() );</span>
+<span class="fc" id="L68">        this.serializer = new ConfigNoFileSerializer();</span>
+      }
+<span class="fc" id="L70">      configMap = serializer.readFromFile( getConfigFilename() );</span>
+<span class="nc" id="L71">    } catch ( Exception e ) {</span>
+<span class="nc" id="L72">      throw new HopException( &quot;Unable to read config file '&quot; + getConfigFilename() + &quot;'&quot;, e );</span>
+<span class="fc" id="L73">    }</span>
+<span class="fc" id="L74">  }</span>
+
+  public void saveToFile() throws HopException {
+    try {
+<span class="fc" id="L78">      serializer.writeToFile( getConfigFilename(), configMap );</span>
+<span class="nc" id="L79">    } catch ( Exception e ) {</span>
+<span class="nc" id="L80">      throw new HopException( &quot;Error saving configuration file '&quot; + getConfigFilename() + &quot;'&quot;, e );</span>
+<span class="fc" id="L81">    }</span>
+<span class="fc" id="L82">  }</span>
+
+  public ConfigFile( String filename, List&lt;DescribedVariable&gt; describedVariables ) {
+<span class="nc" id="L85">    this();</span>
+<span class="nc" id="L86">    setConfigFilename( filename );</span>
+<span class="nc" id="L87">    configMap.put( HOP_VARIABLES_KEY, describedVariables );</span>
+<span class="nc" id="L88">  }</span>
+
+  @JsonIgnore
+  @Override
+  public List&lt;DescribedVariable&gt; getDescribedVariables() {
+<span class="fc" id="L93">    List&lt;DescribedVariable&gt; variables = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L94">    Object variablesObject = configMap.get( HOP_VARIABLES_KEY );</span>
+<span class="fc bfc" id="L95" title="All 2 branches covered.">    if ( variablesObject != null ) {</span>
+      try {
+<span class="pc bpc" id="L97" title="1 of 2 branches missed.">        for ( Object dvObject : (List) variablesObject ) {</span>
+<span class="nc" id="L98">          String dvJson = new Gson().toJson( dvObject );</span>
+<span class="nc" id="L99">          DescribedVariable describedVariable = new ObjectMapper().readValue( dvJson, DescribedVariable.class );</span>
+<span class="nc" id="L100">          variables.add( describedVariable );</span>
+<span class="nc" id="L101">        }</span>
+<span class="nc" id="L102">      } catch ( Exception e ) {</span>
+<span class="nc" id="L103">        LogChannel.GENERAL.logError( &quot;Error parsing described variables from configuration file '&quot; + getConfigFilename() + &quot;'&quot;, e );</span>
+<span class="nc" id="L104">        variables = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L105">      }</span>
+    }
+
+<span class="fc" id="L108">    configMap.put( HOP_VARIABLES_KEY, variables );</span>
+
+<span class="fc" id="L110">    return variables;</span>
+  }
+
+  @Override public DescribedVariable findDescribedVariable( String name ) {
+<span class="nc bnc" id="L114" title="All 2 branches missed.">    for ( DescribedVariable describedVariable : getDescribedVariables() ) {</span>
+<span class="nc bnc" id="L115" title="All 2 branches missed.">      if ( describedVariable.getName().equals( name ) ) {</span>
+<span class="nc" id="L116">        return describedVariable;</span>
+      }
+<span class="nc" id="L118">    }</span>
+<span class="nc" id="L119">    return null;</span>
+  }
+
+  @Override public void setDescribedVariable( DescribedVariable variable ) {
+<span class="nc bnc" id="L123" title="All 2 branches missed.">    for ( DescribedVariable describedVariable : getDescribedVariables() ) {</span>
+<span class="nc bnc" id="L124" title="All 2 branches missed.">      if ( describedVariable.getName().equals( variable.getName() ) ) {</span>
+        // Variable found? Update the value and description
+        //
+<span class="nc" id="L127">        describedVariable.setValue( variable.getValue() );</span>
+<span class="nc" id="L128">        describedVariable.setDescription( variable.getDescription() );</span>
+<span class="nc" id="L129">        return;</span>
+      }
+<span class="nc" id="L131">    }</span>
+    // Variable not found? Add it
+    //
+<span class="nc" id="L134">    getDescribedVariables().add( variable );</span>
+<span class="nc" id="L135">  }</span>
+
+  @Override public String findDescribedVariableValue( String name ) {
+<span class="nc" id="L138">    DescribedVariable describedVariable = findDescribedVariable( name );</span>
+<span class="nc bnc" id="L139" title="All 2 branches missed.">    if ( describedVariable == null ) {</span>
+<span class="nc" id="L140">      return null;</span>
+    }
+<span class="nc" id="L142">    return describedVariable.getValue();</span>
+  }
+
+  @Override public void setDescribedVariables( List&lt;DescribedVariable&gt; describedVariables ) {
+<span class="nc" id="L146">    configMap.put(HOP_VARIABLES_KEY, describedVariables);</span>
+<span class="nc" id="L147">  }</span>
+
+  /**
+   * Gets filename
+   *
+   * @return value of filename
+   */
+  @Override abstract public String getConfigFilename();
+
+  /**
+   * @param filename The filename to set
+   */
+  abstract public void setConfigFilename( String filename );
+
+  /**
+   * Gets configMap
+   *
+   * @return value of configMap
+   */
+  public Map&lt;String, Object&gt; getConfigMap() {
+<span class="nc" id="L167">    return configMap;</span>
+  }
+
+  /**
+   * @param configMap The configMap to set
+   */
+  public void setConfigMap( Map&lt;String, Object&gt; configMap ) {
+<span class="nc" id="L174">    this.configMap = configMap;</span>
+<span class="nc" id="L175">  }</span>
+
+  /**
+   * Gets serializer
+   *
+   * @return value of serializer
+   */
+  public IHopConfigSerializer getSerializer() {
+<span class="nc" id="L183">    return serializer;</span>
+  }
+
+  /**
+   * @param serializer The serializer to set
+   */
+  public void setSerializer( IHopConfigSerializer serializer ) {
+<span class="nc" id="L190">    this.serializer = serializer;</span>
+<span class="nc" id="L191">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

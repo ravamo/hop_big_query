@@ -1,0 +1,566 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ValueMetaInternetAddress.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.row.value</a> &gt; <span class="el_source">ValueMetaInternetAddress.java</span></div><h1>ValueMetaInternetAddress.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.row.value;
+
+import org.apache.hop.core.Const;
+import org.apache.hop.core.database.IDatabase;
+import org.apache.hop.core.database.DatabaseMeta;
+import org.apache.hop.core.exception.HopDatabaseException;
+import org.apache.hop.core.exception.HopValueException;
+import org.apache.hop.core.row.IValueMeta;
+import org.apache.hop.core.util.Utils;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.net.InetAddress;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Types;
+import java.util.Date;
+
+public class ValueMetaInternetAddress extends ValueMetaDate {
+
+  @Override
+  public int compare( Object data1, Object data2 ) throws HopValueException {
+<span class="fc" id="L47">    InetAddress inet1 = getInternetAddress( data1 );</span>
+<span class="fc" id="L48">    InetAddress inet2 = getInternetAddress( data2 );</span>
+<span class="fc" id="L49">    int cmp = 0;</span>
+<span class="fc bfc" id="L50" title="All 2 branches covered.">    if ( inet1 == null ) {</span>
+<span class="fc bfc" id="L51" title="All 2 branches covered.">      if ( inet2 == null ) {</span>
+<span class="fc" id="L52">        cmp = 0;</span>
+      } else {
+<span class="fc" id="L54">        cmp = -1;</span>
+      }
+<span class="fc bfc" id="L56" title="All 2 branches covered.">    } else if ( inet2 == null ) {</span>
+<span class="fc" id="L57">      cmp = 1;</span>
+    } else {
+<span class="fc" id="L59">      BigDecimal bd1 = getBigNumber( inet1 );</span>
+<span class="fc" id="L60">      BigDecimal bd2 = getBigNumber( inet2 );</span>
+<span class="fc" id="L61">      cmp = bd1.compareTo( bd2 );</span>
+    }
+<span class="fc bfc" id="L63" title="All 2 branches covered.">    if ( isSortedDescending() ) {</span>
+<span class="fc" id="L64">      return -cmp;</span>
+    } else {
+<span class="fc" id="L66">      return cmp;</span>
+    }
+  }
+
+  public ValueMetaInternetAddress() {
+<span class="fc" id="L71">    this( null );</span>
+<span class="fc" id="L72">  }</span>
+
+  public ValueMetaInternetAddress( String name ) {
+<span class="fc" id="L75">    super( name, IValueMeta.TYPE_INET );</span>
+<span class="fc" id="L76">  }</span>
+
+  public InetAddress getInternetAddress( Object object ) throws HopValueException {
+<span class="fc bfc" id="L79" title="All 2 branches covered.">    if ( object == null ) {</span>
+<span class="fc" id="L80">      return null;</span>
+    }
+
+<span class="pc bpc" id="L83" title="8 of 9 branches missed.">    switch ( type ) {</span>
+      case TYPE_INET:
+<span class="pc bpc" id="L85" title="3 of 4 branches missed.">        switch ( storageType ) {</span>
+          case STORAGE_TYPE_NORMAL:
+<span class="fc" id="L87">            return (InetAddress) object;</span>
+          case STORAGE_TYPE_BINARY_STRING:
+<span class="nc" id="L89">            return (InetAddress) convertBinaryStringToNativeType( (byte[]) object );</span>
+          case STORAGE_TYPE_INDEXED:
+<span class="nc" id="L91">            return (InetAddress) index[ ( (Integer) object ) ];</span>
+          default:
+<span class="nc" id="L93">            throw new HopValueException( toString() + &quot; : Unknown storage type &quot; + storageType + &quot; specified.&quot; );</span>
+        }
+      case TYPE_STRING:
+<span class="nc bnc" id="L96" title="All 4 branches missed.">        switch ( storageType ) {</span>
+          case STORAGE_TYPE_NORMAL:
+<span class="nc" id="L98">            return convertStringToInternetAddress( (String) object );</span>
+          case STORAGE_TYPE_BINARY_STRING:
+<span class="nc" id="L100">            return convertStringToInternetAddress( (String) convertBinaryStringToNativeType( (byte[]) object ) );</span>
+          case STORAGE_TYPE_INDEXED:
+<span class="nc" id="L102">            return convertStringToInternetAddress( (String) index[ ( (Integer) object ).intValue() ] );</span>
+          default:
+<span class="nc" id="L104">            throw new HopValueException( toString() + &quot; : Unknown storage type &quot; + storageType + &quot; specified.&quot; );</span>
+        }
+      case TYPE_NUMBER:
+<span class="nc bnc" id="L107" title="All 4 branches missed.">        switch ( storageType ) {</span>
+          case STORAGE_TYPE_NORMAL:
+<span class="nc" id="L109">            return convertNumberToInternetAddress( (Double) object );</span>
+          case STORAGE_TYPE_BINARY_STRING:
+<span class="nc" id="L111">            return convertNumberToInternetAddress( (Double) convertBinaryStringToNativeType( (byte[]) object ) );</span>
+          case STORAGE_TYPE_INDEXED:
+<span class="nc" id="L113">            return convertNumberToInternetAddress( (Double) index[ ( (Integer) object ).intValue() ] );</span>
+          default:
+<span class="nc" id="L115">            throw new HopValueException( toString() + &quot; : Unknown storage type &quot; + storageType + &quot; specified.&quot; );</span>
+        }
+      case TYPE_INTEGER:
+<span class="nc bnc" id="L118" title="All 4 branches missed.">        switch ( storageType ) {</span>
+          case STORAGE_TYPE_NORMAL:
+<span class="nc" id="L120">            return convertIntegerToInternetAddress( (Long) object );</span>
+          case STORAGE_TYPE_BINARY_STRING:
+<span class="nc" id="L122">            return convertIntegerToInternetAddress( (Long) convertBinaryStringToNativeType( (byte[]) object ) );</span>
+          case STORAGE_TYPE_INDEXED:
+<span class="nc" id="L124">            return convertIntegerToInternetAddress( (Long) index[ ( (Integer) object ).intValue() ] );</span>
+          default:
+<span class="nc" id="L126">            throw new HopValueException( toString() + &quot; : Unknown storage type &quot; + storageType + &quot; specified.&quot; );</span>
+        }
+      case TYPE_BIGNUMBER:
+<span class="nc bnc" id="L129" title="All 4 branches missed.">        switch ( storageType ) {</span>
+          case STORAGE_TYPE_NORMAL:
+<span class="nc" id="L131">            return convertBigNumberToInternetAddress( (BigDecimal) object );</span>
+          case STORAGE_TYPE_BINARY_STRING:
+<span class="nc" id="L133">            return convertBigNumberToInternetAddress( (BigDecimal) convertBinaryStringToNativeType( (byte[]) object ) );</span>
+          case STORAGE_TYPE_INDEXED:
+<span class="nc" id="L135">            return convertBigNumberToInternetAddress( (BigDecimal) index[ ( (Integer) object ).intValue() ] );</span>
+          default:
+<span class="nc" id="L137">            throw new HopValueException( toString() + &quot; : Unknown storage type &quot; + storageType + &quot; specified.&quot; );</span>
+        }
+      case TYPE_BOOLEAN:
+<span class="nc" id="L140">        throw new HopValueException( toString()</span>
+          + &quot; : I don't know how to convert a boolean to a Internet address.&quot; );
+      case TYPE_BINARY:
+<span class="nc" id="L143">        throw new HopValueException( toString()</span>
+          + &quot; : I don't know how to convert a binary value to Internet address.&quot; );
+      case TYPE_SERIALIZABLE:
+<span class="nc" id="L146">        throw new HopValueException( toString()</span>
+          + &quot; : I don't know how to convert a serializable value to Internet address.&quot; );
+
+      default:
+<span class="nc" id="L150">        throw new HopValueException( toString() + &quot; : Unknown type &quot; + type + &quot; specified.&quot; );</span>
+    }
+  }
+
+  @Override
+  public Date getDate( Object object ) throws HopValueException {
+<span class="nc" id="L156">    throw new HopValueException( toStringMeta()</span>
+      + &quot;: it's not possible to convert from Internet Address to a date&quot; );
+  }
+
+  @Override
+  public Long getInteger( Object object ) throws HopValueException {
+<span class="nc" id="L162">    InetAddress address = getInternetAddress( object );</span>
+<span class="nc bnc" id="L163" title="All 2 branches missed.">    if ( address == null ) {</span>
+<span class="nc" id="L164">      return null;</span>
+    }
+<span class="nc" id="L166">    long total = 0L;</span>
+<span class="nc" id="L167">    byte[] addr = address.getAddress();</span>
+
+<span class="nc bnc" id="L169" title="All 2 branches missed.">    if ( addr.length &gt; 8 ) {</span>
+<span class="nc" id="L170">      throw new HopValueException( &quot;Unable to convert Internet Address v6 to an Integer: &quot;</span>
+<span class="nc" id="L171">        + getString( object ) + &quot; (The precision is too high to be contained in a long integer value)&quot; );</span>
+    }
+
+<span class="nc bnc" id="L174" title="All 2 branches missed.">    for ( int i = 0; i &lt; addr.length; i++ ) {</span>
+<span class="nc" id="L175">      total += ( addr[ i ] &amp; 0xFF ) * ( (long) Math.pow( 256, ( addr.length - 1 - i ) ) );</span>
+    }
+
+<span class="nc" id="L178">    return total;</span>
+  }
+
+  @Override
+  public Double getNumber( Object object ) throws HopValueException {
+<span class="nc" id="L183">    Long l = getInteger( object );</span>
+<span class="nc bnc" id="L184" title="All 2 branches missed.">    if ( l == null ) {</span>
+<span class="nc" id="L185">      return null;</span>
+    }
+
+<span class="nc" id="L188">    return l.doubleValue();</span>
+  }
+
+  @Override
+  public BigDecimal getBigNumber( Object object ) throws HopValueException {
+<span class="fc" id="L193">    InetAddress address = getInternetAddress( object );</span>
+<span class="fc bfc" id="L194" title="All 2 branches covered.">    if ( null == address ) {</span>
+<span class="fc" id="L195">      return null;</span>
+    }
+<span class="fc" id="L197">    BigInteger bi = BigInteger.ZERO;</span>
+<span class="fc" id="L198">    byte[] addr = address.getAddress();</span>
+
+<span class="fc bfc" id="L200" title="All 2 branches covered.">    for ( byte aByte : addr ) {</span>
+<span class="fc" id="L201">      bi = bi.shiftLeft( 8 ).add( BigInteger.valueOf( aByte &amp; 0xFF ) );</span>
+    }
+
+<span class="fc" id="L204">    return new BigDecimal( bi );</span>
+  }
+
+  @Override
+  public Boolean getBoolean( Object object ) throws HopValueException {
+<span class="nc" id="L209">    throw new HopValueException( toStringMeta()</span>
+      + &quot;: it's not possible to convert from an Internet Address to a Boolean&quot; );
+  }
+
+  @Override
+  public String getString( Object object ) throws HopValueException {
+<span class="fc" id="L215">    return convertInternetAddressToString( getInternetAddress( object ) );</span>
+  }
+
+  @Override
+  public byte[] getBinaryString( Object object ) throws HopValueException {
+<span class="pc bpc" id="L220" title="1 of 4 branches missed.">    if ( isStorageBinaryString() &amp;&amp; identicalFormat ) {</span>
+<span class="fc" id="L221">      return (byte[]) object; // shortcut it directly for better performance.</span>
+    }
+<span class="pc bpc" id="L223" title="1 of 2 branches missed.">    if ( object == null ) {</span>
+<span class="nc" id="L224">      return null;</span>
+    }
+<span class="pc bpc" id="L226" title="2 of 4 branches missed.">    switch ( storageType ) {</span>
+      case STORAGE_TYPE_NORMAL:
+<span class="fc" id="L228">        return convertStringToBinaryString( getString( object ) );</span>
+      case STORAGE_TYPE_BINARY_STRING:
+<span class="nc" id="L230">        return convertStringToBinaryString( getString(</span>
+<span class="nc" id="L231">          convertStringToInternetAddress( convertBinaryStringToString( (byte[]) object ) ) ) );</span>
+      case STORAGE_TYPE_INDEXED:
+<span class="fc" id="L233">        return convertStringToBinaryString(</span>
+<span class="fc" id="L234">          convertInternetAddressToString( (InetAddress) index[ ( (Integer) object ) ] ) );</span>
+      default:
+<span class="nc" id="L236">        throw new HopValueException( toString() + &quot; : Unknown storage type &quot; + storageType + &quot; specified.&quot; );</span>
+    }
+  }
+
+  protected InetAddress convertBigNumberToInternetAddress( BigDecimal bd ) throws HopValueException {
+<span class="nc bnc" id="L241" title="All 2 branches missed.">    if ( bd == null ) {</span>
+<span class="nc" id="L242">      return null;</span>
+    }
+<span class="nc" id="L244">    return convertIntegerToInternetAddress( bd.longValue() );</span>
+  }
+
+  protected InetAddress convertNumberToInternetAddress( Double d ) throws HopValueException {
+<span class="nc bnc" id="L248" title="All 2 branches missed.">    if ( d == null ) {</span>
+<span class="nc" id="L249">      return null;</span>
+    }
+<span class="nc" id="L251">    long nanos = d.longValue();</span>
+
+<span class="nc" id="L253">    return convertIntegerToInternetAddress( nanos );</span>
+  }
+
+  protected InetAddress convertIntegerToInternetAddress( Long l ) throws HopValueException {
+<span class="nc bnc" id="L257" title="All 2 branches missed.">    if ( l == null ) {</span>
+<span class="nc" id="L258">      return null;</span>
+    }
+
+    byte[] addr;
+<span class="nc bnc" id="L262" title="All 2 branches missed.">    if ( l &gt;= Math.pow( 256, 4 ) ) {</span>
+<span class="nc" id="L263">      addr = new byte[ 16 ];</span>
+    } else {
+<span class="nc" id="L265">      addr = new byte[ 4 ];</span>
+    }
+
+<span class="nc bnc" id="L268" title="All 2 branches missed.">    for ( int i = 0; i &lt; addr.length; i++ ) {</span>
+<span class="nc" id="L269">      long mask = 0xFF &lt;&lt; ( i * 8 );</span>
+<span class="nc" id="L270">      addr[ addr.length - 1 - i ] = (byte) ( ( l &amp; mask ) &gt;&gt; ( 8 * i ) );</span>
+    }
+
+    try {
+<span class="nc" id="L274">      return InetAddress.getByAddress( addr );</span>
+<span class="nc" id="L275">    } catch ( Exception e ) {</span>
+<span class="nc" id="L276">      throw new HopValueException( &quot;Unable to convert an Integer to an internet address&quot;, e );</span>
+    }
+  }
+
+  protected synchronized InetAddress convertStringToInternetAddress( String string ) throws HopValueException {
+    // See if trimming needs to be performed before conversion
+    //
+<span class="fc" id="L283">    string = Const.trimToType( string, getTrimType() );</span>
+
+<span class="pc bpc" id="L285" title="1 of 2 branches missed.">    if ( Utils.isEmpty( string ) ) {</span>
+<span class="nc" id="L286">      return null;</span>
+    }
+
+    try {
+<span class="fc" id="L290">      return InetAddress.getByName( string );</span>
+<span class="nc" id="L291">    } catch ( Exception e ) {</span>
+<span class="nc" id="L292">      throw new HopValueException( toString()</span>
+        + &quot; : couldn't convert string [&quot; + string + &quot;] to an internet address&quot;, e );
+    }
+  }
+
+  protected synchronized String convertInternetAddressToString( InetAddress inetAddress ) throws HopValueException {
+
+<span class="fc bfc" id="L299" title="All 2 branches covered.">    if ( inetAddress == null ) {</span>
+<span class="fc" id="L300">      return null;</span>
+    }
+
+<span class="fc" id="L303">    return inetAddress.getHostAddress();</span>
+  }
+
+  @Override
+  public Object convertDataFromString( String pol, IValueMeta convertMeta, String nullIf, String ifNull,
+                                       int trim_type ) throws HopValueException {
+    // null handling and conversion of value to null
+    //
+<span class="nc" id="L311">    String null_value = nullIf;</span>
+<span class="nc bnc" id="L312" title="All 2 branches missed.">    if ( null_value == null ) {</span>
+<span class="nc bnc" id="L313" title="All 8 branches missed.">      switch ( convertMeta.getType() ) {</span>
+        case IValueMeta.TYPE_BOOLEAN:
+<span class="nc" id="L315">          null_value = Const.NULL_BOOLEAN;</span>
+<span class="nc" id="L316">          break;</span>
+        case IValueMeta.TYPE_STRING:
+<span class="nc" id="L318">          null_value = Const.NULL_STRING;</span>
+<span class="nc" id="L319">          break;</span>
+        case IValueMeta.TYPE_BIGNUMBER:
+<span class="nc" id="L321">          null_value = Const.NULL_BIGNUMBER;</span>
+<span class="nc" id="L322">          break;</span>
+        case IValueMeta.TYPE_NUMBER:
+<span class="nc" id="L324">          null_value = Const.NULL_NUMBER;</span>
+<span class="nc" id="L325">          break;</span>
+        case IValueMeta.TYPE_INTEGER:
+<span class="nc" id="L327">          null_value = Const.NULL_INTEGER;</span>
+<span class="nc" id="L328">          break;</span>
+        case IValueMeta.TYPE_DATE:
+<span class="nc" id="L330">          null_value = Const.NULL_DATE;</span>
+<span class="nc" id="L331">          break;</span>
+        case IValueMeta.TYPE_BINARY:
+<span class="nc" id="L333">          null_value = Const.NULL_BINARY;</span>
+<span class="nc" id="L334">          break;</span>
+        default:
+<span class="nc" id="L336">          null_value = Const.NULL_NONE;</span>
+          break;
+      }
+    }
+
+    // See if we need to convert a null value into a String
+    // For example, we might want to convert null into &quot;Empty&quot;.
+    //
+<span class="nc bnc" id="L344" title="All 2 branches missed.">    if ( !Utils.isEmpty( ifNull ) ) {</span>
+      // Note that you can't pull the pad method up here as a nullComp variable
+      // because you could get an NPE since you haven't checked isEmpty(pol)
+      // yet!
+<span class="nc bnc" id="L348" title="All 2 branches missed.">      if ( Utils.isEmpty( pol )</span>
+<span class="nc bnc" id="L349" title="All 2 branches missed.">        || pol.equalsIgnoreCase( Const.rightPad( new StringBuilder( null_value ), pol.length() ) ) ) {</span>
+<span class="nc" id="L350">        pol = ifNull;</span>
+      }
+    }
+
+    // See if the polled value is empty
+    // In that case, we have a null value on our hands...
+    //
+<span class="nc bnc" id="L357" title="All 2 branches missed.">    if ( Utils.isEmpty( pol ) ) {</span>
+<span class="nc" id="L358">      return null;</span>
+    } else {
+      // if the null_value is specified, we try to match with that.
+      //
+<span class="nc bnc" id="L362" title="All 2 branches missed.">      if ( !Utils.isEmpty( null_value ) ) {</span>
+<span class="nc bnc" id="L363" title="All 2 branches missed.">        if ( null_value.length() &lt;= pol.length() ) {</span>
+          // If the polled value is equal to the spaces right-padded null_value,
+          // we have a match
+          //
+<span class="nc bnc" id="L367" title="All 2 branches missed.">          if ( pol.equalsIgnoreCase( Const.rightPad( new StringBuilder( null_value ), pol.length() ) ) ) {</span>
+<span class="nc" id="L368">            return null;</span>
+          }
+        }
+      } else {
+        // Verify if there are only spaces in the polled value...
+        // We consider that empty as well...
+        //
+<span class="nc bnc" id="L375" title="All 2 branches missed.">        if ( Const.onlySpaces( pol ) ) {</span>
+<span class="nc" id="L376">          return null;</span>
+        }
+      }
+    }
+
+    StringBuilder strpol;
+    // Trimming
+<span class="nc bnc" id="L383" title="All 4 branches missed.">    switch ( trim_type ) {</span>
+      case IValueMeta.TRIM_TYPE_LEFT:
+<span class="nc" id="L385">        strpol = new StringBuilder( pol );</span>
+<span class="nc bnc" id="L386" title="All 4 branches missed.">        while ( strpol.length() &gt; 0 &amp;&amp; strpol.charAt( 0 ) == ' ' ) {</span>
+<span class="nc" id="L387">          strpol.deleteCharAt( 0 );</span>
+        }
+<span class="nc" id="L389">        pol = strpol.toString();</span>
+
+<span class="nc" id="L391">        break;</span>
+      case IValueMeta.TRIM_TYPE_RIGHT:
+<span class="nc" id="L393">        strpol = new StringBuilder( pol );</span>
+<span class="nc bnc" id="L394" title="All 4 branches missed.">        while ( strpol.length() &gt; 0 &amp;&amp; strpol.charAt( strpol.length() - 1 ) == ' ' ) {</span>
+<span class="nc" id="L395">          strpol.deleteCharAt( strpol.length() - 1 );</span>
+        }
+<span class="nc" id="L397">        pol = strpol.toString();</span>
+
+<span class="nc" id="L399">        break;</span>
+      case IValueMeta.TRIM_TYPE_BOTH:
+<span class="nc" id="L401">        strpol = new StringBuilder( pol );</span>
+<span class="nc bnc" id="L402" title="All 4 branches missed.">        while ( strpol.length() &gt; 0 &amp;&amp; strpol.charAt( 0 ) == ' ' ) {</span>
+<span class="nc" id="L403">          strpol.deleteCharAt( 0 );</span>
+        }
+<span class="nc bnc" id="L405" title="All 4 branches missed.">        while ( strpol.length() &gt; 0 &amp;&amp; strpol.charAt( strpol.length() - 1 ) == ' ' ) {</span>
+<span class="nc" id="L406">          strpol.deleteCharAt( strpol.length() - 1 );</span>
+        }
+<span class="nc" id="L408">        pol = strpol.toString();</span>
+<span class="nc" id="L409">        break;</span>
+      default:
+        break;
+    }
+
+    // On with the regular program...
+    // Simply call the ValueMeta routines to do the conversion
+    // We need to do some effort here: copy all
+    //
+<span class="nc" id="L418">    return convertData( convertMeta, pol );</span>
+  }
+
+  /**
+   * Convert the specified data to the data type specified in this object.
+   *
+   * @param meta2 the metadata of the object to be converted
+   * @param data2 the data of the object to be converted
+   * @return the object in the data type of this value metadata object
+   * @throws HopValueException in case there is a data conversion error
+   */
+  @Override
+  public Object convertData( IValueMeta meta2, Object data2 ) throws HopValueException {
+<span class="pc bpc" id="L431" title="4 of 5 branches missed.">    switch ( meta2.getType() ) {</span>
+      case TYPE_STRING:
+<span class="fc" id="L433">        return convertStringToInternetAddress( meta2.getString( data2 ) );</span>
+      case TYPE_INTEGER:
+<span class="nc" id="L435">        return convertIntegerToInternetAddress( meta2.getInteger( data2 ) );</span>
+      case TYPE_NUMBER:
+<span class="nc" id="L437">        return convertNumberToInternetAddress( meta2.getNumber( data2 ) );</span>
+      case TYPE_BIGNUMBER:
+<span class="nc" id="L439">        return convertBigNumberToInternetAddress( meta2.getBigNumber( data2 ) );</span>
+      default:
+<span class="nc" id="L441">        throw new HopValueException( meta2.toStringMeta() + &quot; : can't be converted to an Internet Address&quot; );</span>
+    }
+  }
+
+  @Override
+  public Object cloneValueData( Object object ) throws HopValueException {
+<span class="nc" id="L447">    InetAddress inetAddress = getInternetAddress( object );</span>
+<span class="nc bnc" id="L448" title="All 2 branches missed.">    if ( inetAddress == null ) {</span>
+<span class="nc" id="L449">      return null;</span>
+    }
+
+    try {
+<span class="nc" id="L453">      return InetAddress.getByAddress( inetAddress.getAddress() );</span>
+<span class="nc" id="L454">    } catch ( Exception e ) {</span>
+<span class="nc" id="L455">      throw new HopValueException( &quot;Unable to clone Internet Address&quot;, e );</span>
+    }
+  }
+
+  @Override
+  public IValueMeta getMetadataPreview( DatabaseMeta databaseMeta, ResultSet rs )
+    throws HopDatabaseException {
+
+    try {
+<span class="nc bnc" id="L464" title="All 2 branches missed.">      if ( &quot;INET&quot;.equalsIgnoreCase( rs.getString( &quot;TYPE_NAME&quot; ) ) ) {</span>
+<span class="nc" id="L465">        IValueMeta vmi = super.getMetadataPreview( databaseMeta, rs );</span>
+<span class="nc" id="L466">        IValueMeta valueMeta = new ValueMetaInternetAddress( name );</span>
+<span class="nc" id="L467">        valueMeta.setLength( vmi.getLength() );</span>
+<span class="nc" id="L468">        valueMeta.setOriginalColumnType( vmi.getOriginalColumnType() );</span>
+<span class="nc" id="L469">        valueMeta.setOriginalColumnTypeName( vmi.getOriginalColumnTypeName() );</span>
+<span class="nc" id="L470">        valueMeta.setOriginalNullable( vmi.getOriginalNullable() );</span>
+<span class="nc" id="L471">        valueMeta.setOriginalPrecision( vmi.getOriginalPrecision() );</span>
+<span class="nc" id="L472">        valueMeta.setOriginalScale( vmi.getOriginalScale() );</span>
+<span class="nc" id="L473">        valueMeta.setOriginalSigned( vmi.getOriginalSigned() );</span>
+<span class="nc" id="L474">        return valueMeta;</span>
+      }
+<span class="nc" id="L476">    } catch ( SQLException e ) {</span>
+<span class="nc" id="L477">      throw new HopDatabaseException( e );</span>
+<span class="nc" id="L478">    }</span>
+<span class="nc" id="L479">    return null;</span>
+  }
+
+  @Override
+  public IValueMeta getValueFromSqlType(DatabaseMeta databaseMeta, String name, ResultSetMetaData rm,
+                                        int index, boolean ignoreLength, boolean lazyConversion ) throws HopDatabaseException {
+
+    try {
+<span class="fc" id="L487">      int type = rm.getColumnType( index );</span>
+<span class="pc bpc" id="L488" title="1 of 2 branches missed.">      if ( type == java.sql.Types.OTHER ) {</span>
+
+<span class="nc" id="L490">        String columnTypeName = rm.getColumnTypeName( index );</span>
+<span class="nc bnc" id="L491" title="All 2 branches missed.">        if ( &quot;INET&quot;.equalsIgnoreCase( columnTypeName ) ) {</span>
+
+<span class="nc" id="L493">          ValueMetaInternetAddress valueMeta = new ValueMetaInternetAddress( name );</span>
+
+          // Also get original column details, comment, etc.
+          //
+<span class="nc" id="L497">          getOriginalColumnMetadata( valueMeta, rm, index, ignoreLength );</span>
+<span class="nc" id="L498">          return valueMeta;</span>
+        }
+      }
+<span class="fc" id="L501">      return null;</span>
+<span class="nc" id="L502">    } catch ( Exception e ) {</span>
+<span class="nc" id="L503">      throw new HopDatabaseException( &quot;Error evaluating Internet address value metadata&quot;, e );</span>
+    }
+  }
+
+  @Override
+  public Object getValueFromResultSet( IDatabase iDatabase, ResultSet resultSet, int index ) throws HopDatabaseException {
+
+    try {
+
+<span class="nc" id="L512">      return convertStringToInternetAddress( resultSet.getString( index + 1 ) );</span>
+
+<span class="nc" id="L514">    } catch ( Exception e ) {</span>
+<span class="nc" id="L515">      throw new HopDatabaseException( toStringMeta()</span>
+        + &quot; : Unable to get Internet Address from resultset at index &quot; + index, e );
+    }
+
+  }
+
+  @Override
+  public void setPreparedStatementValue( DatabaseMeta databaseMeta, PreparedStatement preparedStatement,
+                                         int index, Object data ) throws HopDatabaseException {
+
+    try {
+
+<span class="nc" id="L527">      preparedStatement.setObject( index, getString( data ), Types.OTHER );</span>
+
+<span class="nc" id="L529">    } catch ( Exception e ) {</span>
+<span class="nc" id="L530">      throw new HopDatabaseException( toStringMeta()</span>
+        + &quot; : Unable to set Internet address value on prepared statement on index &quot; + index, e );
+<span class="nc" id="L532">    }</span>
+
+<span class="nc" id="L534">  }</span>
+
+  @Override
+  public String getDatabaseColumnTypeDefinition( IDatabase iDatabase, String tk, String pk,
+                                                 boolean use_autoinc, boolean add_fieldname, boolean add_cr ) {
+
+<span class="nc" id="L540">    String retval = null;</span>
+<span class="nc bnc" id="L541" title="All 2 branches missed.">    if ( iDatabase.isPostgresVariant() ) {</span>
+<span class="nc bnc" id="L542" title="All 2 branches missed.">      if ( add_fieldname ) {</span>
+<span class="nc" id="L543">        retval = getName() + &quot; &quot;;</span>
+      } else {
+<span class="nc" id="L545">        retval = &quot;&quot;;</span>
+      }
+<span class="nc" id="L547">      retval += &quot;INET&quot;;</span>
+<span class="nc bnc" id="L548" title="All 2 branches missed.">      if ( add_cr ) {</span>
+<span class="nc" id="L549">        retval += Const.CR;</span>
+      }
+    }
+
+<span class="nc" id="L553">    return retval;</span>
+  }
+
+  @Override
+  public Object getNativeDataType( Object object ) throws HopValueException {
+<span class="fc" id="L558">    return getInternetAddress( object );</span>
+  }
+
+  @Override
+  public Class&lt;?&gt; getNativeDataTypeClass() throws HopValueException {
+<span class="fc" id="L563">    return InetAddress.class;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ValueMetaPluginType.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.row.value</a> &gt; <span class="el_source">ValueMetaPluginType.java</span></div><h1>ValueMetaPluginType.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.row.value;
+
+import org.apache.hop.core.Const;
+import org.apache.hop.core.plugins.BasePluginType;
+import org.apache.hop.core.plugins.IPluginType;
+import org.apache.hop.core.plugins.PluginAnnotationType;
+import org.apache.hop.core.plugins.PluginMainClassType;
+import org.apache.hop.core.row.IValueMeta;
+
+import java.util.Map;
+
+/**
+ * This class represents the value meta plugin type.
+ *
+ * @author matt
+ */
+
+@PluginMainClassType( IValueMeta.class )
+@PluginAnnotationType( ValueMetaPlugin.class )
+public class ValueMetaPluginType extends BasePluginType&lt;ValueMetaPlugin&gt; implements IPluginType&lt;ValueMetaPlugin&gt; {
+
+  private static ValueMetaPluginType valueMetaPluginType;
+
+  private ValueMetaPluginType() {
+<span class="fc" id="L47">    super( ValueMetaPlugin.class, &quot;VALUEMETA&quot;, &quot;ValueMeta&quot; );</span>
+<span class="fc" id="L48">    populateFolders( &quot;valuemeta&quot; );</span>
+<span class="fc" id="L49">  }</span>
+
+  public static ValueMetaPluginType getInstance() {
+<span class="fc bfc" id="L52" title="All 2 branches covered.">    if ( valueMetaPluginType == null ) {</span>
+<span class="fc" id="L53">      valueMetaPluginType = new ValueMetaPluginType();</span>
+    }
+<span class="fc" id="L55">    return valueMetaPluginType;</span>
+  }
+
+  @Override
+  protected String getXmlPluginFile() {
+<span class="fc" id="L60">    return Const.XML_FILE_HOP_VALUEMETA_PLUGINS;</span>
+  }
+
+  @Override
+  protected String getAlternativePluginFile() {
+<span class="fc" id="L65">    return Const.HOP_VALUEMETA_PLUGINS_FILE;</span>
+  }
+
+  @Override public String getMainTag() {
+<span class="fc" id="L69">    return &quot;valuemeta-plugins&quot;;</span>
+  }
+
+  @Override public String getSubTag() {
+<span class="fc" id="L73">    return &quot;valuemeta-plugin&quot;;</span>
+  }
+
+  @Override
+  protected String extractCategory( ValueMetaPlugin annotation ) {
+<span class="nc" id="L78">    return null;</span>
+  }
+
+  @Override
+  protected String extractDesc( ValueMetaPlugin annotation ) {
+<span class="nc" id="L83">    return annotation.description();</span>
+  }
+
+  @Override
+  protected String extractID( ValueMetaPlugin annotation ) {
+<span class="nc" id="L88">    return annotation.id();</span>
+  }
+
+  @Override
+  protected String extractName( ValueMetaPlugin annotation ) {
+<span class="nc" id="L93">    return annotation.name();</span>
+  }
+
+  @Override
+  protected String extractImageFile( ValueMetaPlugin annotation ) {
+<span class="nc" id="L98">    return null;</span>
+  }
+
+  @Override
+  protected boolean extractSeparateClassLoader( ValueMetaPlugin annotation ) {
+<span class="nc" id="L103">    return annotation.isSeparateClassLoaderNeeded();</span>
+  }
+
+  @Override
+  protected String extractI18nPackageName( ValueMetaPlugin annotation ) {
+<span class="nc" id="L108">    return null;</span>
+  }
+
+  @Override
+  protected void addExtraClasses( Map&lt;Class&lt;?&gt;, String&gt; classMap, Class&lt;?&gt; clazz, ValueMetaPlugin annotation ) {
+<span class="nc" id="L113">  }</span>
+
+  @Override
+  protected String extractDocumentationUrl( ValueMetaPlugin annotation ) {
+<span class="nc" id="L117">    return annotation.documentationUrl();</span>
+  }
+
+  @Override
+  protected String extractSuggestion( ValueMetaPlugin annotation ) {
+<span class="nc" id="L122">    return null;</span>
+  }
+
+  @Override
+  protected String extractCasesUrl( ValueMetaPlugin annotation ) {
+<span class="nc" id="L127">    return annotation.casesUrl();</span>
+  }
+
+  @Override
+  protected String extractForumUrl( ValueMetaPlugin annotation ) {
+<span class="nc" id="L132">    return annotation.forumUrl();</span>
+  }
+
+  @Override
+  protected String extractClassLoaderGroup( ValueMetaPlugin annotation ) {
+<span class="nc" id="L137">    return annotation.classLoaderGroup();</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

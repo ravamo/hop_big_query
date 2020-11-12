@@ -1,0 +1,413 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LogChannel.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.logging</a> &gt; <span class="el_source">LogChannel.java</span></div><h1>LogChannel.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.logging;
+
+import org.apache.hop.core.Const;
+import org.apache.hop.core.metrics.MetricsSnapshot;
+import org.apache.hop.core.metrics.IMetricsSnapshot;
+import org.apache.hop.core.metrics.MetricsSnapshotType;
+import org.apache.hop.core.util.Utils;
+
+import java.util.Date;
+import java.util.Map;
+import java.util.Queue;
+
+public class LogChannel implements ILogChannel {
+
+<span class="fc" id="L37">  public static ILogChannel GENERAL = new LogChannel( &quot;General&quot; );</span>
+
+<span class="fc" id="L39">  public static ILogChannel UI = new LogChannel( &quot;GUI&quot; );</span>
+
+  private String logChannelId;
+
+  private LogLevel logLevel;
+
+  private String containerObjectId;
+
+  private boolean gatheringMetrics;
+
+  private boolean forcingSeparateLogging;
+
+<span class="fc" id="L51">  private static MetricsRegistry metricsRegistry = MetricsRegistry.getInstance();</span>
+
+  private String filter;
+
+  private LogChannelFileWriterBuffer fileWriter;
+
+  private boolean simplified;
+
+<span class="fc" id="L59">  public LogChannel( Object subject ) {</span>
+<span class="fc" id="L60">    logLevel = DefaultLogLevel.getLogLevel();</span>
+<span class="fc" id="L61">    logChannelId = LoggingRegistry.getInstance().registerLoggingSource( subject );</span>
+<span class="fc" id="L62">  }</span>
+
+  public LogChannel( Object subject, boolean gatheringMetrics ) {
+<span class="fc" id="L65">    this( subject );</span>
+<span class="fc" id="L66">    this.gatheringMetrics = gatheringMetrics;</span>
+<span class="fc" id="L67">  }</span>
+
+<span class="fc" id="L69">  public LogChannel( Object subject, ILoggingObject parentObject ) {</span>
+<span class="fc bfc" id="L70" title="All 2 branches covered.">    if ( parentObject != null ) {</span>
+<span class="fc" id="L71">      this.logLevel = parentObject.getLogLevel();</span>
+<span class="fc" id="L72">      this.containerObjectId = parentObject.getContainerId();</span>
+    } else {
+<span class="fc" id="L74">      this.logLevel = DefaultLogLevel.getLogLevel();</span>
+<span class="fc" id="L75">      this.containerObjectId = null;</span>
+    }
+<span class="fc" id="L77">    logChannelId = LoggingRegistry.getInstance().registerLoggingSource( subject );</span>
+<span class="fc" id="L78">  }</span>
+
+  public LogChannel( Object subject, ILoggingObject parentObject, boolean gatheringMetrics ) {
+<span class="nc" id="L81">    this( subject, parentObject );</span>
+<span class="nc" id="L82">    this.gatheringMetrics = gatheringMetrics;</span>
+<span class="nc" id="L83">  }</span>
+
+  @Override
+  public String toString() {
+<span class="nc" id="L87">    return logChannelId;</span>
+  }
+
+  @Override
+  public String getLogChannelId() {
+<span class="fc" id="L92">    return logChannelId;</span>
+  }
+
+  /**
+   * @param logMessage
+   * @param channelLogLevel
+   */
+  public void println( ILogMessage logMessage, LogLevel channelLogLevel ) {
+<span class="fc" id="L100">    String subject = null;</span>
+
+<span class="fc" id="L102">    LogLevel logLevel = logMessage.getLevel();</span>
+
+<span class="fc bfc" id="L104" title="All 2 branches covered.">    if ( !logLevel.isVisible( channelLogLevel ) ) {</span>
+<span class="fc" id="L105">      return; // not for our eyes.</span>
+    }
+
+<span class="pc bpc" id="L108" title="1 of 2 branches missed.">    if ( subject == null ) {</span>
+<span class="fc" id="L109">      subject = &quot;Hop&quot;;</span>
+    }
+
+    // Are the message filtered?
+    //
+<span class="fc bfc" id="L114" title="All 4 branches covered.">    if ( !logLevel.isError() &amp;&amp; !Utils.isEmpty( filter ) ) {</span>
+<span class="pc bpc" id="L115" title="2 of 4 branches missed.">      if ( subject.indexOf( filter ) &lt; 0 &amp;&amp; logMessage.toString().indexOf( filter ) &lt; 0 ) {</span>
+<span class="fc" id="L116">        return; // &quot;filter&quot; not found in row: don't show!</span>
+      }
+    }
+
+    // Let's not keep everything...
+    //
+<span class="pc bpc" id="L122" title="1 of 2 branches missed.">    if ( channelLogLevel.getLevel() &gt;= logLevel.getLevel() ) {</span>
+<span class="fc" id="L123">      HopLoggingEvent loggingEvent = new HopLoggingEvent( logMessage, System.currentTimeMillis(), logLevel );</span>
+<span class="fc" id="L124">      HopLogStore.getAppender().addLogggingEvent( loggingEvent );</span>
+
+<span class="pc bpc" id="L126" title="1 of 2 branches missed.">      if ( this.fileWriter == null ) {</span>
+<span class="fc" id="L127">        this.fileWriter = LoggingRegistry.getInstance().getLogChannelFileWriterBuffer( logChannelId );</span>
+      }
+
+      // add to buffer
+<span class="fc bfc" id="L131" title="All 2 branches covered.">      if ( this.fileWriter != null ) {</span>
+<span class="fc" id="L132">        this.fileWriter.addEvent( loggingEvent );</span>
+      }
+    }
+<span class="fc" id="L135">  }</span>
+
+  public void println( ILogMessage message, Throwable e, LogLevel channelLogLevel ) {
+<span class="fc" id="L138">    println( message, channelLogLevel );</span>
+
+<span class="fc" id="L140">    String stackTrace = Const.getStackTracker( e );</span>
+<span class="fc" id="L141">    LogMessage traceMessage = new LogMessage( stackTrace, message.getLogChannelId(), LogLevel.ERROR, simplified );</span>
+<span class="fc" id="L142">    println( traceMessage, channelLogLevel );</span>
+<span class="fc" id="L143">  }</span>
+
+  @Override
+  public void logMinimal( String s ) {
+<span class="nc" id="L147">    println( new LogMessage( s, logChannelId, LogLevel.MINIMAL, simplified ), logLevel );</span>
+<span class="nc" id="L148">  }</span>
+
+  @Override
+  public void logBasic( String s ) {
+<span class="nc" id="L152">    println( new LogMessage( s, logChannelId, LogLevel.BASIC, simplified ), logLevel );</span>
+<span class="nc" id="L153">  }</span>
+
+  @Override
+  public void logError( String s ) {
+<span class="fc" id="L157">    println( new LogMessage( s, logChannelId, LogLevel.ERROR, simplified ), logLevel );</span>
+<span class="fc" id="L158">  }</span>
+
+  @Override
+  public void logError( String s, Throwable e ) {
+<span class="fc" id="L162">    println( new LogMessage( s, logChannelId, LogLevel.ERROR, simplified ), e, logLevel );</span>
+<span class="fc" id="L163">  }</span>
+
+  @Override
+  public void logBasic( String s, Object... arguments ) {
+<span class="nc" id="L167">    println( new LogMessage( s, logChannelId, arguments, LogLevel.BASIC, simplified ), logLevel );</span>
+<span class="nc" id="L168">  }</span>
+
+  @Override
+  public void logDetailed( String s, Object... arguments ) {
+<span class="nc" id="L172">    println( new LogMessage( s, logChannelId, arguments, LogLevel.DETAILED, simplified ), logLevel );</span>
+<span class="nc" id="L173">  }</span>
+
+  @Override
+  public void logError( String s, Object... arguments ) {
+<span class="nc" id="L177">    println( new LogMessage( s, logChannelId, arguments, LogLevel.ERROR, simplified ), logLevel );</span>
+<span class="nc" id="L178">  }</span>
+
+  @Override
+  public void logDetailed( String s ) {
+<span class="fc" id="L182">    println( new LogMessage( s, logChannelId, LogLevel.DETAILED, simplified ), logLevel );</span>
+<span class="fc" id="L183">  }</span>
+
+  @Override
+  public void logDebug( String s ) {
+<span class="nc" id="L187">    println( new LogMessage( s, logChannelId, LogLevel.DEBUG, simplified ), logLevel );</span>
+<span class="nc" id="L188">  }</span>
+
+  @Override
+  public void logDebug( String message, Object... arguments ) {
+<span class="nc" id="L192">    println( new LogMessage( message, logChannelId, arguments, LogLevel.DEBUG, simplified ), logLevel );</span>
+<span class="nc" id="L193">  }</span>
+
+  @Override
+  public void logRowlevel( String s ) {
+<span class="nc" id="L197">    println( new LogMessage( s, logChannelId, LogLevel.ROWLEVEL, simplified ), logLevel );</span>
+<span class="nc" id="L198">  }</span>
+
+  @Override
+  public void logMinimal( String message, Object... arguments ) {
+<span class="nc" id="L202">    println( new LogMessage( message, logChannelId, arguments, LogLevel.MINIMAL, simplified ), logLevel );</span>
+<span class="nc" id="L203">  }</span>
+
+  @Override
+  public void logRowlevel( String message, Object... arguments ) {
+<span class="nc" id="L207">    println( new LogMessage( message, logChannelId, arguments, LogLevel.ROWLEVEL, simplified ), logLevel );</span>
+<span class="nc" id="L208">  }</span>
+
+  @Override
+  public boolean isBasic() {
+<span class="nc" id="L212">    return logLevel.isBasic();</span>
+  }
+
+  @Override
+  public boolean isDebug() {
+<span class="fc" id="L217">    return logLevel.isDebug();</span>
+  }
+
+  @Override
+  public boolean isDetailed() {
+    try {
+<span class="fc" id="L223">      return logLevel.isDetailed();</span>
+<span class="nc" id="L224">    } catch ( NullPointerException ex ) {</span>
+<span class="nc" id="L225">      return false;</span>
+    }
+  }
+
+  @Override
+  public boolean isRowLevel() {
+<span class="fc" id="L231">    return logLevel.isRowlevel();</span>
+  }
+
+  @Override
+  public boolean isError() {
+<span class="nc" id="L236">    return logLevel.isError();</span>
+  }
+
+  @Override
+  public LogLevel getLogLevel() {
+<span class="fc" id="L241">    return logLevel;</span>
+  }
+
+  @Override
+  public void setLogLevel( LogLevel logLevel ) {
+<span class="nc" id="L246">    this.logLevel = logLevel;</span>
+<span class="nc" id="L247">  }</span>
+
+  /**
+   * @return the containerObjectId
+   */
+  @Override
+  public String getContainerObjectId() {
+<span class="fc" id="L254">    return containerObjectId;</span>
+  }
+
+  /**
+   * @param containerObjectId the containerObjectId to set
+   */
+  @Override
+  public void setContainerObjectId( String containerObjectId ) {
+<span class="nc" id="L262">    this.containerObjectId = containerObjectId;</span>
+<span class="nc" id="L263">  }</span>
+
+  /**
+   * @return the gatheringMetrics
+   */
+  @Override
+  public boolean isGatheringMetrics() {
+<span class="fc" id="L270">    return gatheringMetrics;</span>
+  }
+
+  /**
+   * @param gatheringMetrics the gatheringMetrics to set
+   */
+  @Override
+  public void setGatheringMetrics( boolean gatheringMetrics ) {
+<span class="fc" id="L278">    this.gatheringMetrics = gatheringMetrics;</span>
+<span class="fc" id="L279">  }</span>
+
+  @Override
+  public boolean isForcingSeparateLogging() {
+<span class="nc" id="L283">    return forcingSeparateLogging;</span>
+  }
+
+  @Override
+  public void setForcingSeparateLogging( boolean forcingSeparateLogging ) {
+<span class="nc" id="L288">    this.forcingSeparateLogging = forcingSeparateLogging;</span>
+<span class="nc" id="L289">  }</span>
+
+  @Override
+  public void snap( IMetrics metric, long... value ) {
+<span class="fc" id="L293">    snap( metric, null, value );</span>
+<span class="fc" id="L294">  }</span>
+
+  @Override
+  public void snap( IMetrics metric, String subject, long... value ) {
+<span class="fc bfc" id="L298" title="All 2 branches covered.">    if ( !isGatheringMetrics() ) {</span>
+<span class="fc" id="L299">      return;</span>
+    }
+
+<span class="fc" id="L302">    String key = MetricsSnapshot.getKey( metric, subject );</span>
+<span class="fc" id="L303">    Map&lt;String, IMetricsSnapshot&gt; metricsMap = null;</span>
+<span class="fc" id="L304">    IMetricsSnapshot snapshot = null;</span>
+<span class="fc" id="L305">    Queue&lt;IMetricsSnapshot&gt; metricsList = null;</span>
+<span class="pc bpc" id="L306" title="5 of 7 branches missed.">    switch ( metric.getType() ) {</span>
+      case MAX:
+        // Calculate and store the maximum value for this metric
+        //
+<span class="nc bnc" id="L310" title="All 2 branches missed.">        if ( value.length != 1 ) {</span>
+<span class="nc" id="L311">          break; // ignore</span>
+        }
+
+<span class="nc" id="L314">        metricsMap = metricsRegistry.getSnapshotMap( logChannelId );</span>
+<span class="nc" id="L315">        snapshot = metricsMap.get( key );</span>
+<span class="nc bnc" id="L316" title="All 2 branches missed.">        if ( snapshot != null ) {</span>
+<span class="nc bnc" id="L317" title="All 2 branches missed.">          if ( value[ 0 ] &gt; snapshot.getValue() ) {</span>
+<span class="nc" id="L318">            snapshot.setValue( value[ 0 ] );</span>
+<span class="nc" id="L319">            snapshot.setDate( new Date() );</span>
+          }
+        } else {
+<span class="nc" id="L322">          snapshot = new MetricsSnapshot( MetricsSnapshotType.MAX, metric, subject, value[ 0 ], logChannelId );</span>
+<span class="nc" id="L323">          metricsMap.put( key, snapshot );</span>
+        }
+
+<span class="nc" id="L326">        break;</span>
+      case MIN:
+        // Calculate and store the minimum value for this metric
+        //
+<span class="nc bnc" id="L330" title="All 2 branches missed.">        if ( value.length != 1 ) {</span>
+<span class="nc" id="L331">          break; // ignore</span>
+        }
+
+<span class="nc" id="L334">        metricsMap = metricsRegistry.getSnapshotMap( logChannelId );</span>
+<span class="nc" id="L335">        snapshot = metricsMap.get( key );</span>
+<span class="nc bnc" id="L336" title="All 2 branches missed.">        if ( snapshot != null ) {</span>
+<span class="nc bnc" id="L337" title="All 2 branches missed.">          if ( value[ 0 ] &lt; snapshot.getValue() ) {</span>
+<span class="nc" id="L338">            snapshot.setValue( value[ 0 ] );</span>
+<span class="nc" id="L339">            snapshot.setDate( new Date() );</span>
+          }
+        } else {
+<span class="nc" id="L342">          snapshot = new MetricsSnapshot( MetricsSnapshotType.MIN, metric, subject, value[ 0 ], logChannelId );</span>
+<span class="nc" id="L343">          metricsMap.put( key, snapshot );</span>
+        }
+
+<span class="nc" id="L346">        break;</span>
+      case SUM:
+<span class="nc" id="L348">        metricsMap = metricsRegistry.getSnapshotMap( logChannelId );</span>
+<span class="nc" id="L349">        snapshot = metricsMap.get( key );</span>
+<span class="nc bnc" id="L350" title="All 2 branches missed.">        if ( snapshot != null ) {</span>
+<span class="nc" id="L351">          snapshot.setValue( snapshot.getValue() + value[ 0 ] );</span>
+        } else {
+<span class="nc" id="L353">          snapshot = new MetricsSnapshot( MetricsSnapshotType.SUM, metric, subject, value[ 0 ], logChannelId );</span>
+<span class="nc" id="L354">          metricsMap.put( key, snapshot );</span>
+        }
+
+<span class="nc" id="L357">        break;</span>
+      case COUNT:
+<span class="nc" id="L359">        metricsMap = metricsRegistry.getSnapshotMap( logChannelId );</span>
+<span class="nc" id="L360">        snapshot = metricsMap.get( key );</span>
+<span class="nc bnc" id="L361" title="All 2 branches missed.">        if ( snapshot != null ) {</span>
+<span class="nc" id="L362">          snapshot.setValue( snapshot.getValue() + 1L );</span>
+        } else {
+<span class="nc" id="L364">          snapshot = new MetricsSnapshot( MetricsSnapshotType.COUNT, metric, subject, 1L, logChannelId );</span>
+<span class="nc" id="L365">          metricsMap.put( key, snapshot );</span>
+        }
+
+<span class="nc" id="L368">        break;</span>
+      case START:
+<span class="fc" id="L370">        metricsList = metricsRegistry.getSnapshotList( logChannelId );</span>
+<span class="fc" id="L371">        snapshot = new MetricsSnapshot( MetricsSnapshotType.START, metric, subject, 1L, logChannelId );</span>
+<span class="fc" id="L372">        metricsList.add( snapshot );</span>
+
+<span class="fc" id="L374">        break;</span>
+      case STOP:
+<span class="fc" id="L376">        metricsList = metricsRegistry.getSnapshotList( logChannelId );</span>
+<span class="fc" id="L377">        snapshot = new MetricsSnapshot( MetricsSnapshotType.STOP, metric, subject, 1L, logChannelId );</span>
+<span class="fc" id="L378">        metricsList.add( snapshot );</span>
+
+<span class="fc" id="L380">        break;</span>
+      default:
+        break;
+    }
+
+<span class="fc" id="L385">  }</span>
+
+  @Override
+  public String getFilter() {
+<span class="nc" id="L389">    return filter;</span>
+  }
+
+  @Override
+  public void setFilter( String filter ) {
+<span class="fc" id="L394">    this.filter = filter;</span>
+<span class="fc" id="L395">  }</span>
+
+  /**
+   * Gets simplified
+   *
+   * @return value of simplified
+   */
+  public boolean isSimplified() {
+<span class="nc" id="L403">    return simplified;</span>
+  }
+
+  /**
+   * @param simplified The simplified to set
+   */
+  public void setSimplified( boolean simplified ) {
+<span class="nc" id="L410">    this.simplified = simplified;</span>
+<span class="nc" id="L411">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

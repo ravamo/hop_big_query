@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>XmlHandlerCache.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.xml</a> &gt; <span class="el_source">XmlHandlerCache.java</span></div><h1>XmlHandlerCache.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.xml;
+
+import java.util.Collections;
+import java.util.Map;
+import java.util.WeakHashMap;
+
+/**
+ * Singleton to help speed up lookups in an XML DOM tree.&lt;br&gt;
+ * The theory is that you often loop over occurrences of a certain tag in a Node.&lt;br&gt;
+ * If there are 20 occurrences, you go from index 0..19.&lt;br&gt;
+ * Every time we do the following&lt;br&gt;
+ * - found node 0&lt;br&gt;
+ * - found node 0, 1&lt;br&gt;
+ * - found node 0, 1, 2&lt;br&gt;
+ * - ...&lt;br&gt;
+ * So the time to search node index 19 is 20 times larger on average then index 0.&lt;br&gt;
+ * &lt;br&gt;
+ * We can solve this by caching the position of index 18 and by starting back at that position.&lt;br&gt;
+ * &lt;br&gt;
+ * This class is a singleton to keep everyting 100% compatible with the rest of the codebase. &lt;br&gt;
+ *
+ * @author Matt
+ * @since 22-Apr-2006
+ */
+public class XmlHandlerCache {
+
+  private static XmlHandlerCache instance;
+
+  Map&lt;XMlHandlerCacheEntry, Integer&gt; cache;
+
+  private volatile int cacheHits;
+
+<span class="fc" id="L55">  private XmlHandlerCache() {</span>
+<span class="fc" id="L56">    cache = Collections.synchronizedMap( new WeakHashMap&lt;XMlHandlerCacheEntry, Integer&gt;() );</span>
+<span class="fc" id="L57">    cacheHits = 0;</span>
+<span class="fc" id="L58">  }</span>
+
+  public static synchronized XmlHandlerCache getInstance() {
+<span class="fc bfc" id="L61" title="All 2 branches covered.">    if ( instance == null ) {</span>
+<span class="fc" id="L62">      return instance = new XmlHandlerCache();</span>
+    }
+<span class="fc" id="L64">    return instance;</span>
+  }
+
+  /**
+   * Store a cache entry
+   *
+   * @param entry The cache entry to store
+   */
+  public void storeCache( XMlHandlerCacheEntry entry, int lastChildNr ) {
+<span class="fc" id="L73">    cache.put( entry, lastChildNr );</span>
+<span class="fc" id="L74">  }</span>
+
+  /**
+   * Retrieve the last child were we left off...
+   *
+   * @param entry The cache entry to look for.
+   * @return the last child position or -1 if nothing was found.
+   */
+  public int getLastChildNr( XMlHandlerCacheEntry entry ) {
+<span class="fc" id="L83">    Integer lastChildNr = cache.get( entry );</span>
+<span class="fc bfc" id="L84" title="All 2 branches covered.">    if ( lastChildNr != null ) {</span>
+<span class="fc" id="L85">      cacheHits++;</span>
+<span class="fc" id="L86">      return lastChildNr;</span>
+    }
+<span class="fc" id="L88">    return -1;</span>
+  }
+
+  /**
+   * @return the number of cache hits for your statistical pleasure.
+   */
+  public int getCacheHits() {
+<span class="nc" id="L95">    return cacheHits;</span>
+  }
+
+  /**
+   * Allows you to (re-)set the number of cache hits
+   *
+   * @param cacheHits the number of cache hits.
+   */
+  public void setCacheHits( int cacheHits ) {
+<span class="nc" id="L104">    this.cacheHits = cacheHits;</span>
+<span class="nc" id="L105">  }</span>
+
+  /**
+   * Clears the cache
+   */
+  public void clear() {
+<span class="fc" id="L111">    cache.clear();</span>
+<span class="fc" id="L112">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

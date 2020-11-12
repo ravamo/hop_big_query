@@ -1,0 +1,1182 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>XmlHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.xml</a> &gt; <span class="el_source">XmlHandler.java</span></div><h1>XmlHandler.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.xml;
+
+import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.vfs2.FileObject;
+import org.apache.hop.core.Const;
+import org.apache.hop.core.IHopAttribute;
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.exception.HopXmlException;
+import org.apache.hop.core.row.value.timestamp.SimpleTimestampFormat;
+import org.apache.hop.core.util.Utils;
+import org.apache.hop.core.vfs.HopVfs;
+import org.owasp.encoder.Encode;
+import org.w3c.dom.Document;
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.EntityResolver;
+import org.xml.sax.InputSource;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.math.BigDecimal;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.sql.Timestamp;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
+
+
+/**
+ * This class contains a number of (static) methods to facilitate the retrieval of information from XML Node(s).
+ *
+ * @author Matt
+ * @since 04-04-2003
+ */
+public class XmlHandler {
+  //TODO Change impl for some standard XML processing (like StAX, for example) because ESAPI has charset processing issues.
+
+<span class="fc" id="L82">  private static XmlHandlerCache cache = XmlHandlerCache.getInstance();</span>
+
+  // These formats are static and not configurable unlike the default date formats of Hop itself
+  //
+<span class="fc" id="L86">  private static final SimpleDateFormat simpleDateFormat = new SimpleDateFormat( &quot;yyyy/MM/dd HH:mm:ss.SSS&quot; );</span>
+<span class="fc" id="L87">  private static final SimpleTimestampFormat simpleTimeStampFormat = new SimpleTimestampFormat( &quot;yyyy/MM/dd HH:mm:ss.SSSSSSSSS&quot; );</span>
+
+  private XmlHandler() {
+  }
+
+  /**
+   * The header string to specify encoding in UTF-8 for XML files
+   *
+   * @return The XML header.
+   */
+  public static String getXmlHeader() {
+<span class="nc" id="L98">    return getXmlHeader( Const.XML_ENCODING );</span>
+  }
+
+  /**
+   * The header string to specify encoding in an XML file
+   *
+   * @param encoding The desired encoding to use in the XML file
+   * @return The XML header.
+   */
+  public static String getXmlHeader(String encoding ) {
+<span class="nc" id="L108">    return &quot;&lt;?xml version=\&quot;1.0\&quot; encoding=\&quot;&quot; + encoding + &quot;\&quot;?&gt;&quot; + Const.CR;</span>
+  }
+
+  /**
+   * Get the value of a tag in a node
+   *
+   * @param n    The node to look in
+   * @param code The tag to look for
+   * @return The value of the tag or null if nothing was found.
+   */
+  public static String getTagValue( Node n, IHopAttribute code ) {
+<span class="nc" id="L119">    return getTagValue( n, code.getXmlCode() );</span>
+  }
+
+  /**
+   * Get the value of a tag in a node
+   *
+   * @param n   The node to look in
+   * @param tag The tag to look for
+   * @return The value of the tag or null if nothing was found.
+   */
+  public static String getTagValue( Node n, String tag ) {
+    NodeList children;
+    Node childnode;
+
+<span class="pc bpc" id="L133" title="1 of 2 branches missed.">    if ( n == null ) {</span>
+<span class="nc" id="L134">      return null;</span>
+    }
+
+<span class="fc" id="L137">    children = n.getChildNodes();</span>
+<span class="fc bfc" id="L138" title="All 2 branches covered.">    for ( int i = 0; i &lt; children.getLength(); i++ ) {</span>
+<span class="fc" id="L139">      childnode = children.item( i );</span>
+<span class="fc bfc" id="L140" title="All 2 branches covered.">      if ( childnode.getNodeName().equalsIgnoreCase( tag ) ) {</span>
+<span class="fc bfc" id="L141" title="All 2 branches covered.">        if ( childnode.getFirstChild() != null ) {</span>
+<span class="fc" id="L142">          return childnode.getFirstChild().getNodeValue();</span>
+        }
+      }
+    }
+<span class="fc" id="L146">    return null;</span>
+  }
+
+  /**
+   * Get the value of a tag in a node
+   *
+   * @param n   The node to look in
+   * @param tag The tag to look for
+   * @return The value of the tag or null if nothing was found.
+   */
+  public static String getTagValueWithAttribute( Node n, String tag, String attribute ) {
+    NodeList children;
+    Node childnode;
+
+<span class="nc bnc" id="L160" title="All 2 branches missed.">    if ( n == null ) {</span>
+<span class="nc" id="L161">      return null;</span>
+    }
+
+<span class="nc" id="L164">    children = n.getChildNodes();</span>
+<span class="nc bnc" id="L165" title="All 2 branches missed.">    for ( int i = 0; i &lt; children.getLength(); i++ ) {</span>
+<span class="nc" id="L166">      childnode = children.item( i );</span>
+<span class="nc bnc" id="L167" title="All 2 branches missed.">      if ( childnode.getNodeName().equalsIgnoreCase( tag )</span>
+<span class="nc bnc" id="L168" title="All 2 branches missed.">        &amp;&amp; childnode.getAttributes().getNamedItem( attribute ) != null ) {</span>
+<span class="nc bnc" id="L169" title="All 2 branches missed.">        if ( childnode.getFirstChild() != null ) {</span>
+<span class="nc" id="L170">          return childnode.getFirstChild().getNodeValue();</span>
+        }
+      }
+    }
+<span class="nc" id="L174">    return null;</span>
+  }
+
+  /**
+   * Search a node for a certain tag, in that subnode search for a certain subtag. Return the value of that subtag.
+   *
+   * @param n      The node to look in
+   * @param tag    The tag to look for
+   * @param subtag The subtag to look for
+   * @return The string of the subtag or null if nothing was found.
+   */
+  public static String getTagValue( Node n, String tag, String subtag ) {
+    NodeList children, tags;
+    Node childnode, tagnode;
+
+<span class="nc bnc" id="L189" title="All 2 branches missed.">    if ( n == null ) {</span>
+<span class="nc" id="L190">      return null;</span>
+    }
+
+<span class="nc" id="L193">    children = n.getChildNodes();</span>
+<span class="nc bnc" id="L194" title="All 2 branches missed.">    for ( int i = 0; i &lt; children.getLength(); i++ ) {</span>
+<span class="nc" id="L195">      childnode = children.item( i );</span>
+<span class="nc bnc" id="L196" title="All 2 branches missed.">      if ( childnode.getNodeName().equalsIgnoreCase( tag ) ) {</span>
+        // &lt;file&gt;
+<span class="nc" id="L198">        tags = childnode.getChildNodes();</span>
+<span class="nc bnc" id="L199" title="All 2 branches missed.">        for ( int j = 0; j &lt; tags.getLength(); j++ ) {</span>
+<span class="nc" id="L200">          tagnode = tags.item( j );</span>
+<span class="nc bnc" id="L201" title="All 2 branches missed.">          if ( tagnode.getNodeName().equalsIgnoreCase( subtag ) ) {</span>
+<span class="nc bnc" id="L202" title="All 2 branches missed.">            if ( tagnode.getFirstChild() != null ) {</span>
+<span class="nc" id="L203">              return tagnode.getFirstChild().getNodeValue();</span>
+            }
+          }
+        }
+      }
+    }
+<span class="nc" id="L209">    return null;</span>
+  }
+
+  /**
+   * Count nodes with a certain tag
+   *
+   * @param n   The node to look in
+   * @param tag The tags to count
+   * @return The number of nodes found with a certain tag
+   */
+  public static int countNodes( Node n, String tag ) {
+    NodeList children;
+    Node childnode;
+
+<span class="fc" id="L223">    int count = 0;</span>
+
+<span class="fc bfc" id="L225" title="All 2 branches covered.">    if ( n == null ) {</span>
+<span class="fc" id="L226">      return 0;</span>
+    }
+
+<span class="fc" id="L229">    children = n.getChildNodes();</span>
+<span class="fc bfc" id="L230" title="All 2 branches covered.">    for ( int i = 0; i &lt; children.getLength(); i++ ) {</span>
+<span class="fc" id="L231">      childnode = children.item( i );</span>
+<span class="fc bfc" id="L232" title="All 2 branches covered.">      if ( childnode.getNodeName().equalsIgnoreCase( tag ) ) {</span>
+        // &lt;file&gt;
+<span class="fc" id="L234">        count++;</span>
+      }
+    }
+<span class="fc" id="L237">    return count;</span>
+  }
+
+  /**
+   * Get nodes with a certain tag one level down
+   *
+   * @param n   The node to look in
+   * @param tag The tags to count
+   * @return The list of nodes found with the specified tag
+   */
+  public static List&lt;Node&gt; getNodes( Node n, String tag ) {
+    NodeList children;
+    Node childnode;
+
+<span class="fc" id="L251">    List&lt;Node&gt; nodes = new ArrayList&lt;Node&gt;();</span>
+
+<span class="fc bfc" id="L253" title="All 2 branches covered.">    if ( n == null ) {</span>
+<span class="fc" id="L254">      return nodes;</span>
+    }
+
+<span class="fc" id="L257">    children = n.getChildNodes();</span>
+<span class="fc bfc" id="L258" title="All 2 branches covered.">    for ( int i = 0; i &lt; children.getLength(); i++ ) {</span>
+<span class="fc" id="L259">      childnode = children.item( i );</span>
+<span class="fc bfc" id="L260" title="All 2 branches covered.">      if ( childnode.getNodeName().equalsIgnoreCase( tag ) ) {</span>
+        // &lt;file&gt;
+<span class="fc" id="L262">        nodes.add( childnode );</span>
+      }
+    }
+<span class="fc" id="L265">    return nodes;</span>
+  }
+
+  /**
+   * Get node child with a certain subtag set to a certain value
+   *
+   * @param n           The node to search in
+   * @param tag         The tag to look for
+   * @param subtag      The subtag to look for
+   * @param subtagvalue The value the subtag should have
+   * @param nr          The nr of occurance of the value
+   * @return The node found or null if we couldn't find anything.
+   */
+  public static Node getNodeWithTagValue( Node n, String tag, String subtag, String subtagvalue, int nr ) {
+    NodeList children;
+    Node childnode, tagnode;
+    String value;
+
+<span class="nc" id="L283">    int count = 0;</span>
+
+<span class="nc" id="L285">    children = n.getChildNodes();</span>
+<span class="nc bnc" id="L286" title="All 2 branches missed.">    for ( int i = 0; i &lt; children.getLength(); i++ ) {</span>
+<span class="nc" id="L287">      childnode = children.item( i );</span>
+<span class="nc bnc" id="L288" title="All 2 branches missed.">      if ( childnode.getNodeName().equalsIgnoreCase( tag ) ) {</span>
+        // &lt;hop&gt;
+<span class="nc" id="L290">        tagnode = getSubNode( childnode, subtag );</span>
+<span class="nc" id="L291">        value = getNodeValue( tagnode );</span>
+<span class="nc bnc" id="L292" title="All 2 branches missed.">        if ( value.equalsIgnoreCase( subtagvalue ) ) {</span>
+<span class="nc bnc" id="L293" title="All 2 branches missed.">          if ( count == nr ) {</span>
+<span class="nc" id="L294">            return childnode;</span>
+          }
+<span class="nc" id="L296">          count++;</span>
+        }
+      }
+    }
+<span class="nc" id="L300">    return null;</span>
+  }
+
+  /**
+   * Get node child with a certain subtag set to a certain value
+   *
+   * @param n              the node to search in
+   * @param tag            the tag to look for
+   * @param attributeName  the subtag to look for
+   * @param attributeValue the value the subtag should have
+   * @return the node found or null if we couldn't find anything
+   */
+  public static Node getNodeWithAttributeValue( Node n, String tag, String attributeName,
+                                                String attributeValue ) {
+    NodeList children;
+    Node childnode;
+
+<span class="nc" id="L317">    children = n.getChildNodes();</span>
+<span class="nc bnc" id="L318" title="All 2 branches missed.">    for ( int i = 0; i &lt; children.getLength(); i++ ) {</span>
+<span class="nc" id="L319">      childnode = children.item( i );</span>
+<span class="nc bnc" id="L320" title="All 2 branches missed.">      if ( childnode.getNodeName().equalsIgnoreCase( tag ) ) {</span>
+        // &lt;hop&gt;
+<span class="nc" id="L322">        Node attribute = childnode.getAttributes().getNamedItem( attributeName );</span>
+
+<span class="nc bnc" id="L324" title="All 4 branches missed.">        if ( attribute != null &amp;&amp; attributeValue.equals( attribute.getTextContent() ) ) {</span>
+<span class="nc" id="L325">          return childnode;</span>
+        }
+      }
+    }
+<span class="nc" id="L329">    return null;</span>
+  }
+
+  /**
+   * Search for a subnode in the node with a certain tag.
+   *
+   * @param n   The node to look in
+   * @param tag The tag to look for
+   * @return The subnode if the tag was found, or null if nothing was found.
+   */
+  public static Node getSubNode( Node n, String tag ) {
+    int i;
+    NodeList children;
+    Node childnode;
+
+<span class="pc bpc" id="L344" title="1 of 2 branches missed.">    if ( n == null ) {</span>
+<span class="nc" id="L345">      return null;</span>
+    }
+
+    // Get the children one by one out of the node,
+    // compare the tags and return the first found.
+    //
+<span class="fc" id="L351">    children = n.getChildNodes();</span>
+<span class="fc bfc" id="L352" title="All 2 branches covered.">    for ( i = 0; i &lt; children.getLength(); i++ ) {</span>
+<span class="fc" id="L353">      childnode = children.item( i );</span>
+<span class="fc bfc" id="L354" title="All 2 branches covered.">      if ( childnode.getNodeName().equalsIgnoreCase( tag ) ) {</span>
+<span class="fc" id="L355">        return childnode;</span>
+      }
+    }
+<span class="fc" id="L358">    return null;</span>
+  }
+
+  /**
+   * Search for the last subnode in the node with a certain tag.
+   *
+   * @param n   the node to look in
+   * @param tag the tag to look for
+   * @return the last subnode found with the specified tag, or null if nothing was found
+   */
+  public static Node getLastSubNode( Node n, String tag ) {
+
+<span class="pc bpc" id="L370" title="1 of 2 branches missed.">    if ( null != n ) {</span>
+<span class="fc" id="L371">      NodeList children = n.getChildNodes();</span>
+<span class="fc" id="L372">      int i = children.getLength();</span>
+<span class="pc bpc" id="L373" title="1 of 2 branches missed.">      while ( i &gt; 0 ) {</span>
+<span class="fc" id="L374">        Node childNode = children.item( --i );</span>
+<span class="fc bfc" id="L375" title="All 2 branches covered.">        if ( childNode.getNodeName().equalsIgnoreCase( tag ) ) {</span>
+<span class="fc" id="L376">          return childNode;</span>
+        }
+<span class="fc" id="L378">      }</span>
+    }
+<span class="nc" id="L380">    return null;</span>
+  }
+
+  /**
+   * Search a node for a child of child
+   *
+   * @param n      The node to look in
+   * @param tag    The tag to look for in the node
+   * @param subtag The tag to look for in the children of the node
+   * @return The sub-node found or null if nothing was found.
+   */
+  public static Node getSubNode( Node n, String tag, String subtag ) {
+<span class="nc" id="L392">    Node t = getSubNode( n, tag );</span>
+<span class="nc bnc" id="L393" title="All 2 branches missed.">    if ( t != null ) {</span>
+<span class="nc" id="L394">      return getSubNode( t, subtag );</span>
+    }
+<span class="nc" id="L396">    return null;</span>
+  }
+
+  /**
+   * Get a subnode in a node by nr.&lt;br&gt;
+   * This method uses caching and assumes you loop over subnodes in sequential order (nr is increasing by 1 each call)
+   *
+   * @param n   The node to look in
+   * @param tag The tag to count
+   * @param nr  The position in the node
+   * @return The subnode found or null in case the position was invalid.
+   */
+  public static Node getSubNodeByNr( Node n, String tag, int nr ) {
+<span class="fc" id="L409">    return getSubNodeByNr( n, tag, nr, true );</span>
+  }
+
+  /**
+   * Get a subnode in a node by nr.&lt;br&gt;
+   * It optially allows you to use caching.&lt;br&gt;
+   * Caching assumes that you loop over subnodes in sequential order (nr is increasing by 1 each call)
+   *
+   * @param n        The node to look in
+   * @param tag      The tag to count
+   * @param nr       The position in the node
+   * @param useCache set this to false if you don't want to use caching. For example in cases where you want to loop over
+   *                 subnodes of a certain tag in reverse or random order.
+   * @return The subnode found or null in case the position was invalid.
+   */
+  public static Node getSubNodeByNr( Node n, String tag, int nr, boolean useCache ) {
+    NodeList children;
+    Node childnode;
+
+<span class="pc bpc" id="L428" title="1 of 2 branches missed.">    if ( n == null ) {</span>
+<span class="nc" id="L429">      return null;</span>
+    }
+
+<span class="fc" id="L432">    int count = 0;</span>
+    // Find the child-nodes of this Node n:
+<span class="fc" id="L434">    children = n.getChildNodes();</span>
+
+<span class="fc" id="L436">    int lastChildNr = -1;</span>
+<span class="fc" id="L437">    XMlHandlerCacheEntry entry = null;</span>
+
+<span class="fc bfc" id="L439" title="All 2 branches covered.">    if ( useCache ) {</span>
+<span class="fc" id="L440">      entry = new XMlHandlerCacheEntry( n, tag );</span>
+<span class="fc" id="L441">      lastChildNr = cache.getLastChildNr( entry );</span>
+    }
+<span class="fc bfc" id="L443" title="All 2 branches covered.">    if ( lastChildNr &lt; 0 ) {</span>
+<span class="fc" id="L444">      lastChildNr = 0;</span>
+    } else {
+<span class="fc" id="L446">      count = nr; // we assume we found the previous nr-1 at the lastChildNr</span>
+<span class="fc" id="L447">      lastChildNr++; // we left off at the previous one, so continue with the next.</span>
+    }
+
+<span class="pc bpc" id="L450" title="1 of 2 branches missed.">    for ( int i = lastChildNr; i &lt; children.getLength(); i++ ) { // Try all children</span>
+<span class="fc" id="L451">      childnode = children.item( i );</span>
+<span class="fc bfc" id="L452" title="All 2 branches covered.">      if ( childnode.getNodeName().equalsIgnoreCase( tag ) ) { // We found the right tag</span>
+<span class="fc bfc" id="L453" title="All 2 branches covered.">        if ( count == nr ) {</span>
+<span class="fc bfc" id="L454" title="All 2 branches covered.">          if ( useCache ) {</span>
+<span class="fc" id="L455">            cache.storeCache( entry, i );</span>
+          }
+<span class="fc" id="L457">          return childnode;</span>
+        }
+<span class="fc" id="L459">        count++;</span>
+      }
+    }
+<span class="nc" id="L462">    return null;</span>
+  }
+
+  /**
+   * Find the value entry in a node
+   *
+   * @param n The node
+   * @return The value entry as a string
+   */
+  public static String getNodeValue( Node n ) {
+<span class="pc bpc" id="L472" title="1 of 2 branches missed.">    if ( n == null ) {</span>
+<span class="nc" id="L473">      return null;</span>
+    }
+
+    // Find the child-nodes of this Node n:
+<span class="fc" id="L477">    NodeList children = n.getChildNodes();</span>
+<span class="pc bfc" id="L478" title="All 2 branches covered.">    for ( int i = 0; i &lt; children.getLength(); i++ ) {</span>
+      // Try all children
+<span class="fc" id="L480">      Node childnode = children.item( i );</span>
+<span class="fc" id="L481">      String retval = childnode.getNodeValue();</span>
+<span class="pc bpc" id="L482" title="1 of 2 branches missed.">      if ( retval != null ) { // We found the right value</span>
+<span class="fc" id="L483">        return retval;</span>
+      }
+    }
+<span class="fc" id="L486">    return null;</span>
+  }
+
+  public static String getTagAttribute( Node node, String attribute ) {
+<span class="pc bpc" id="L490" title="1 of 2 branches missed.">    if ( node == null ) {</span>
+<span class="nc" id="L491">      return null;</span>
+    }
+
+<span class="fc" id="L494">    String retval = null;</span>
+
+<span class="fc" id="L496">    NamedNodeMap nnm = node.getAttributes();</span>
+<span class="pc bpc" id="L497" title="1 of 2 branches missed.">    if ( nnm != null ) {</span>
+<span class="fc" id="L498">      Node attr = nnm.getNamedItem( attribute );</span>
+<span class="fc bfc" id="L499" title="All 2 branches covered.">      if ( attr != null ) {</span>
+<span class="fc" id="L500">        retval = attr.getNodeValue();</span>
+      }
+    }
+<span class="fc" id="L503">    return retval;</span>
+  }
+
+  /**
+   * Load a file into an XML document
+   *
+   * @param filename The filename to load into a document
+   * @return the Document if all went well, null if an error occurred!
+   */
+  public static Document loadXmlFile( String filename ) throws HopXmlException {
+    try {
+<span class="nc" id="L514">      return loadXmlFile( HopVfs.getFileObject( filename ) );</span>
+<span class="nc" id="L515">    } catch ( Exception e ) {</span>
+<span class="nc" id="L516">      throw new HopXmlException( e );</span>
+    }
+  }
+
+  /**
+   * Load a file into an XML document
+   *
+   * @param fileObject The fileObject to load into a document
+   * @return the Document if all went well, null if an error occured!
+   */
+  public static Document loadXmlFile( FileObject fileObject ) throws HopXmlException {
+<span class="nc" id="L527">    return loadXmlFile( fileObject, null, false, false );</span>
+  }
+
+  /**
+   * Load a file into an XML document
+   *
+   * @param fileObject     The fileObject to load into a document
+   * @param systemID       Provide a base for resolving relative URIs.
+   * @param ignoreEntities Ignores external entities and returns an empty dummy.
+   * @param namespaceAware support XML namespaces.
+   * @return the Document if all went well, null if an error occured!
+   */
+  public static Document loadXmlFile( FileObject fileObject, String systemID, boolean ignoreEntities,
+                                      boolean namespaceAware ) throws HopXmlException {
+    try {
+<span class="nc" id="L542">      return loadXmlFile( HopVfs.getInputStream( fileObject ), systemID, ignoreEntities, namespaceAware );</span>
+<span class="nc" id="L543">    } catch ( IOException e ) {</span>
+<span class="nc" id="L544">      throw new HopXmlException( &quot;Unable to read file [&quot; + fileObject.toString() + &quot;]&quot;, e );</span>
+    }
+  }
+
+  /**
+   * Read in an XML file from the passed input stream and return an XML document
+   *
+   * @param inputStream The filename input stream to read the document from
+   * @return the Document if all went well, null if an error occurred!
+   */
+  public static Document loadXmlFile( InputStream inputStream ) throws HopXmlException {
+<span class="nc" id="L555">    return loadXmlFile( inputStream, null, false, false );</span>
+  }
+
+  /**
+   * Load a file into an XML document
+   *
+   * @param inputStream    The stream to load a document from
+   * @param systemID       Provide a base for resolving relative URIs.
+   * @param ignoreEntities Ignores external entities and returns an empty dummy.
+   * @param namespaceAware support XML namespaces.
+   * @return the Document if all went well, null if an error occured!
+   */
+  public static Document loadXmlFile( InputStream inputStream, String systemID, boolean ignoreEntities,
+                                      boolean namespaceAware ) throws HopXmlException {
+    try {
+      // Check and open XML document
+      //
+<span class="fc" id="L572">      DocumentBuilderFactory dbf = XmlParserFactoryProducer.createSecureDocBuilderFactory();</span>
+<span class="fc" id="L573">      dbf.setIgnoringComments( true );</span>
+<span class="fc" id="L574">      dbf.setNamespaceAware( namespaceAware );</span>
+<span class="fc" id="L575">      DocumentBuilder db = dbf.newDocumentBuilder();</span>
+
+      // even dbf.setValidating(false) will the parser NOT prevent from checking the existance of the DTD
+      // thus we need to give the BaseURI (systemID) below to have a chance to get it
+      // or return empty dummy documents for all external entities (sources)
+      //
+<span class="fc bfc" id="L581" title="All 2 branches covered.">      if ( ignoreEntities ) {</span>
+<span class="fc" id="L582">        db.setEntityResolver( new DTDIgnoringEntityResolver() );</span>
+      }
+
+      Document doc;
+      try {
+<span class="fc bfc" id="L587" title="All 2 branches covered.">        if ( Utils.isEmpty( systemID ) ) {</span>
+          // Normal parsing
+          //
+<span class="fc" id="L590">          doc = db.parse( inputStream );</span>
+        } else {
+          // Do extra verifications
+          //
+<span class="fc" id="L594">          String systemIDwithEndingSlash = systemID.trim();</span>
+
+          // make sure we have an ending slash, otherwise the last part will be ignored
+          //
+<span class="pc bpc" id="L598" title="2 of 4 branches missed.">          if ( !systemIDwithEndingSlash.endsWith( &quot;/&quot; ) &amp;&amp; !systemIDwithEndingSlash.endsWith( &quot;\\&quot; ) ) {</span>
+<span class="fc" id="L599">            systemIDwithEndingSlash = systemIDwithEndingSlash.concat( &quot;/&quot; );</span>
+          }
+<span class="nc" id="L601">          doc = db.parse( inputStream, systemIDwithEndingSlash );</span>
+        }
+<span class="nc" id="L603">      } catch ( FileNotFoundException ef ) {</span>
+<span class="nc" id="L604">        throw new HopXmlException( ef );</span>
+      } finally {
+<span class="pc bpc" id="L606" title="1 of 2 branches missed.">        if ( inputStream != null ) {</span>
+<span class="fc" id="L607">          inputStream.close();</span>
+        }
+      }
+
+<span class="fc" id="L611">      return doc;</span>
+<span class="fc" id="L612">    } catch ( Exception e ) {</span>
+<span class="fc" id="L613">      throw new HopXmlException( &quot;Error reading information from input stream&quot;, e );</span>
+    }
+  }
+
+  public static Document loadXmlFile( File resource ) throws HopXmlException {
+    try {
+<span class="nc" id="L619">      return loadXmlFile( resource.toURI().toURL() );</span>
+<span class="nc" id="L620">    } catch ( MalformedURLException e ) {</span>
+<span class="nc" id="L621">      throw new HopXmlException( e );</span>
+    }
+  }
+
+  /**
+   * Load a file into an XML document
+   *
+   * @param resource The resource to load into a document
+   * @return the Document if all went well, null if an error occured!
+   */
+  public static Document loadXmlFile( URL resource ) throws HopXmlException {
+    DocumentBuilderFactory dbf;
+    DocumentBuilder db;
+    Document doc;
+
+    try {
+      // Check and open XML document
+<span class="fc" id="L638">      dbf = XmlParserFactoryProducer.createSecureDocBuilderFactory();</span>
+<span class="fc" id="L639">      db = dbf.newDocumentBuilder();</span>
+<span class="fc" id="L640">      InputStream inputStream = resource.openStream();</span>
+      try {
+<span class="nc" id="L642">        doc = db.parse( inputStream );</span>
+<span class="nc" id="L643">      } catch ( IOException ef ) {</span>
+<span class="nc" id="L644">        throw new HopXmlException( ef );</span>
+      } finally {
+<span class="fc" id="L646">        inputStream.close();</span>
+      }
+
+<span class="nc" id="L649">      return doc;</span>
+<span class="fc" id="L650">    } catch ( Exception e ) {</span>
+<span class="fc" id="L651">      throw new HopXmlException( &quot;Error reading information from resource&quot;, e );</span>
+    }
+  }
+
+  /**
+   * Calls loadXmlString with deferNodeExpansion = TRUE
+   *
+   * @param string
+   * @return
+   * @throws HopXmlException
+   */
+  public static Document loadXmlString( String string ) throws HopXmlException {
+
+<span class="fc" id="L664">    return loadXmlString( string, Boolean.FALSE, Boolean.TRUE );</span>
+
+  }
+
+  /**
+   * Loads the XML document in parameter xml and returns the 'tag' entry.
+   *
+   * @param xml the XML to load
+   * @param tag the node to return
+   * @return the requested node
+   * @throws HopXmlException in case there is a problem reading the XML
+   */
+  public static Node loadXmlString( String xml, String tag ) throws HopXmlException {
+<span class="nc" id="L677">    Document doc = loadXmlString( xml );</span>
+<span class="nc" id="L678">    return getSubNode( doc, tag );</span>
+  }
+
+  /**
+   * Load a String into an XML document
+   *
+   * @param string             The XML text to load into a document
+   * @param deferNodeExpansion true to defer node expansion, false to not defer.
+   * @return the Document if all went well, null if an error occurred!
+   */
+  public static Document loadXmlString( String string, Boolean namespaceAware, Boolean deferNodeExpansion ) throws HopXmlException {
+<span class="fc" id="L689">    DocumentBuilder db = createDocumentBuilder( namespaceAware, deferNodeExpansion );</span>
+<span class="fc" id="L690">    return loadXmlString( db, string );</span>
+  }
+
+  public static Document loadXmlString( DocumentBuilder db, String string ) throws HopXmlException {
+
+    try {
+<span class="fc" id="L696">      StringReader stringReader = new java.io.StringReader( string );</span>
+<span class="fc" id="L697">      InputSource inputSource = new InputSource( stringReader );</span>
+
+      Document doc;
+      try {
+<span class="fc" id="L701">        doc = db.parse( inputSource );</span>
+<span class="nc" id="L702">      } catch ( IOException ef ) {</span>
+<span class="nc" id="L703">        throw new HopXmlException( &quot;Error parsing XML&quot;, ef );</span>
+      } finally {
+<span class="fc" id="L705">        stringReader.close();</span>
+      }
+
+<span class="fc" id="L708">      return doc;</span>
+<span class="nc" id="L709">    } catch ( Exception e ) {</span>
+<span class="nc" id="L710">      throw new HopXmlException( &quot;Error reading information from XML string : &quot; + Const.CR + string, e );</span>
+    }
+  }
+
+  public static DocumentBuilder createDocumentBuilder( boolean namespaceAware, boolean deferNodeExpansion )
+    throws HopXmlException {
+    try {
+<span class="fc" id="L717">      DocumentBuilderFactory dbf = XmlParserFactoryProducer.createSecureDocBuilderFactory();</span>
+<span class="fc" id="L718">      dbf.setFeature( &quot;http://apache.org/xml/features/dom/defer-node-expansion&quot;, deferNodeExpansion );</span>
+<span class="fc" id="L719">      dbf.setNamespaceAware( namespaceAware );</span>
+<span class="fc" id="L720">      return dbf.newDocumentBuilder();</span>
+<span class="nc" id="L721">    } catch ( ParserConfigurationException e ) {</span>
+<span class="nc" id="L722">      throw new HopXmlException( e );</span>
+    }
+  }
+
+  public static String getString() {
+<span class="nc" id="L727">    return XmlHandler.class.getName();</span>
+  }
+
+  /**
+   * Build an XML string for a certain tag String value
+   *
+   * @param tag The XML tag
+   * @param val The String value of the tag
+   * @param cr  true if a carriage return is desired after the ending tag.
+   * @return The XML String for the tag.
+   */
+  public static String addTagValue( String tag, String val, boolean cr, String... attributes ) {
+<span class="fc" id="L739">    StringBuilder value = new StringBuilder( &quot;&lt;&quot; );</span>
+<span class="fc" id="L740">    value.append( Encode.forXml( tag ) );</span>
+
+<span class="fc bfc" id="L742" title="All 2 branches covered.">    for ( int i = 0; i &lt; attributes.length; i += 2 ) {</span>
+<span class="fc" id="L743">      value.append( &quot; &quot; ).append( Encode.forXml( attributes[ i ] ) ).append( &quot;=\&quot;&quot; ).append(</span>
+<span class="fc" id="L744">        Encode.forXmlAttribute( attributes[ i + 1 ] ) ).append( &quot;\&quot; &quot; );</span>
+    }
+
+<span class="pc bpc" id="L747" title="1 of 4 branches missed.">    if ( val != null &amp;&amp; val.length() &gt; 0 ) {</span>
+<span class="fc" id="L748">      value.append( '&gt;' );</span>
+<span class="fc" id="L749">      value.append( Encode.forXml( val ) );</span>
+
+<span class="fc" id="L751">      value.append( &quot;&lt;/&quot; );</span>
+<span class="fc" id="L752">      value.append( Encode.forXml( tag ) );</span>
+<span class="fc" id="L753">      value.append( '&gt;' );</span>
+    } else {
+<span class="fc" id="L755">      value.append( &quot;/&gt;&quot; );</span>
+    }
+
+<span class="fc bfc" id="L758" title="All 2 branches covered.">    if ( cr ) {</span>
+<span class="fc" id="L759">      value.append( Const.CR );</span>
+    }
+
+<span class="fc" id="L762">    return value.toString();</span>
+  }
+
+  public static void appendReplacedChars( StringBuilder value, String string ) {
+<span class="nc" id="L766">    value.append( Encode.forXml( string ) );</span>
+<span class="nc" id="L767">  }</span>
+
+  /**
+   * Build an XML string (including a carriage return) for a certain tag String value
+   *
+   * @param tag The XML tag
+   * @param val The String value of the tag
+   * @return The XML String for the tag.
+   */
+  public static String addTagValue( IHopAttribute tag, String val ) {
+<span class="nc" id="L777">    return addTagValue( tag.getXmlCode(), val );</span>
+  }
+
+  /**
+   * Build an XML string (including a carriage return) for a certain tag String value
+   *
+   * @param tag The XML tag
+   * @param val The String value of the tag
+   * @return The XML String for the tag.
+   */
+  public static String addTagValue( String tag, String val ) {
+<span class="fc" id="L788">    return addTagValue( tag, val, true );</span>
+  }
+
+  /**
+   * Build an XML string (including a carriage return) for a certain tag boolean value
+   *
+   * @param tag  The XML tag
+   * @param bool The boolean value of the tag
+   * @return The XML String for the tag.
+   */
+  public static String addTagValue( IHopAttribute tag, boolean bool ) {
+<span class="nc" id="L799">    return addTagValue( tag.getXmlCode(), bool );</span>
+  }
+
+  /**
+   * Build an XML string (including a carriage return) for a certain tag boolean value
+   *
+   * @param tag  The XML tag
+   * @param bool The boolean value of the tag
+   * @return The XML String for the tag.
+   */
+  public static String addTagValue( String tag, boolean bool ) {
+<span class="fc" id="L810">    return addTagValue( tag, bool, true );</span>
+  }
+
+  /**
+   * Build an XML string for a certain tag boolean value
+   *
+   * @param tag  The XML tag
+   * @param bool The boolean value of the tag
+   * @param cr   true if a carriage return is desired after the ending tag.
+   * @return The XML String for the tag.
+   */
+  public static String addTagValue( String tag, boolean bool, boolean cr ) {
+<span class="fc bfc" id="L822" title="All 2 branches covered.">    return addTagValue( tag, bool ? &quot;Y&quot; : &quot;N&quot;, cr );</span>
+  }
+
+  /**
+   * Build an XML string for a certain tag long integer value
+   *
+   * @param tag The XML tag
+   * @param l   The long integer value of the tag
+   * @return The XML String for the tag.
+   */
+  public static String addTagValue( String tag, long l ) {
+<span class="fc" id="L833">    return addTagValue( tag, l, true );</span>
+  }
+
+  /**
+   * Build an XML string for a certain tag long integer value
+   *
+   * @param tag The XML tag
+   * @param l   The long integer value of the tag
+   * @param cr  true if a carriage return is desired after the ending tag.
+   * @return The XML String for the tag.
+   */
+  public static String addTagValue( String tag, long l, boolean cr ) {
+    // Tom modified this for performance
+    // return addTagValue(tag, &quot;&quot;+l, cr);
+<span class="fc" id="L847">    return addTagValue( tag, String.valueOf( l ), cr );</span>
+  }
+
+  /**
+   * Build an XML string (with carriage return) for a certain tag integer value
+   *
+   * @param tag The XML tag
+   * @param i   The integer value of the tag
+   * @return The XML String for the tag.
+   */
+  public static String addTagValue( IHopAttribute tag, int i ) {
+<span class="nc" id="L858">    return addTagValue( tag.getXmlCode(), i );</span>
+  }
+
+  /**
+   * Build an XML string (with carriage return) for a certain tag integer value
+   *
+   * @param tag The XML tag
+   * @param i   The integer value of the tag
+   * @return The XML String for the tag.
+   */
+  public static String addTagValue( String tag, int i ) {
+<span class="fc" id="L869">    return addTagValue( tag, i, true );</span>
+  }
+
+  /**
+   * Build an XML string for a certain tag integer value
+   *
+   * @param tag The XML tag
+   * @param i   The integer value of the tag
+   * @param cr  true if a carriage return is desired after the ending tag.
+   * @return The XML String for the tag.
+   */
+  public static String addTagValue( String tag, int i, boolean cr ) {
+<span class="fc" id="L881">    return addTagValue( tag, String.valueOf( i ), cr );</span>
+  }
+
+  /**
+   * Build an XML string (with carriage return) for a certain tag double value
+   *
+   * @param tag The XML tag
+   * @param d   The double value of the tag
+   * @return The XML String for the tag.
+   */
+  public static String addTagValue( String tag, double d ) {
+<span class="fc" id="L892">    return addTagValue( tag, d, true );</span>
+  }
+
+  /**
+   * Build an XML string for a certain tag double value
+   *
+   * @param tag The XML tag
+   * @param d   The double value of the tag
+   * @param cr  true if a carriage return is desired after the ending tag.
+   * @return The XML String for the tag.
+   */
+  public static String addTagValue( String tag, double d, boolean cr ) {
+<span class="fc" id="L904">    return addTagValue( tag, String.valueOf( d ), cr );</span>
+  }
+
+  /**
+   * Build an XML string (with carriage return) for a certain tag Date value
+   *
+   * @param tag  The XML tag
+   * @param date The Date value of the tag
+   * @return The XML String for the tag.
+   */
+  public static String addTagValue( String tag, Date date ) {
+<span class="fc" id="L915">    return addTagValue( tag, date, true );</span>
+  }
+
+  /**
+   * Build an XML string for a certain tag Date value
+   *
+   * @param tag  The XML tag
+   * @param date The Date value of the tag
+   * @param cr   true if a carriage return is desired after the ending tag.
+   * @return The XML String for the tag.
+   */
+  public static String addTagValue( String tag, Date date, boolean cr ) {
+<span class="fc" id="L927">    return addTagValue( tag, date2string( date ), cr );</span>
+  }
+
+  /**
+   * Build an XML string (including a carriage return) for a certain tag BigDecimal value
+   *
+   * @param tag The XML tag
+   * @param val The BigDecimal value of the tag
+   * @return The XML String for the tag.
+   */
+  public static String addTagValue( String tag, BigDecimal val ) {
+<span class="fc" id="L938">    return addTagValue( tag, val, true );</span>
+  }
+
+  /**
+   * Build an XML string (including a carriage return) for a certain tag BigDecimal value
+   *
+   * @param tag The XML tag
+   * @param val The BigDecimal value of the tag
+   * @return The XML String for the tag.
+   */
+  public static String addTagValue( String tag, BigDecimal val, boolean cr ) {
+<span class="pc bpc" id="L949" title="1 of 2 branches missed.">    return addTagValue( tag, val != null ? val.toString() : (String) null, cr );</span>
+  }
+
+  /**
+   * Build an XML string (including a carriage return) for a certain tag binary (byte[]) value
+   *
+   * @param tag The XML tag
+   * @param val The binary value of the tag
+   * @return The XML String for the tag.
+   * @throws IOException in case there is an Base64 or GZip encoding problem
+   */
+  public static String addTagValue( String tag, byte[] val ) throws IOException {
+<span class="fc" id="L961">    return addTagValue( tag, val, true );</span>
+  }
+
+  /**
+   * Build an XML string (including a carriage return) for a certain tag binary (byte[]) value
+   *
+   * @param tag The XML tag
+   * @param val The binary value of the tag
+   * @return The XML String for the tag.
+   * @throws IOException in case there is an Base64 or GZip encoding problem
+   */
+  public static String addTagValue( String tag, byte[] val, boolean cr ) throws IOException {
+    String string;
+<span class="pc bpc" id="L974" title="1 of 2 branches missed.">    if ( val == null ) {</span>
+<span class="nc" id="L975">      string = null;</span>
+    } else {
+<span class="fc" id="L977">      string = encodeBinaryData( val );</span>
+    }
+
+<span class="fc" id="L980">    return addTagValue( tag, string, cr );</span>
+  }
+
+  public static String encodeBinaryData( byte[] val ) throws IOException {
+<span class="fc" id="L984">    ByteArrayOutputStream baos = new ByteArrayOutputStream();</span>
+<span class="fc" id="L985">    GZIPOutputStream gzos = new GZIPOutputStream( baos );</span>
+<span class="fc" id="L986">    BufferedOutputStream bos = new BufferedOutputStream( gzos );</span>
+<span class="fc" id="L987">    bos.write( val );</span>
+<span class="fc" id="L988">    bos.flush();</span>
+<span class="fc" id="L989">    bos.close();</span>
+
+<span class="fc" id="L991">    return new String( Base64.encodeBase64( baos.toByteArray() ) );</span>
+  }
+
+  /**
+   * Get all the attributes in a certain node (on the root level)
+   *
+   * @param node The node to examine
+   * @return an array of strings containing the names of the attributes.
+   */
+  public static String[] getNodeAttributes( Node node ) {
+<span class="nc" id="L1001">    NamedNodeMap nnm = node.getAttributes();</span>
+<span class="nc bnc" id="L1002" title="All 2 branches missed.">    if ( nnm != null ) {</span>
+<span class="nc" id="L1003">      String[] attributes = new String[ nnm.getLength() ];</span>
+<span class="nc bnc" id="L1004" title="All 2 branches missed.">      for ( int i = 0; i &lt; nnm.getLength(); i++ ) {</span>
+<span class="nc" id="L1005">        Node attr = nnm.item( i );</span>
+<span class="nc" id="L1006">        attributes[ i ] = attr.getNodeName();</span>
+      }
+<span class="nc" id="L1008">      return attributes;</span>
+    }
+<span class="nc" id="L1010">    return null;</span>
+
+  }
+
+  public static String[] getNodeElements( Node node ) {
+<span class="nc" id="L1015">    ArrayList&lt;String&gt; elements = new ArrayList&lt;&gt;(); // List of String</span>
+
+<span class="nc" id="L1017">    NodeList nodeList = node.getChildNodes();</span>
+<span class="nc bnc" id="L1018" title="All 2 branches missed.">    if ( nodeList == null ) {</span>
+<span class="nc" id="L1019">      return null;</span>
+    }
+
+<span class="nc bnc" id="L1022" title="All 2 branches missed.">    for ( int i = 0; i &lt; nodeList.getLength(); i++ ) {</span>
+<span class="nc" id="L1023">      String nodeName = nodeList.item( i ).getNodeName();</span>
+<span class="nc bnc" id="L1024" title="All 2 branches missed.">      if ( elements.indexOf( nodeName ) &lt; 0 ) {</span>
+<span class="nc" id="L1025">        elements.add( nodeName );</span>
+      }
+    }
+
+<span class="nc bnc" id="L1029" title="All 2 branches missed.">    if ( elements.isEmpty() ) {</span>
+<span class="nc" id="L1030">      return null;</span>
+    }
+
+<span class="nc" id="L1033">    return elements.toArray( new String[ elements.size() ] );</span>
+  }
+
+  public static Date stringToDate( String dateString ) {
+<span class="pc bpc" id="L1037" title="1 of 2 branches missed.">    if ( Utils.isEmpty( dateString ) ) {</span>
+<span class="nc" id="L1038">      return null;</span>
+    }
+
+    try {
+<span class="fc" id="L1042">      synchronized ( simpleDateFormat ) {</span>
+<span class="fc" id="L1043">        return simpleDateFormat.parse( dateString );</span>
+      }
+<span class="nc" id="L1045">    } catch ( ParseException e ) {</span>
+<span class="nc" id="L1046">      return null;</span>
+    }
+  }
+
+  public static Timestamp stringToTimestamp( String dateString ) {
+<span class="pc bpc" id="L1051" title="1 of 2 branches missed.">    if ( Utils.isEmpty( dateString ) ) {</span>
+<span class="nc" id="L1052">      return null;</span>
+    }
+
+    try {
+<span class="fc" id="L1056">      synchronized ( simpleTimeStampFormat ) {</span>
+<span class="fc" id="L1057">        return (Timestamp) simpleTimeStampFormat.parse( dateString );</span>
+      }
+<span class="nc" id="L1059">    } catch ( ParseException e ) {</span>
+<span class="nc" id="L1060">      return null;</span>
+    }
+  }
+
+  public static String date2string( Date date ) {
+<span class="fc bfc" id="L1065" title="All 2 branches covered.">    if ( date == null ) {</span>
+<span class="fc" id="L1066">      return null;</span>
+    }
+<span class="fc" id="L1068">    synchronized ( simpleDateFormat ) {</span>
+<span class="fc" id="L1069">      return simpleDateFormat.format( date );</span>
+    }
+  }
+
+  public static String timestamp2string( Timestamp timestamp ) {
+<span class="fc bfc" id="L1074" title="All 2 branches covered.">    if ( timestamp == null ) {</span>
+<span class="fc" id="L1075">      return null;</span>
+    }
+<span class="fc" id="L1077">    synchronized ( simpleTimeStampFormat ) {</span>
+<span class="fc" id="L1078">      return simpleTimeStampFormat.format( timestamp );</span>
+    }
+  }
+
+  /**
+   * Convert a XML encoded binary string back to binary format
+   *
+   * @param string the (Byte64/GZip) encoded string
+   * @return the decoded binary (byte[]) object
+   * @throws HopException In case there is a decoding error
+   */
+  public static byte[] stringToBinary( String string ) throws HopException {
+    try {
+      byte[] bytes;
+<span class="pc bpc" id="L1092" title="1 of 2 branches missed.">      if ( string == null ) {</span>
+<span class="nc" id="L1093">        bytes = new byte[] {};</span>
+      } else {
+<span class="fc" id="L1095">        bytes = Base64.decodeBase64( string.getBytes() );</span>
+      }
+<span class="pc bpc" id="L1097" title="1 of 2 branches missed.">      if ( bytes.length &gt; 0 ) {</span>
+<span class="fc" id="L1098">        ByteArrayInputStream bais = new ByteArrayInputStream( bytes );</span>
+<span class="fc" id="L1099">        GZIPInputStream gzip = new GZIPInputStream( bais );</span>
+<span class="fc" id="L1100">        BufferedInputStream bi = new BufferedInputStream( gzip );</span>
+<span class="fc" id="L1101">        byte[] result = new byte[] {};</span>
+
+<span class="fc" id="L1103">        byte[] extra = new byte[ 1000000 ];</span>
+<span class="fc" id="L1104">        int nrExtra = bi.read( extra );</span>
+<span class="fc bfc" id="L1105" title="All 2 branches covered.">        while ( nrExtra &gt;= 0 ) {</span>
+          // add it to bytes...
+          //
+<span class="fc" id="L1108">          int newSize = result.length + nrExtra;</span>
+<span class="fc" id="L1109">          byte[] tmp = new byte[ newSize ];</span>
+<span class="pc bpc" id="L1110" title="1 of 2 branches missed.">          for ( int i = 0; i &lt; result.length; i++ ) {</span>
+<span class="nc" id="L1111">            tmp[ i ] = result[ i ];</span>
+          }
+<span class="fc bfc" id="L1113" title="All 2 branches covered.">          for ( int i = 0; i &lt; nrExtra; i++ ) {</span>
+<span class="fc" id="L1114">            tmp[ result.length + i ] = extra[ i ];</span>
+          }
+
+          // change the result
+<span class="fc" id="L1118">          result = tmp;</span>
+<span class="fc" id="L1119">          nrExtra = bi.read( extra );</span>
+<span class="fc" id="L1120">        }</span>
+<span class="fc" id="L1121">        bytes = result;</span>
+<span class="fc" id="L1122">        gzip.close();</span>
+      }
+
+<span class="fc" id="L1125">      return bytes;</span>
+<span class="nc" id="L1126">    } catch ( Exception e ) {</span>
+<span class="nc" id="L1127">      throw new HopException( &quot;Error converting string to binary&quot;, e );</span>
+    }
+  }
+
+  public static String buildCDATA( String string ) {
+<span class="fc" id="L1132">    return buildCDATA( new StringBuilder(), string ).toString();</span>
+  }
+
+  public static StringBuilder buildCDATA( StringBuilder builder, String string ) {
+<span class="fc" id="L1136">    return builder.append( &quot;&lt;![CDATA[&quot; ).append( Const.NVL( string, &quot;&quot; ) ).append( &quot;]]&gt;&quot; );</span>
+  }
+
+  public static String openTag( String tag ) {
+<span class="fc" id="L1140">    return openTag( new StringBuilder(), tag ).toString();</span>
+  }
+
+  public static StringBuilder openTag( StringBuilder builder, String tag ) {
+<span class="fc" id="L1144">    return builder.append( '&lt;' ).append( tag ).append( '&gt;' );</span>
+  }
+
+  public static String closeTag( String tag ) {
+<span class="fc" id="L1148">    return closeTag( new StringBuilder(), tag ).toString();</span>
+  }
+
+  public static StringBuilder closeTag( StringBuilder builder, String tag ) {
+<span class="fc" id="L1152">    return builder.append( &quot;&lt;/&quot; ).append( tag ).append( '&gt;' );</span>
+  }
+
+  public static String formatNode( Node node ) throws HopXmlException {
+<span class="nc" id="L1156">    StringWriter sw = new StringWriter();</span>
+    try {
+<span class="nc" id="L1158">      Transformer t = TransformerFactory.newInstance().newTransformer();</span>
+<span class="nc" id="L1159">      t.setOutputProperty( OutputKeys.OMIT_XML_DECLARATION, &quot;yes&quot; );</span>
+<span class="nc" id="L1160">      t.transform( new DOMSource( node ), new StreamResult( sw ) );</span>
+<span class="nc" id="L1161">    } catch ( Exception e ) {</span>
+<span class="nc" id="L1162">      throw new HopXmlException( &quot;Unable to format Node as XML&quot;, e );</span>
+<span class="nc" id="L1163">    }</span>
+<span class="nc" id="L1164">    return sw.toString();</span>
+  }
+
+}
+
+/**
+ * Handle external references and return an empty dummy document.
+ *
+ * @author jb
+ * @since 2007-12-21
+ */
+<span class="fc" id="L1175">class DTDIgnoringEntityResolver implements EntityResolver {</span>
+  @Override
+  public InputSource resolveEntity( java.lang.String publicID, java.lang.String systemID ) throws IOException {
+<span class="nc" id="L1178">    return new InputSource( new ByteArrayInputStream( &quot;&lt;?xml version='1.0' encoding='UTF-8'?&gt;&quot;.getBytes() ) );</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

@@ -1,0 +1,2031 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BaseDatabaseMeta.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.database</a> &gt; <span class="el_source">BaseDatabaseMeta.java</span></div><h1>BaseDatabaseMeta.java</h1><pre class="source lang-java linenums">// CHECKSTYLE:FileLength:OFF
+/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.database;
+
+import org.apache.hop.core.Const;
+import org.apache.hop.core.RowMetaAndData;
+import org.apache.hop.core.exception.HopDatabaseException;
+import org.apache.hop.core.exception.HopValueException;
+import org.apache.hop.core.gui.plugin.GuiElementType;
+import org.apache.hop.core.gui.plugin.GuiWidgetElement;
+import org.apache.hop.core.row.IValueMeta;
+import org.apache.hop.core.util.Utils;
+import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.metadata.api.HopMetadataProperty;
+
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Hashtable;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * This class contains the basic information on a database connection. It is not intended to be used other than the
+ * inheriting classes such as OracleDatabaseInfo, ...
+ *
+ * @author Matt
+ * @since 11-mrt-2005
+ */
+public abstract class BaseDatabaseMeta implements Cloneable, IDatabase {
+
+  /**
+   * The SQL to execute at connect time (right after connecting)
+   */
+  public static final String ATTRIBUTE_SQL_CONNECT = &quot;SQL_CONNECT&quot;;
+
+  /**
+   * The prefix for all the extra options attributes
+   */
+  public static final String ATTRIBUTE_PREFIX_EXTRA_OPTION = &quot;EXTRA_OPTION_&quot;;
+
+  /**
+   * A flag to determine if we should use result streaming on MySQL
+   */
+  public static final String ATTRIBUTE_USE_RESULT_STREAMING = &quot;STREAM_RESULTS&quot;;
+
+  /**
+   * A flag to determine if we should use a double decimal separator to specify schema/table combinations on MS-SQL
+   * server
+   */
+  public static final String ATTRIBUTE_MSSQL_DOUBLE_DECIMAL_SEPARATOR = &quot;MSSQL_DOUBLE_DECIMAL_SEPARATOR&quot;;
+
+  /**
+   * A flag to determine if we should quote all fields
+   */
+  public static final String ATTRIBUTE_QUOTE_ALL_FIELDS = &quot;QUOTE_ALL_FIELDS&quot;;
+
+  /**
+   * A flag to determine if we should force all identifiers to lower case
+   */
+  public static final String ATTRIBUTE_FORCE_IDENTIFIERS_TO_LOWERCASE = &quot;FORCE_IDENTIFIERS_TO_LOWERCASE&quot;;
+
+  /**
+   * A flag to determine if we should force all identifiers to UPPER CASE
+   */
+  public static final String ATTRIBUTE_FORCE_IDENTIFIERS_TO_UPPERCASE = &quot;FORCE_IDENTIFIERS_TO_UPPERCASE&quot;;
+
+  /**
+   * The preferred schema to use if no other has been specified.
+   */
+  public static final String ATTRIBUTE_PREFERRED_SCHEMA_NAME = &quot;PREFERRED_SCHEMA_NAME&quot;;
+
+  /**
+   * Checkbox to allow you to configure if the database supports the boolean data type or not. Defaults to &quot;false&quot; for
+   * backward compatibility!
+   */
+  public static final String ATTRIBUTE_SUPPORTS_BOOLEAN_DATA_TYPE = &quot;SUPPORTS_BOOLEAN_DATA_TYPE&quot;;
+
+  /**
+   * Checkbox to allow you to configure if the database supports the Timestamp data type or not. Defaults to &quot;false&quot; for
+   * backward compatibility!
+   */
+  public static final String ATTRIBUTE_SUPPORTS_TIMESTAMP_DATA_TYPE = &quot;SUPPORTS_TIMESTAMP_DATA_TYPE&quot;;
+
+  /**
+   * Checkbox to allow you to configure if the reserved words will have their case changed during the handleCase call
+   */
+  public static final String ATTRIBUTE_PRESERVE_RESERVED_WORD_CASE = &quot;PRESERVE_RESERVED_WORD_CASE&quot;;
+
+  public static final String SEQUENCE_FOR_BATCH_ID = &quot;SEQUENCE_FOR_BATCH_ID&quot;;
+  public static final String AUTOINCREMENT_SQL_FOR_BATCH_ID = &quot;AUTOINCREMENT_SQL_FOR_BATCH_ID&quot;;
+
+  public static final String ID_USERNAME_LABEL = &quot;username-label&quot;;
+  public static final String ID_USERNAME_WIDGET = &quot;username-widget&quot;;
+
+  public static final String ID_PASSWORD_LABEL = &quot;password-label&quot;;
+  public static final String ID_PASSWORD_WIDGET = &quot;password-widget&quot;;
+
+  /**
+   * Boolean to indicate if savepoints can be released Most databases do, so we set it to true. Child classes can
+   * overwrite with false if need be.
+   */
+<span class="fc" id="L128">  protected boolean releaseSavepoint = true;</span>
+
+  /**
+   * The SQL, minus the table name, to select the number of rows from a table
+   */
+  public static final String SELECT_COUNT_STATEMENT = &quot;select count(*) FROM&quot;;
+
+
+  private static final String FIELDNAME_PROTECTOR = &quot;_&quot;;
+
+  @HopMetadataProperty
+  protected int accessType; // NATIVE / OCI
+
+  @HopMetadataProperty
+  @GuiWidgetElement(
+    id = &quot;hostname&quot;,
+    order = &quot;01&quot;,
+    i18nPackage = &quot;org.apache.hop.ui.core.database&quot;,
+    label = &quot;DatabaseDialog.label.ServerHostname&quot;,
+    type = GuiElementType.TEXT,
+    variables = true,
+    parentId = DatabaseMeta.GUI_PLUGIN_ELEMENT_PARENT_ID )
+  protected String hostname;
+
+  @HopMetadataProperty
+  @GuiWidgetElement(
+    id = &quot;port&quot;,
+    order = &quot;02&quot;,
+    i18nPackage = &quot;org.apache.hop.ui.core.database&quot;,
+    label = &quot;DatabaseDialog.label.PortNumber&quot;,
+    type = GuiElementType.TEXT,
+    variables = true,
+    parentId = DatabaseMeta.GUI_PLUGIN_ELEMENT_PARENT_ID )
+  protected String port;
+
+  @HopMetadataProperty
+  @GuiWidgetElement(
+    id = &quot;databaseName&quot;,
+    order = &quot;03&quot;,
+    i18nPackage = &quot;org.apache.hop.ui.core.database&quot;,
+    label = &quot;DatabaseDialog.label.DatabaseName&quot;,
+    type = GuiElementType.TEXT,
+    variables = true,
+    parentId = DatabaseMeta.GUI_PLUGIN_ELEMENT_PARENT_ID )
+  protected String databaseName;
+
+  @HopMetadataProperty
+  protected String username;
+
+  @HopMetadataProperty(password = true)
+  protected String password;
+
+  /**
+   * Available for ALL database types
+   */
+  @HopMetadataProperty
+  protected String manualUrl;
+
+  @HopMetadataProperty
+  protected String servername; // Informix only!
+
+  @HopMetadataProperty
+  protected String dataTablespace; // data storage location, For Oracle &amp; perhaps others
+  @HopMetadataProperty
+  protected String indexTablespace; // index storage location, For Oracle &amp; perhaps others
+
+  private boolean changed;
+
+  @HopMetadataProperty
+  protected Map&lt;String,String&gt; attributes;
+
+  @HopMetadataProperty
+  protected String pluginId;
+  @HopMetadataProperty
+  protected String pluginName;
+
+
+<span class="fc" id="L205">  public BaseDatabaseMeta() {</span>
+<span class="fc" id="L206">    attributes = Collections.synchronizedMap( new HashMap&lt;&gt;() );</span>
+<span class="fc" id="L207">    changed = false;</span>
+<span class="pc bpc" id="L208" title="1 of 4 branches missed.">    if ( getAccessTypeList() != null &amp;&amp; getAccessTypeList().length &gt; 0 ) {</span>
+<span class="fc" id="L209">      accessType = getAccessTypeList()[ 0 ];</span>
+    }
+<span class="fc" id="L211">  }</span>
+
+  /**
+   * @return plugin ID of this class
+   */
+  @Override
+  public String getPluginId() {
+<span class="nc" id="L218">    return pluginId;</span>
+  }
+
+  /**
+   * @param pluginId The plugin ID to set.
+   */
+  @Override
+  public void setPluginId( String pluginId ) {
+<span class="fc" id="L226">    this.pluginId = pluginId;</span>
+<span class="fc" id="L227">  }</span>
+
+  /**
+   * @return plugin name of this class
+   */
+  @Override
+  public String getPluginName() {
+<span class="fc" id="L234">    return pluginName;</span>
+  }
+
+  /**
+   * @param pluginName The plugin name to set.
+   */
+  @Override
+  public void setPluginName( String pluginName ) {
+<span class="fc" id="L242">    this.pluginName = pluginName;</span>
+<span class="fc" id="L243">  }</span>
+
+  @Override
+  public abstract int[] getAccessTypeList();
+
+  /**
+   * @return Returns the accessType.
+   */
+  @Override
+  public int getAccessType() {
+<span class="nc" id="L253">    return accessType;</span>
+  }
+
+  /**
+   * @param accessType The accessType to set.
+   */
+  @Override
+  public void setAccessType( int accessType ) {
+<span class="fc" id="L261">    this.accessType = accessType;</span>
+<span class="fc" id="L262">  }</span>
+
+  /**
+   * @return Returns the changed.
+   */
+  @Override
+  public boolean isChanged() {
+<span class="fc" id="L269">    return changed;</span>
+  }
+
+  /**
+   * @param changed The changed to set.
+   */
+  @Override
+  public void setChanged( boolean changed ) {
+<span class="fc" id="L277">    this.changed = changed;</span>
+<span class="fc" id="L278">  }</span>
+
+  /**
+   * @return Returns the databaseName.
+   */
+  @Override
+  public String getDatabaseName() {
+<span class="fc" id="L285">    return databaseName;</span>
+  }
+
+  /**
+   * @param databaseName The databaseName to set.
+   */
+  @Override
+  public void setDatabaseName( String databaseName ) {
+<span class="fc" id="L293">    this.databaseName = databaseName;</span>
+<span class="fc" id="L294">  }</span>
+
+  /**
+   * @return Returns the hostname.
+   */
+  @Override
+  public String getHostname() {
+<span class="fc" id="L301">    return hostname;</span>
+  }
+
+  /**
+   * @param hostname The hostname to set.
+   */
+  @Override
+  public void setHostname( String hostname ) {
+<span class="fc" id="L309">    this.hostname = hostname;</span>
+<span class="fc" id="L310">  }</span>
+
+  /**
+   * Gets port
+   *
+   * @return value of port
+   */
+  public String getPort() {
+<span class="nc" id="L318">    return port;</span>
+  }
+
+  /**
+   * @param port The port to set
+   */
+  public void setPort( String port ) {
+<span class="fc" id="L325">    this.port = port;</span>
+<span class="fc" id="L326">  }</span>
+
+  /**
+   * @return Returns the password.
+   */
+  @Override
+  public String getPassword() {
+<span class="fc" id="L333">    return password;</span>
+  }
+
+  /**
+   * @param password The password to set.
+   */
+  @Override
+  public void setPassword( String password ) {
+<span class="fc" id="L341">    this.password = password;</span>
+<span class="fc" id="L342">  }</span>
+
+
+  /**
+   * @return Returns the servername.
+   */
+  @Override
+  public String getServername() {
+<span class="fc" id="L350">    return servername;</span>
+  }
+
+  /**
+   * @param servername The servername to set.
+   */
+  @Override
+  public void setServername( String servername ) {
+<span class="fc" id="L358">    this.servername = servername;</span>
+<span class="fc" id="L359">  }</span>
+
+  /**
+   * @return Returns the tablespaceData.
+   */
+  @Override
+  public String getDataTablespace() {
+<span class="fc" id="L366">    return dataTablespace;</span>
+  }
+
+  /**
+   * @param dataTablespace The data tablespace to set.
+   */
+  @Override
+  public void setDataTablespace( String dataTablespace ) {
+<span class="fc" id="L374">    this.dataTablespace = dataTablespace;</span>
+<span class="fc" id="L375">  }</span>
+
+  /**
+   * @return Returns the index tablespace.
+   */
+  @Override
+  public String getIndexTablespace() {
+<span class="fc" id="L382">    return indexTablespace;</span>
+  }
+
+  /**
+   * @param indexTablespace The index tablespace to set.
+   */
+  @Override
+  public void setIndexTablespace( String indexTablespace ) {
+<span class="fc" id="L390">    this.indexTablespace = indexTablespace;</span>
+<span class="fc" id="L391">  }</span>
+
+  /**
+   * @return Returns the username.
+   */
+  @Override
+  public String getUsername() {
+<span class="fc" id="L398">    return username;</span>
+  }
+
+  /**
+   * @param username The username to set.
+   */
+  @Override
+  public void setUsername( String username ) {
+<span class="fc" id="L406">    this.username = username;</span>
+<span class="fc" id="L407">  }</span>
+
+  /**
+   * @return The extra attributes for this database connection
+   */
+  @Override
+  public Map&lt;String, String&gt; getAttributes() {
+<span class="fc" id="L414">    return attributes;</span>
+  }
+
+  /**
+   * Set extra attributes on this database connection
+   *
+   * @param attributes The extra attributes to set on this database connection.
+   */
+  @Override
+  public void setAttributes( Map&lt;String,String&gt; attributes ) {
+<span class="fc" id="L424">    this.attributes = attributes;</span>
+<span class="fc" id="L425">  }</span>
+
+  /**
+   * Gets manualUrl
+   *
+   * @return A manually entered URL which will be used over the internally generated one
+   */
+  @Override public String getManualUrl() {
+<span class="nc" id="L433">    return manualUrl;</span>
+  }
+
+  /**
+   * @param manualUrl A manually entered URL which will be used over the internally generated one
+   */
+  @Override public void setManualUrl( String manualUrl ) {
+<span class="fc" id="L440">    this.manualUrl = manualUrl;</span>
+<span class="fc" id="L441">  }</span>
+
+  /**
+   * Clone the basic settings for this connection!
+   */
+  @Override
+  public Object clone() {
+<span class="fc" id="L448">    BaseDatabaseMeta retval = null;</span>
+    try {
+<span class="fc" id="L450">      retval = (BaseDatabaseMeta) super.clone();</span>
+
+      // CLone the attributes as well...
+<span class="fc" id="L453">      retval.attributes = Collections.synchronizedMap( new HashMap&lt;&gt;() );</span>
+<span class="pc bpc" id="L454" title="1 of 2 branches missed.">      for (String key : attributes.keySet()) {</span>
+<span class="nc" id="L455">        retval.attributes.put(key, attributes.get(key));</span>
+<span class="nc" id="L456">      }</span>
+<span class="nc" id="L457">    } catch ( CloneNotSupportedException e ) {</span>
+<span class="nc" id="L458">      throw new RuntimeException( e );</span>
+<span class="fc" id="L459">    }</span>
+<span class="fc" id="L460">    return retval;</span>
+  }
+
+  /*
+   * *******************************************************************************
+   * DEFAULT SETTINGS FOR ALL DATABASES ********************************************************************************
+   */
+
+  /**
+   * @return the default database port number
+   */
+  @Override
+  public int getDefaultDatabasePort() {
+<span class="fc" id="L473">    return -1; // No default port or not used.</span>
+  }
+
+  @Override public Map&lt;String, String&gt; getDefaultOptions() {
+<span class="nc" id="L477">    return Collections.emptyMap();</span>
+  }
+
+  /**
+   * See if this database supports the setCharacterStream() method on a PreparedStatement.
+   *
+   * @return true if we can set a Stream on a field in a PreparedStatement. False if not.
+   */
+  @Override
+  public boolean supportsSetCharacterStream() {
+<span class="fc" id="L487">    return true;</span>
+  }
+
+  /**
+   * @return Whether or not the database can use auto increment type of fields (pk)
+   */
+  @Override
+  public boolean supportsAutoInc() {
+<span class="fc" id="L495">    return true;</span>
+  }
+
+  @Override
+  public String getLimitClause( int nrRows ) {
+<span class="fc" id="L500">    return &quot;&quot;;</span>
+  }
+
+  @Override
+  public int getNotFoundTK( boolean use_autoinc ) {
+<span class="fc" id="L505">    return 0;</span>
+  }
+
+  /**
+   * Get the SQL to get the next value of a sequence. (Oracle/PGSQL only)
+   *
+   * @param sequenceName The sequence name
+   * @return the SQL to get the next value of a sequence. (Oracle/PGSQL only)
+   */
+  @Override
+  public String getSqlNextSequenceValue( String sequenceName ) {
+<span class="fc" id="L516">    return &quot;&quot;;</span>
+  }
+
+  /**
+   * Get the current value of a database sequence
+   *
+   * @param sequenceName The sequence to check
+   * @return The current value of a database sequence
+   */
+  @Override
+  public String getSqlCurrentSequenceValue( String sequenceName ) {
+<span class="fc" id="L527">    return &quot;&quot;;</span>
+  }
+
+  /**
+   * Check if a sequence exists.
+   *
+   * @param sequenceName The sequence to check
+   * @return The SQL to get the name of the sequence back from the databases data dictionary
+   */
+  @Override
+  public String getSqlSequenceExists( String sequenceName ) {
+<span class="fc" id="L538">    return &quot;&quot;;</span>
+  }
+
+  /**
+   * Checks whether or not the command setFetchSize() is supported by the JDBC driver...
+   *
+   * @return true is setFetchSize() is supported!
+   */
+  @Override
+  public boolean isFetchSizeSupported() {
+<span class="fc" id="L548">    return true;</span>
+  }
+
+  /**
+   * Indicates the need to insert a placeholder (0) for auto increment fields.
+   *
+   * @return true if we need a placeholder for auto increment fields in insert statements.
+   */
+  @Override
+  public boolean needsPlaceHolder() {
+<span class="fc" id="L558">    return false;</span>
+  }
+
+  /**
+   * @return true if the database supports schemas
+   */
+  @Override
+  public boolean supportsSchemas() {
+<span class="fc" id="L566">    return true;</span>
+  }
+
+  /**
+   * @return true if the database supports catalogs
+   */
+  @Override
+  public boolean supportsCatalogs() {
+<span class="fc" id="L574">    return true;</span>
+  }
+
+  /**
+   * @return true when the database engine supports empty transaction. (for example Informix does not on a non-ANSI
+   * database type!)
+   */
+  @Override
+  public boolean supportsEmptyTransactions() {
+<span class="fc" id="L583">    return true;</span>
+  }
+
+  /**
+   * @return the function for SUM agrregate
+   */
+  @Override
+  public String getFunctionSum() {
+<span class="fc" id="L591">    return &quot;SUM&quot;;</span>
+  }
+
+  /**
+   * @return the function for Average agrregate
+   */
+  @Override
+  public String getFunctionAverage() {
+<span class="fc" id="L599">    return &quot;AVG&quot;;</span>
+  }
+
+  /**
+   * @return the function for Minimum agrregate
+   */
+  @Override
+  public String getFunctionMinimum() {
+<span class="fc" id="L607">    return &quot;MIN&quot;;</span>
+  }
+
+  /**
+   * @return the function for Maximum agrregate
+   */
+  @Override
+  public String getFunctionMaximum() {
+<span class="fc" id="L615">    return &quot;MAX&quot;;</span>
+  }
+
+  /**
+   * @return the function for Count agrregate
+   */
+  @Override
+  public String getFunctionCount() {
+<span class="fc" id="L623">    return &quot;COUNT&quot;;</span>
+  }
+
+  /**
+   * Get the schema-table combination to query the right table. Usually that is SCHEMA.TABLENAME, however there are
+   * exceptions to this rule...
+   *
+   * @param schema_name The schema name
+   * @param table_part  The tablename
+   * @return the schema-table combination to query the right table.
+   */
+  @Override
+  public String getSchemaTableCombination( String schema_name, String table_part ) {
+<span class="fc" id="L636">    return schema_name + &quot;.&quot; + table_part;</span>
+  }
+
+  /**
+   * Checks for quotes before quoting schema and table. Many dialects had hardcoded quotes, they probably didn't get
+   * updated properly when quoteFields() was introduced to DatabaseMeta.
+   *
+   * @param schemaPart
+   * @param tablePart
+   * @return quoted schema and table
+   * @deprecated we should phase this out in 5.0, but it's there to keep backwards compatibility in the 4.x releases.
+   */
+  @Deprecated
+  public String getBackwardsCompatibleSchemaTableCombination( String schemaPart, String tablePart ) {
+<span class="fc" id="L650">    String schemaTable = &quot;&quot;;</span>
+<span class="pc bpc" id="L651" title="1 of 6 branches missed.">    if ( schemaPart != null &amp;&amp; ( schemaPart.contains( getStartQuote() ) || schemaPart.contains( getEndQuote() ) ) ) {</span>
+<span class="fc" id="L652">      schemaTable += schemaPart;</span>
+    } else {
+<span class="fc" id="L654">      schemaTable += getStartQuote() + schemaPart + getEndQuote();</span>
+    }
+<span class="fc" id="L656">    schemaTable += &quot;.&quot;;</span>
+<span class="pc bpc" id="L657" title="2 of 6 branches missed.">    if ( tablePart != null &amp;&amp; ( tablePart.contains( getStartQuote() ) || tablePart.contains( getEndQuote() ) ) ) {</span>
+<span class="fc" id="L658">      schemaTable += tablePart;</span>
+    } else {
+<span class="fc" id="L660">      schemaTable += getStartQuote() + tablePart + getEndQuote();</span>
+    }
+<span class="fc" id="L662">    return schemaTable;</span>
+  }
+
+  /**
+   * Checks for quotes before quoting table. Many dialects had hardcoded quotes, they probably didn't get updated
+   * properly when quoteFields() was introduced to DatabaseMeta.
+   *
+   * @param tablePart
+   * @return quoted table
+   * @deprecated we should phase this out in 5.0, but it's there to keep backwards compatibility in the 4.x releases.
+   */
+  @Deprecated
+  public String getBackwardsCompatibleTable( String tablePart ) {
+<span class="pc bpc" id="L675" title="1 of 6 branches missed.">    if ( tablePart != null &amp;&amp; ( tablePart.contains( getStartQuote() ) || tablePart.contains( getEndQuote() ) ) ) {</span>
+<span class="fc" id="L676">      return tablePart;</span>
+    } else {
+<span class="fc" id="L678">      return getStartQuote() + tablePart + getEndQuote();</span>
+    }
+  }
+
+  /**
+   * Get the maximum length of a text field for this database connection. This includes optional CLOB, Memo and Text
+   * fields. (the maximum!)
+   *
+   * @return The maximum text field length for this database type. (mostly CLOB_LENGTH)
+   */
+  @Override
+  public int getMaxTextFieldLength() {
+<span class="fc" id="L690">    return DatabaseMeta.CLOB_LENGTH;</span>
+  }
+
+  /**
+   * Get the maximum length of a text field (VARCHAR) for this database connection. If this size is exceeded use a CLOB.
+   *
+   * @return The maximum VARCHAR field length for this database type. (mostly identical to getMaxTextFieldLength() -
+   * CLOB_LENGTH)
+   */
+  @Override
+  public int getMaxVARCHARLength() {
+<span class="fc" id="L701">    return DatabaseMeta.CLOB_LENGTH;</span>
+  }
+
+  /**
+   * @return true if the database supports transactions.
+   */
+  @Override
+  public boolean supportsTransactions() {
+<span class="fc" id="L709">    return true;</span>
+  }
+
+  /**
+   * @return true if the database supports sequences
+   */
+  @Override
+  public boolean supportsSequences() {
+<span class="fc" id="L717">    return false;</span>
+  }
+
+  /**
+   * @return true if the database supports bitmap indexes
+   */
+  @Override
+  public boolean supportsBitmapIndex() {
+<span class="fc" id="L725">    return true;</span>
+  }
+
+  /**
+   * @return true if the database JDBC driver supports the setLong command
+   */
+  @Override
+  public boolean supportsSetLong() {
+<span class="fc" id="L733">    return true;</span>
+  }
+
+  /**
+   * Generates the SQL statement to drop a column from the specified table
+   *
+   * @param tablename   The table to add
+   * @param v           The column defined as a value
+   * @param tk          the name of the technical key field
+   * @param use_autoinc whether or not this field uses auto increment
+   * @param pk          the name of the primary key field
+   * @param semicolon   whether or not to add a semi-colon behind the statement.
+   * @return the SQL statement to drop a column from the specified table
+   */
+  @Override
+  public String getDropColumnStatement( String tablename, IValueMeta v, String tk, boolean use_autoinc,
+                                        String pk, boolean semicolon ) {
+<span class="fc" id="L750">    return &quot;ALTER TABLE &quot; + tablename + &quot; DROP &quot; + v.getName() + Const.CR;</span>
+  }
+
+  /**
+   * @return an array of reserved words for the database type...
+   */
+  @Override
+  public String[] getReservedWords() {
+<span class="fc" id="L758">    return new String[] {};</span>
+  }
+
+  /**
+   * @return true if reserved words need to be double quoted (&quot;password&quot;, &quot;select&quot;, ...)
+   */
+  @Override
+  public boolean quoteReservedWords() {
+<span class="fc" id="L766">    return true;</span>
+  }
+
+  /**
+   * @return The start quote sequence, mostly just double quote, but sometimes [, ...
+   */
+  @Override
+  public String getStartQuote() {
+<span class="fc" id="L774">    return &quot;\&quot;&quot;;</span>
+  }
+
+  /**
+   * @return The end quote sequence, mostly just double quote, but sometimes ], ...
+   */
+  @Override
+  public String getEndQuote() {
+<span class="fc" id="L782">    return &quot;\&quot;&quot;;</span>
+  }
+
+  /**
+   * @return a list of table types to retrieve tables for the database
+   */
+  @Override
+  public String[] getTableTypes() {
+<span class="fc" id="L790">    return new String[] { &quot;TABLE&quot; };</span>
+  }
+
+  /**
+   * @return a list of table types to retrieve views for the database
+   */
+  @Override
+  public String[] getViewTypes() {
+<span class="fc" id="L798">    return new String[] { &quot;VIEW&quot; };</span>
+  }
+
+  /**
+   * @return a list of table types to retrieve synonyms for the database
+   */
+  @Override
+  public String[] getSynonymTypes() {
+<span class="fc" id="L806">    return new String[] { &quot;SYNONYM&quot; };</span>
+  }
+
+  /**
+   * @return true if we need to supply the schema-name to getTables in order to get a correct list of items.
+   */
+  @Override
+  public boolean useSchemaNameForTableList() {
+<span class="fc" id="L814">    return false;</span>
+  }
+
+  /**
+   * @return true if the database supports views
+   */
+  @Override
+  public boolean supportsViews() {
+<span class="fc" id="L822">    return true;</span>
+  }
+
+  /**
+   * @return true if the database supports synonyms
+   */
+  @Override
+  public boolean supportsSynonyms() {
+<span class="fc" id="L830">    return false;</span>
+  }
+
+  /**
+   * @return The SQL on this database to get a list of stored procedures.
+   */
+  @Override
+  public String getSqlListOfProcedures() {
+<span class="fc" id="L838">    return null;</span>
+  }
+
+  /**
+   * @return The SQL on this database to get a list of sequences.
+   */
+  @Override
+  public String getSqlListOfSequences() {
+<span class="fc" id="L846">    return null;</span>
+  }
+
+  /**
+   * @param tableName The table to be truncated.
+   * @return The SQL statement to truncate a table: remove all rows from it without a transaction
+   */
+  @Override
+  public String getTruncateTableStatement( String tableName ) {
+<span class="nc" id="L855">    return &quot;TRUNCATE TABLE &quot; + tableName;</span>
+  }
+
+  /**
+   * Returns the minimal SQL to launch in order to determine the layout of the resultset for a given database table
+   *
+   * @param tableName The name of the table to determine the layout for
+   * @return The SQL to launch.
+   */
+  @Override
+  public String getSqlQueryFields( String tableName ) {
+<span class="fc" id="L866">    return &quot;SELECT * FROM &quot; + tableName;</span>
+  }
+
+  /**
+   * Most databases round number(7,2) 17.29999999 to 17.30, but some don't.
+   *
+   * @return true if the database supports roundinf of floating point data on update/insert
+   */
+  @Override
+  public boolean supportsFloatRoundingOnUpdate() {
+<span class="fc" id="L876">    return true;</span>
+  }
+
+  /**
+   * @param tableNames The names of the tables to lock
+   * @return The SQL command to lock database tables for write purposes. null is returned in case locking is not
+   * supported on the target database. null is the default value
+   */
+  @Override
+  public String getSqlLockTables( String[] tableNames ) {
+<span class="fc" id="L886">    return null;</span>
+  }
+
+  /**
+   * @param tableNames The names of the tables to unlock
+   * @return The SQL command to unlock database tables. null is returned in case locking is not supported on the target
+   * database. null is the default value
+   */
+  @Override
+  public String getSqlUnlockTables( String[] tableNames ) {
+<span class="fc" id="L896">    return null;</span>
+  }
+
+  /**
+   * @return true if the database supports timestamp to date conversion. For example Interbase doesn't support this!
+   */
+  @Override
+  public boolean supportsTimeStampToDateConversion() {
+<span class="fc" id="L904">    return true;</span>
+  }
+
+  /**
+   * @return true if the database JDBC driver supports batch updates For example Interbase doesn't support this!
+   */
+  @Override
+  public boolean supportsBatchUpdates() {
+<span class="fc" id="L912">    return true;</span>
+  }
+
+  public String getAttributeProperty(String key, String defaultValue) {
+<span class="fc" id="L916">    String value = attributes.get(key);</span>
+<span class="fc bfc" id="L917" title="All 2 branches covered.">    if (value==null) {</span>
+<span class="fc" id="L918">      return defaultValue;</span>
+    }
+<span class="fc" id="L920">    return value;</span>
+  }
+
+  public String getAttributeProperty(String key) {
+<span class="fc" id="L924">    return attributes.get(key);</span>
+  }
+
+  /**
+   * @return true if the database supports a boolean, bit, logical, ... datatype The default is false: map to a string.
+   */
+  @Override
+  public boolean supportsBooleanDataType() {
+<span class="fc" id="L932">    String supportsBooleanString = getAttributeProperty( ATTRIBUTE_SUPPORTS_BOOLEAN_DATA_TYPE, &quot;N&quot; );</span>
+<span class="fc" id="L933">    return &quot;Y&quot;.equalsIgnoreCase( supportsBooleanString );</span>
+  }
+
+  /**
+   * @param b Set to true if the database supports a boolean, bit, logical, ... datatype
+   */
+  @Override
+  public void setSupportsBooleanDataType( boolean b ) {
+<span class="pc bpc" id="L941" title="1 of 2 branches missed.">    attributes.put( ATTRIBUTE_SUPPORTS_BOOLEAN_DATA_TYPE, b ? &quot;Y&quot; : &quot;N&quot; );</span>
+<span class="fc" id="L942">  }</span>
+
+  /**
+   * @return true if the database supports the Timestamp data type (nanosecond precision and all)
+   */
+  @Override
+  public boolean supportsTimestampDataType() {
+<span class="fc" id="L949">    String supportsTimestamp = getAttributeProperty( ATTRIBUTE_SUPPORTS_TIMESTAMP_DATA_TYPE, &quot;N&quot; );</span>
+<span class="fc" id="L950">    return &quot;Y&quot;.equalsIgnoreCase( supportsTimestamp );</span>
+  }
+
+  /**
+   * @param b Set to true if the database supports the Timestamp data type (nanosecond precision and all)
+   */
+  @Override
+  public void setSupportsTimestampDataType( boolean b ) {
+<span class="pc bpc" id="L958" title="1 of 2 branches missed.">    attributes.put( ATTRIBUTE_SUPPORTS_TIMESTAMP_DATA_TYPE, b ? &quot;Y&quot; : &quot;N&quot; );</span>
+<span class="fc" id="L959">  }</span>
+
+  /**
+   * @return true if reserved words' case should be preserved
+   */
+  @Override
+  public boolean preserveReservedCase() {
+<span class="fc" id="L966">    String usePool = getAttributeProperty( ATTRIBUTE_PRESERVE_RESERVED_WORD_CASE, &quot;Y&quot; );</span>
+<span class="fc" id="L967">    return &quot;Y&quot;.equalsIgnoreCase( usePool );</span>
+  }
+
+  /**
+   * @param b Set to true if reserved words' case should be preserved
+   */
+  @Override
+  public void setPreserveReservedCase( boolean b ) {
+<span class="pc bpc" id="L975" title="1 of 2 branches missed.">    attributes.put( ATTRIBUTE_PRESERVE_RESERVED_WORD_CASE, b ? &quot;Y&quot; : &quot;N&quot; );</span>
+<span class="fc" id="L976">  }</span>
+
+  /**
+   * @return true if the database defaults to naming tables and fields in uppercase. True for most databases except for
+   * stuborn stuff like Postgres ;-)
+   */
+  @Override
+  public boolean isDefaultingToUppercase() {
+<span class="fc" id="L984">    return true;</span>
+  }
+
+  /**
+   * @return all the extra options that are set to be used for the database URL
+   */
+  @Override
+  public Map&lt;String, String&gt; getExtraOptions() {
+<span class="fc" id="L992">    Map&lt;String, String&gt; map = new Hashtable&lt;String, String&gt;();</span>
+
+<span class="fc bfc" id="L994" title="All 2 branches covered.">    for ( String attribute : attributes.keySet() ) {</span>
+<span class="fc bfc" id="L995" title="All 2 branches covered.">      if ( attribute.startsWith( ATTRIBUTE_PREFIX_EXTRA_OPTION ) ) {</span>
+<span class="fc" id="L996">        String value = getAttributeProperty( attribute, &quot;&quot; );</span>
+
+        // Add to the map...
+<span class="fc" id="L999">        map.put( attribute.substring( ATTRIBUTE_PREFIX_EXTRA_OPTION.length() ), value );</span>
+      }
+<span class="fc" id="L1001">    }</span>
+
+<span class="fc" id="L1003">    return map;</span>
+  }
+
+  /**
+   * Add an extra option to the attributes list
+   *
+   * @param databaseTypeCode The database type code for which the option applies
+   * @param option           The option to set
+   * @param value            The value of the option
+   */
+  @Override
+  public void addExtraOption( String databaseTypeCode, String option, String value ) {
+<span class="fc" id="L1015">    attributes.put( ATTRIBUTE_PREFIX_EXTRA_OPTION + databaseTypeCode + &quot;.&quot; + option, value );</span>
+<span class="fc" id="L1016">  }</span>
+
+  /**
+   * @return The extra option separator in database URL for this platform (usually this is semicolon ; )
+   */
+  @Override
+  public String getExtraOptionSeparator() {
+<span class="fc" id="L1023">    return &quot;;&quot;;</span>
+  }
+
+  /**
+   * @return The extra option value separator in database URL for this platform (usually this is the equal sign = )
+   */
+  @Override
+  public String getExtraOptionValueSeparator() {
+<span class="fc" id="L1031">    return &quot;=&quot;;</span>
+  }
+
+  /**
+   * @return This indicator separates the normal URL from the options
+   */
+  @Override
+  public String getExtraOptionIndicator() {
+<span class="fc" id="L1039">    return &quot;;&quot;;</span>
+  }
+
+  /**
+   * @return true if the database supports connection options in the URL, false if they are put in a Properties object.
+   */
+  @Override
+  public boolean supportsOptionsInURL() {
+<span class="fc" id="L1047">    return true;</span>
+  }
+
+  /**
+   * @return extra help text on the supported options on the selected database platform.
+   */
+  @Override
+  public String getExtraOptionsHelpText() {
+<span class="fc" id="L1055">    return null;</span>
+  }
+
+  /**
+   * @return true if the database JDBC driver supports getBlob on the resultset. If not we must use getBytes() to get
+   * the data.
+   */
+  @Override
+  public boolean supportsGetBlob() {
+<span class="fc" id="L1064">    return true;</span>
+  }
+
+  /**
+   * @return The SQL to execute right after connecting
+   */
+  @Override
+  public String getConnectSql() {
+<span class="fc" id="L1072">    return getAttributeProperty( ATTRIBUTE_SQL_CONNECT );</span>
+  }
+
+  /**
+   * @param sql The SQL to execute right after connecting
+   */
+  @Override
+  public void setConnectSql(String sql ) {
+<span class="fc" id="L1080">    attributes.put( ATTRIBUTE_SQL_CONNECT, sql );</span>
+<span class="fc" id="L1081">  }</span>
+
+  /**
+   * @return true if the database supports setting the maximum number of return rows in a resultset.
+   */
+  @Override
+  public boolean supportsSetMaxRows() {
+<span class="fc" id="L1088">    return true;</span>
+  }
+
+  @Override
+  public String getSqlTableExists( String tablename ) {
+<span class="fc" id="L1093">    return &quot;SELECT 1 FROM &quot; + tablename;</span>
+  }
+
+  @Override
+  public String getSqlColumnExists( String columnname, String tablename ) {
+<span class="fc" id="L1098">    return &quot;SELECT &quot; + columnname + &quot; FROM &quot; + tablename;</span>
+  }
+
+  /**
+   * @return true if the database is streaming results (normally this is an option just for MySQL).
+   */
+  @Override
+  public boolean isStreamingResults() {
+<span class="fc" id="L1106">    String usePool = getAttributeProperty( ATTRIBUTE_USE_RESULT_STREAMING, &quot;Y&quot; ); // DEFAULT TO YES!!</span>
+<span class="fc" id="L1107">    return &quot;Y&quot;.equalsIgnoreCase( usePool );</span>
+  }
+
+  /**
+   * @param useStreaming true if we want the database to stream results (normally this is an option just for MySQL).
+   */
+  @Override
+  public void setStreamingResults( boolean useStreaming ) {
+<span class="pc bpc" id="L1115" title="1 of 2 branches missed.">    attributes.put( ATTRIBUTE_USE_RESULT_STREAMING, useStreaming ? &quot;Y&quot; : &quot;N&quot; );</span>
+<span class="fc" id="L1116">  }</span>
+
+  /**
+   * @return true if all fields should always be quoted in db
+   */
+  @Override
+  public boolean isQuoteAllFields() {
+<span class="fc" id="L1123">    String quoteAllFields = getAttributeProperty( ATTRIBUTE_QUOTE_ALL_FIELDS, &quot;N&quot; ); // DEFAULT TO NO!!</span>
+<span class="fc" id="L1124">    return &quot;Y&quot;.equalsIgnoreCase( quoteAllFields );</span>
+  }
+
+  /**
+   * @param quoteAllFields true if we want the database to stream results (normally this is an option just for MySQL).
+   */
+  @Override
+  public void setQuoteAllFields( boolean quoteAllFields ) {
+<span class="pc bpc" id="L1132" title="1 of 2 branches missed.">    attributes.put( ATTRIBUTE_QUOTE_ALL_FIELDS, quoteAllFields ? &quot;Y&quot; : &quot;N&quot; );</span>
+<span class="fc" id="L1133">  }</span>
+
+  /**
+   * @return true if all identifiers should be forced to lower case
+   */
+  @Override
+  public boolean isForcingIdentifiersToLowerCase() {
+<span class="fc" id="L1140">    String forceLowerCase = getAttributeProperty( ATTRIBUTE_FORCE_IDENTIFIERS_TO_LOWERCASE, &quot;N&quot; ); // DEFAULT TO NO!!</span>
+<span class="fc" id="L1141">    return &quot;Y&quot;.equalsIgnoreCase( forceLowerCase );</span>
+  }
+
+  /**
+   * @param forceLowerCase true if all identifiers should be forced to lower case
+   */
+  @Override
+  public void setForcingIdentifiersToLowerCase( boolean forceLowerCase ) {
+<span class="pc bpc" id="L1149" title="1 of 2 branches missed.">    attributes.put( ATTRIBUTE_FORCE_IDENTIFIERS_TO_LOWERCASE, forceLowerCase ? &quot;Y&quot; : &quot;N&quot; );</span>
+<span class="fc" id="L1150">  }</span>
+
+  /**
+   * @return true if all identifiers should be forced to upper case
+   */
+  @Override
+  public boolean isForcingIdentifiersToUpperCase() {
+<span class="fc" id="L1157">    String forceUpperCase = getAttributeProperty( ATTRIBUTE_FORCE_IDENTIFIERS_TO_UPPERCASE, &quot;N&quot; ); // DEFAULT TO NO!!</span>
+<span class="fc" id="L1158">    return &quot;Y&quot;.equalsIgnoreCase( forceUpperCase );</span>
+  }
+
+  /**
+   * @param forceUpperCase true if all identifiers should be forced to upper case
+   */
+  @Override
+  public void setForcingIdentifiersToUpperCase( boolean forceUpperCase ) {
+<span class="pc bpc" id="L1166" title="1 of 2 branches missed.">    attributes.put( ATTRIBUTE_FORCE_IDENTIFIERS_TO_UPPERCASE, forceUpperCase ? &quot;Y&quot; : &quot;N&quot; );</span>
+<span class="fc" id="L1167">  }</span>
+
+  /**
+   * @return true if we use a double decimal separator to specify schema/table combinations on MS-SQL server
+   */
+  @Override
+  public boolean isUsingDoubleDecimalAsSchemaTableSeparator() {
+<span class="fc" id="L1174">    String usePool = getAttributeProperty( ATTRIBUTE_MSSQL_DOUBLE_DECIMAL_SEPARATOR, &quot;N&quot; ); // DEFAULT TO YES!!</span>
+<span class="fc" id="L1175">    return &quot;Y&quot;.equalsIgnoreCase( usePool );</span>
+  }
+
+  /**
+   * @param useDoubleDecimalSeparator true if we should use a double decimal separator to specify schema/table combinations on MS-SQL server
+   */
+  @Override
+  public void setUsingDoubleDecimalAsSchemaTableSeparator( boolean useDoubleDecimalSeparator ) {
+<span class="pc bpc" id="L1183" title="1 of 2 branches missed.">    attributes.put( ATTRIBUTE_MSSQL_DOUBLE_DECIMAL_SEPARATOR, useDoubleDecimalSeparator ? &quot;Y&quot; : &quot;N&quot; );</span>
+<span class="fc" id="L1184">  }</span>
+
+  /**
+   * @return true if this database needs a transaction to perform a query (auto-commit turned off).
+   */
+  @Override
+  public boolean isRequiringTransactionsOnQueries() {
+<span class="fc" id="L1191">    return true;</span>
+  }
+
+  @Override
+  public boolean isStrictBigNumberInterpretation() {
+<span class="nc" id="L1196">    return false;</span>
+  }
+  
+  /**
+   * You can use this method to supply an alternate factory for the test method in the dialogs. This is useful for
+   * plugins like SAP/R3 and PALO.
+   *
+   * @return the name of the database test factory to use.
+   */
+  @Override
+  public String getDatabaseFactoryName() {
+<span class="fc" id="L1207">    return DatabaseFactory.class.getName();</span>
+  }
+
+  /**
+   * @return The preferred schema name of this database connection.
+   */
+  @Override
+  public String getPreferredSchemaName() {
+<span class="fc" id="L1215">    return getAttributeProperty( ATTRIBUTE_PREFERRED_SCHEMA_NAME );</span>
+  }
+
+  /**
+   * @param preferredSchemaName The preferred schema name of this database connection.
+   */
+  @Override
+  public void setPreferredSchemaName( String preferredSchemaName ) {
+<span class="fc" id="L1223">    attributes.put( ATTRIBUTE_PREFERRED_SCHEMA_NAME, preferredSchemaName );</span>
+<span class="fc" id="L1224">  }</span>
+
+  /**
+   * Verifies on the specified database connection if an index exists on the fields with the specified name.
+   *
+   * @param database   a connected database
+   * @param schemaName
+   * @param tableName
+   * @param idx_fields
+   * @return true if the index exists, false if it doesn't.
+   * @throws HopDatabaseException
+   */
+  @Override
+  public boolean checkIndexExists( Database database, String schemaName, String tableName, String[] idx_fields ) throws HopDatabaseException {
+
+<span class="nc" id="L1239">    String tablename = database.getDatabaseMeta().getQuotedSchemaTableCombination( schemaName, tableName );</span>
+
+<span class="nc" id="L1241">    boolean[] exists = new boolean[ idx_fields.length ];</span>
+<span class="nc bnc" id="L1242" title="All 2 branches missed.">    for ( int i = 0; i &lt; exists.length; i++ ) {</span>
+<span class="nc" id="L1243">      exists[ i ] = false;</span>
+    }
+
+    try {
+      // Get a list of all the indexes for this table
+<span class="nc" id="L1248">      ResultSet indexList = null;</span>
+      try {
+<span class="nc" id="L1250">        indexList = database.getDatabaseMetaData().getIndexInfo( null, null, tablename, false, true );</span>
+<span class="nc bnc" id="L1251" title="All 2 branches missed.">        while ( indexList.next() ) {</span>
+          // String tablen = indexList.getString(&quot;TABLE_NAME&quot;);
+          // String indexn = indexList.getString(&quot;INDEX_NAME&quot;);
+<span class="nc" id="L1254">          String column = indexList.getString( &quot;COLUMN_NAME&quot; );</span>
+          // int pos = indexList.getShort(&quot;ORDINAL_POSITION&quot;);
+          // int type = indexList.getShort(&quot;TYPE&quot;);
+
+<span class="nc" id="L1258">          int idx = Const.indexOfString( column, idx_fields );</span>
+<span class="nc bnc" id="L1259" title="All 2 branches missed.">          if ( idx &gt;= 0 ) {</span>
+<span class="nc" id="L1260">            exists[ idx ] = true;</span>
+          }
+<span class="nc" id="L1262">        }</span>
+      } finally {
+<span class="nc bnc" id="L1264" title="All 2 branches missed.">        if ( indexList != null ) {</span>
+<span class="nc" id="L1265">          indexList.close();</span>
+        }
+      }
+
+      // See if all the fields are indexed...
+<span class="nc" id="L1270">      boolean all = true;</span>
+<span class="nc bnc" id="L1271" title="All 4 branches missed.">      for ( int i = 0; i &lt; exists.length &amp;&amp; all; i++ ) {</span>
+<span class="nc bnc" id="L1272" title="All 2 branches missed.">        if ( !exists[ i ] ) {</span>
+<span class="nc" id="L1273">          all = false;</span>
+        }
+      }
+
+<span class="nc" id="L1277">      return all;</span>
+<span class="nc" id="L1278">    } catch ( Exception e ) {</span>
+<span class="nc" id="L1279">      throw new HopDatabaseException( &quot;Unable to determine if indexes exists on table [&quot; + tablename + &quot;]&quot;, e );</span>
+    }
+
+  }
+
+  /**
+   * @return true if the database supports the NOMAXVALUE sequence option. The default is false, AS/400 and DB2 support
+   * this.
+   */
+  @Override
+  public boolean supportsSequenceNoMaxValueOption() {
+<span class="fc" id="L1290">    return false;</span>
+  }
+
+  /**
+   * @return true if we need to append the PRIMARY KEY block in the create table block after the fields, required for
+   * Cache.
+   */
+  @Override
+  public boolean requiresCreateTablePrimaryKeyAppend() {
+<span class="fc" id="L1299">    return false;</span>
+  }
+
+  /**
+   * @return true if the database requires you to cast a parameter to varchar before comparing to null. Only required
+   * for DB2 and Vertica
+   */
+  @Override
+  public boolean requiresCastToVariousForIsNull() {
+<span class="fc" id="L1308">    return false;</span>
+  }
+
+  /**
+   * @return Handles the special case of DB2 where the display size returned is twice the precision. In that case, the
+   * length is the precision.
+   */
+  @Override
+  public boolean isDisplaySizeTwiceThePrecision() {
+<span class="fc" id="L1317">    return false;</span>
+  }
+
+  /**
+   * Most databases allow you to retrieve result metadata by preparing a SELECT statement.
+   *
+   * @return true if the database supports retrieval of query metadata from a prepared statement. False if the query
+   * needs to be executed first.
+   */
+  @Override
+  public boolean supportsPreparedStatementMetadataRetrieval() {
+<span class="fc" id="L1328">    return true;</span>
+  }
+
+  /**
+   * @return true if this database only supports metadata retrieval on a result set, never on a statement (even if the
+   * statement has been executed)
+   */
+  @Override
+  public boolean supportsResultSetMetadataRetrievalOnly() {
+<span class="fc" id="L1337">    return false;</span>
+  }
+
+  /**
+   * @param tableName
+   * @return true if the specified table is a system table
+   */
+  @Override
+  public boolean isSystemTable( String tableName ) {
+<span class="fc" id="L1346">    return false;</span>
+  }
+
+  /**
+   * @return true if the database supports newlines in a SQL statements.
+   */
+  @Override
+  public boolean supportsNewLinesInSql() {
+<span class="fc" id="L1354">    return true;</span>
+  }
+
+  /**
+   * @return the SQL to retrieve the list of schemas or null if the JDBC metadata needs to be used.
+   */
+  @Override
+  public String getSqlListOfSchemas() {
+<span class="fc" id="L1362">    return null;</span>
+  }
+
+  /**
+   * @return The maximum number of columns in a database, &lt;=0 means: no known limit
+   */
+  @Override
+  public int getMaxColumnsInIndex() {
+<span class="fc" id="L1370">    return 0;</span>
+  }
+
+  /**
+   * @return true if the database supports error handling (recovery of failure) while doing batch updates.
+   */
+  @Override
+  public boolean supportsErrorHandlingOnBatchUpdates() {
+<span class="fc" id="L1378">    return true;</span>
+  }
+
+  /**
+   * Get the SQL to insert a new empty unknown record in a dimension.
+   *
+   * @param schemaTable  the schema-table name to insert into
+   * @param keyField     The key field
+   * @param versionField the version field
+   * @return the SQL to insert the unknown record into the SCD.
+   */
+  @Override
+  public String getSqlInsertAutoIncUnknownDimensionRow( String schemaTable, String keyField, String versionField ) {
+<span class="fc" id="L1391">    return &quot;insert into &quot; + schemaTable + &quot;(&quot; + keyField + &quot;, &quot; + versionField + &quot;) values (0, 1)&quot;;</span>
+  }
+
+  /**
+   * @return true if this is a relational database you can explore. Return false for SAP, PALO, etc.
+   */
+  @Override
+  public boolean isExplorable() {
+<span class="fc" id="L1399">    return true;</span>
+  }
+
+  /**
+   * @param string
+   * @return A string that is properly quoted for use in a SQL statement (insert, update, delete, etc)
+   */
+  @Override
+  public String quoteSqlString(String string ) {
+<span class="fc" id="L1408">    string = string.replaceAll( &quot;'&quot;, &quot;''&quot; );</span>
+<span class="fc" id="L1409">    string = string.replaceAll( &quot;\\n&quot;, &quot;\\\\n&quot; );</span>
+<span class="fc" id="L1410">    string = string.replaceAll( &quot;\\r&quot;, &quot;\\\\r&quot; );</span>
+<span class="fc" id="L1411">    return &quot;'&quot; + string + &quot;'&quot;;</span>
+  }
+
+  /**
+   * Build the SQL to count the number of rows in the passed table.
+   *
+   * @param tableName
+   * @return
+   */
+  @Override
+  public String getSelectCountStatement( String tableName ) {
+<span class="fc" id="L1422">    return SELECT_COUNT_STATEMENT + &quot; &quot; + tableName;</span>
+  }
+
+  @Override
+  public String generateColumnAlias( int columnIndex, String suggestedName ) {
+<span class="fc" id="L1427">    return &quot;COL&quot; + Integer.toString( columnIndex );</span>
+  }
+
+  /**
+   * Parse all possible statements from the provided SQL script.
+   *
+   * @param sqlScript Raw SQL Script to be parsed into executable statements.
+   * @return List of parsed SQL statements to be executed separately.
+   */
+  @Override
+  public List&lt;String&gt; parseStatements( String sqlScript ) {
+
+<span class="fc" id="L1439">    List&lt;SqlScriptStatement&gt; scriptStatements = getSqlScriptStatements( sqlScript );</span>
+<span class="fc" id="L1440">    List&lt;String&gt; statements = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L1441" title="All 2 branches covered.">    for ( SqlScriptStatement scriptStatement : scriptStatements ) {</span>
+<span class="fc" id="L1442">      statements.add( scriptStatement.getStatement() );</span>
+<span class="fc" id="L1443">    }</span>
+<span class="fc" id="L1444">    return statements;</span>
+  }
+
+  /**
+   * Parse the statements in the provided SQL script, provide more information about where each was found in the script.
+   *
+   * @param sqlScript Raw SQL Script to be parsed into executable statements.
+   * @return List of SQL script statements to be executed separately.
+   */
+  @Override
+  public List&lt;SqlScriptStatement&gt; getSqlScriptStatements( String sqlScript ) {
+<span class="fc" id="L1455">    List&lt;SqlScriptStatement&gt; statements = new ArrayList&lt;SqlScriptStatement&gt;();</span>
+<span class="fc" id="L1456">    String all = sqlScript;</span>
+<span class="fc" id="L1457">    int from = 0;</span>
+<span class="fc" id="L1458">    int to = 0;</span>
+<span class="fc" id="L1459">    int length = all.length();</span>
+
+<span class="fc bfc" id="L1461" title="All 2 branches covered.">    while ( to &lt; length ) {</span>
+<span class="fc" id="L1462">      char c = all.charAt( to );</span>
+
+      // Skip comment lines...
+      //
+<span class="pc bpc" id="L1466" title="1 of 2 branches missed.">      while ( all.substring( from ).startsWith( &quot;--&quot; ) ) {</span>
+<span class="nc" id="L1467">        int nextLineIndex = all.indexOf( Const.CR, from );</span>
+<span class="nc" id="L1468">        from = nextLineIndex + Const.CR.length();</span>
+<span class="nc bnc" id="L1469" title="All 2 branches missed.">        if ( to &gt;= length ) {</span>
+<span class="nc" id="L1470">          break;</span>
+        }
+<span class="nc" id="L1472">        c = all.charAt( c );</span>
+<span class="nc" id="L1473">      }</span>
+<span class="pc bpc" id="L1474" title="1 of 2 branches missed.">      if ( to &gt;= length ) {</span>
+<span class="nc" id="L1475">        break;</span>
+      }
+
+      // Skip over double quotes...
+      //
+<span class="pc bpc" id="L1480" title="1 of 2 branches missed.">      if ( c == '&quot;' ) {</span>
+<span class="nc" id="L1481">        int nextDQuoteIndex = all.indexOf( '&quot;', to + 1 );</span>
+<span class="nc bnc" id="L1482" title="All 2 branches missed.">        if ( nextDQuoteIndex &gt;= 0 ) {</span>
+<span class="nc" id="L1483">          to = nextDQuoteIndex + 1;</span>
+        }
+      }
+
+      // Skip over back-ticks
+<span class="pc bpc" id="L1488" title="1 of 2 branches missed.">      if ( c == '`' ) {</span>
+<span class="nc" id="L1489">        int nextBacktickIndex = all.indexOf( '`', to + 1 );</span>
+<span class="nc bnc" id="L1490" title="All 2 branches missed.">        if ( nextBacktickIndex &gt;= 0 ) {</span>
+<span class="nc" id="L1491">          to = nextBacktickIndex + 1;</span>
+        }
+      }
+
+<span class="fc" id="L1495">      c = all.charAt( to );</span>
+<span class="pc bpc" id="L1496" title="1 of 2 branches missed.">      if ( c == '\'' ) {</span>
+<span class="nc" id="L1497">        boolean skip = true;</span>
+
+        // Don't skip over \' or ''
+        //
+<span class="nc bnc" id="L1501" title="All 2 branches missed.">        if ( to &gt; 0 ) {</span>
+<span class="nc" id="L1502">          char prevChar = all.charAt( to - 1 );</span>
+<span class="nc bnc" id="L1503" title="All 4 branches missed.">          if ( prevChar == '\\' || prevChar == '\'' ) {</span>
+<span class="nc" id="L1504">            skip = false;</span>
+          }
+        }
+
+        // Jump to the next quote and continue from there.
+        //
+<span class="nc bnc" id="L1510" title="All 2 branches missed.">        while ( skip ) {</span>
+<span class="nc" id="L1511">          int nextQuoteIndex = all.indexOf( '\'', to + 1 );</span>
+<span class="nc bnc" id="L1512" title="All 2 branches missed.">          if ( nextQuoteIndex &gt;= 0 ) {</span>
+<span class="nc" id="L1513">            to = nextQuoteIndex + 1;</span>
+
+<span class="nc" id="L1515">            skip = false;</span>
+
+<span class="nc bnc" id="L1517" title="All 2 branches missed.">            if ( to &lt; all.length() ) {</span>
+<span class="nc" id="L1518">              char nextChar = all.charAt( to );</span>
+<span class="nc bnc" id="L1519" title="All 2 branches missed.">              if ( nextChar == '\'' ) {</span>
+<span class="nc" id="L1520">                skip = true;</span>
+<span class="nc" id="L1521">                to++;</span>
+              }
+            }
+<span class="nc bnc" id="L1524" title="All 2 branches missed.">            if ( to &gt; 0 ) {</span>
+<span class="nc" id="L1525">              char prevChar = all.charAt( to - 2 );</span>
+<span class="nc bnc" id="L1526" title="All 2 branches missed.">              if ( prevChar == '\\' ) {</span>
+<span class="nc" id="L1527">                skip = true;</span>
+<span class="nc" id="L1528">                to++;</span>
+              }
+            }
+          }
+<span class="nc" id="L1532">        }</span>
+      }
+
+<span class="fc" id="L1535">      c = all.charAt( to );</span>
+
+      // end of statement
+<span class="fc bfc" id="L1538" title="All 4 branches covered.">      if ( c == ';' || to &gt;= length - 1 ) {</span>
+<span class="fc bfc" id="L1539" title="All 2 branches covered.">        if ( to &gt;= length - 1 ) {</span>
+<span class="fc" id="L1540">          to++; // grab last char also!</span>
+        }
+
+<span class="fc" id="L1543">        String stat = all.substring( from, to );</span>
+<span class="pc bpc" id="L1544" title="1 of 2 branches missed.">        if ( !onlySpaces( stat ) ) {</span>
+<span class="fc" id="L1545">          String s = Const.trim( stat );</span>
+<span class="fc" id="L1546">          statements.add( new SqlScriptStatement(</span>
+<span class="pc bpc" id="L1547" title="1 of 4 branches missed.">            s, from, to, s.toUpperCase().startsWith( &quot;SELECT&quot; ) || s.toLowerCase().startsWith( &quot;show&quot; ) ) );</span>
+        }
+<span class="fc" id="L1549">        to++;</span>
+<span class="fc" id="L1550">        from = to;</span>
+<span class="fc" id="L1551">      } else {</span>
+<span class="fc" id="L1552">        to++;</span>
+      }
+<span class="fc" id="L1554">    }</span>
+<span class="fc" id="L1555">    return statements;</span>
+  }
+
+  /**
+   * @param str
+   * @return True if {@code str} contains only spaces.
+   */
+  protected boolean onlySpaces( String str ) {
+<span class="fc bfc" id="L1563" title="All 2 branches covered.">    for ( int i = 0; i &lt; str.length(); i++ ) {</span>
+<span class="fc" id="L1564">      int c = str.charAt( i );</span>
+<span class="fc bfc" id="L1565" title="All 8 branches covered.">      if ( c != ' ' &amp;&amp; c != '\t' &amp;&amp; c != '\n' &amp;&amp; c != '\r' ) {</span>
+<span class="fc" id="L1566">        return false;</span>
+      }
+    }
+<span class="fc" id="L1569">    return true;</span>
+  }
+
+  /**
+   * @return true if the database is a MySQL variant, like MySQL 5.1, InfiniDB, InfoBright, and so on.
+   */
+  @Override
+  public boolean isMySqlVariant() {
+<span class="fc" id="L1577">    return false;</span>
+  }
+
+  /**
+   * @return true if the database is a Postgres variant like Postgres, Greenplum, Redshift and so on.
+   */
+  @Override
+  public boolean isPostgresVariant() {
+<span class="fc" id="L1585">    return false;</span>
+  }
+
+  /**
+   * @return true if the database is a Teradata variant.
+   */
+  @Override
+  public boolean isTeradataVariant() {
+<span class="nc" id="L1593">    return false;</span>
+  }
+
+  /**
+   * @return true if the database is a Sybase variant.
+   */
+  @Override
+  public boolean isSybaseVariant() {
+<span class="nc" id="L1601">    return false;</span>
+  }
+
+  /**
+   * @return true if the database is a Sybase variant.
+   */
+  @Override
+  public boolean isSybaseIQVariant() {
+<span class="nc" id="L1609">    return false;</span>
+  }
+
+  /**
+   * @return true if the database is a Neoview variant.
+   */
+  @Override
+  public boolean isNeoviewVariant() {
+<span class="nc" id="L1617">    return false;</span>
+  }
+
+  /**
+   * @return true if the database is a Exasol variant.
+   */
+  @Override
+  public boolean isExasolVariant() {
+<span class="nc" id="L1625">    return false;</span>
+  }
+
+  /**
+   * @return true if the database is a Informix variant.
+   */
+  @Override
+  public boolean isInformixVariant() {
+<span class="nc" id="L1633">    return false;</span>
+  }
+
+  /**
+   * @return true if the database is a MS SQL Server (native) variant.
+   */
+  @Override
+  public boolean isMsSqlServerNativeVariant() {
+<span class="nc" id="L1641">    return false;</span>
+  }
+
+  /**
+   * @return true if the database is a MS SQL Server variant.
+   */
+  @Override
+  public boolean isMsSqlServerVariant() {
+<span class="fc" id="L1649">    return false;</span>
+  }
+
+  /**
+   * @return true if the database is an Oracle variant.
+   */
+  public boolean isOracleVariant() {
+<span class="fc" id="L1656">    return false;</span>
+  }
+
+  /**
+   * @return true if the database is an Netezza variant.
+   */
+  public boolean isNetezzaVariant() {
+<span class="nc" id="L1663">    return false;</span>
+  }
+
+  /**
+   * @return true if the database is a SQLite variant.
+   */
+  @Override
+  public boolean isSqliteVariant() {
+<span class="nc" id="L1671">    return false;</span>
+  }
+
+
+  /**
+   * @return true if the database type can be tested against a database instance
+   */
+  public boolean canTest() {
+<span class="fc" id="L1679">    return true;</span>
+  }
+
+  /**
+   * @return true if the database name is a required parameter
+   */
+  public boolean requiresName() {
+<span class="fc" id="L1686">    return true;</span>
+  }
+
+  /**
+   * Returns a true of savepoints can be released, false if not.
+   *
+   * @return
+   */
+  @Override
+  public boolean releaseSavepoint() {
+<span class="fc" id="L1696">    return releaseSavepoint;</span>
+  }
+
+  public Long getNextBatchIdUsingSequence( String sequenceName, String schemaName, DatabaseMeta dbm, Database ldb ) throws HopDatabaseException {
+<span class="nc" id="L1700">    return ldb.getNextSequenceValue( schemaName, sequenceName, null );</span>
+  }
+
+  public Long getNextBatchIdUsingAutoIncSql(String autoIncSql, DatabaseMeta dbm, Database ldb ) throws HopDatabaseException {
+<span class="nc" id="L1704">    Long rtn = null;</span>
+<span class="nc" id="L1705">    PreparedStatement stmt = ldb.prepareSql( autoIncSql, true );</span>
+    try {
+<span class="nc" id="L1707">      stmt.executeUpdate();</span>
+<span class="nc" id="L1708">      RowMetaAndData rmad = ldb.getGeneratedKeys( stmt );</span>
+<span class="nc bnc" id="L1709" title="All 2 branches missed.">      if ( rmad.getRowMeta().size() &gt; 0 ) {</span>
+<span class="nc" id="L1710">        rtn = rmad.getRowMeta().getInteger( rmad.getData(), 0 );</span>
+      } else {
+<span class="nc" id="L1712">        throw new HopDatabaseException( &quot;Unable to retrieve value of auto-generated technical key : &quot;</span>
+          + &quot;no value found!&quot; );
+      }
+<span class="nc" id="L1715">    } catch ( HopValueException kve ) {</span>
+<span class="nc" id="L1716">      throw new HopDatabaseException( kve );</span>
+<span class="nc" id="L1717">    } catch ( SQLException sqlex ) {</span>
+<span class="nc" id="L1718">      throw new HopDatabaseException( sqlex );</span>
+    } finally {
+      try {
+<span class="nc" id="L1721">        stmt.close();</span>
+<span class="nc" id="L1722">      } catch ( SQLException ignored ) {</span>
+        // Ignored
+<span class="nc" id="L1724">      }</span>
+    }
+<span class="nc" id="L1726">    return rtn;</span>
+  }
+
+  public Long getNextBatchIdUsingLockTables( DatabaseMeta dbm, Database ldb, String schemaName, String tableName,
+                                             String fieldName ) throws HopDatabaseException {
+    // The old way of doing things...
+<span class="nc" id="L1732">    Long rtn = null;</span>
+    // Make sure we lock that table to avoid concurrency issues
+<span class="nc" id="L1734">    String schemaAndTable = dbm.getQuotedSchemaTableCombination( schemaName, tableName );</span>
+<span class="nc" id="L1735">    ldb.lockTables( new String[] { schemaAndTable, } );</span>
+    try {
+
+      // Now insert value -1 to create a real write lock blocking the other
+      // requests.. FCFS
+<span class="nc" id="L1740">      String sql = &quot;INSERT INTO &quot; + schemaAndTable + &quot; (&quot; + dbm.quoteField( fieldName ) + &quot;) values (-1)&quot;;</span>
+<span class="nc" id="L1741">      ldb.execStatement( sql );</span>
+
+      // Now this next lookup will stall on the other connections
+      //
+<span class="nc" id="L1745">      rtn = ldb.getNextValue( null, schemaName, tableName, fieldName );</span>
+    } finally {
+      // Remove the -1 record again...
+<span class="nc" id="L1748">      String sql = &quot;DELETE FROM &quot; + schemaAndTable + &quot; WHERE &quot; + dbm.quoteField( fieldName ) + &quot;= -1&quot;;</span>
+<span class="nc" id="L1749">      ldb.execStatement( sql );</span>
+<span class="nc" id="L1750">      ldb.unlockTables( new String[] { schemaAndTable, } );</span>
+    }
+<span class="nc" id="L1752">    return rtn;</span>
+  }
+
+  @Override
+  public Long getNextBatchId( DatabaseMeta dbm, Database ldb,
+                              String schemaName, String tableName, String fieldName ) throws HopDatabaseException {
+    // Always take off autocommit.
+<span class="nc" id="L1759">    ldb.setCommit( 10 );</span>
+
+    //
+    // Temporary work-around to handle batch-id from extended options
+    // Eventually want this promoted to proper dialogs and such
+    //
+
+<span class="nc" id="L1766">    Map&lt;String, String&gt; connectionExtraOptions = this.getExtraOptions();</span>
+<span class="nc" id="L1767">    String sequenceProp = this.getPluginId() + &quot;.&quot; + SEQUENCE_FOR_BATCH_ID;</span>
+<span class="nc" id="L1768">    String autoIncSqlProp = this.getPluginId() + &quot;.&quot; + AUTOINCREMENT_SQL_FOR_BATCH_ID;</span>
+<span class="nc bnc" id="L1769" title="All 2 branches missed.">    if ( connectionExtraOptions != null ) {</span>
+<span class="nc bnc" id="L1770" title="All 4 branches missed.">      if ( this.supportsSequences() &amp;&amp; connectionExtraOptions.containsKey( sequenceProp ) ) {</span>
+<span class="nc" id="L1771">        return getNextBatchIdUsingSequence( connectionExtraOptions.get( sequenceProp ), schemaName, dbm, ldb );</span>
+<span class="nc bnc" id="L1772" title="All 4 branches missed.">      } else if ( this.supportsAutoInc() &amp;&amp; connectionExtraOptions.containsKey( autoIncSqlProp ) ) {</span>
+<span class="nc" id="L1773">        return getNextBatchIdUsingAutoIncSql( connectionExtraOptions.get( autoIncSqlProp ), dbm, ldb );</span>
+      }
+    }
+<span class="nc" id="L1776">    return getNextBatchIdUsingLockTables( dbm, ldb, schemaName, tableName, fieldName );</span>
+  }
+
+  /**
+   * Returns the tablespace DDL fragment for a &quot;Data&quot; tablespace. In most databases that use tablespaces this is where
+   * the tables are to be created.
+   *
+   * @param variables    variables used for possible substitution
+   * @param databaseMeta databaseMeta the database meta used for possible string enclosure of the tablespace. This method needs
+   *                     this as this is done after environmental substitution.
+   * @return String the tablespace name for tables in the format &quot;tablespace TABLESPACE_NAME&quot;. The TABLESPACE_NAME and
+   * the passed DatabaseMata determines if TABLESPACE_NAME is to be enclosed in quotes.
+   */
+  @Override
+  public String getDataTablespaceDDL( IVariables variables, DatabaseMeta databaseMeta ) {
+<span class="fc" id="L1791">    return getTablespaceDDL( variables, databaseMeta, databaseMeta.getIDatabase().getDataTablespace() );</span>
+  }
+
+  /**
+   * Returns the tablespace DDL fragment for a &quot;Index&quot; tablespace.
+   *
+   * @param variables    variables used for possible substitution
+   * @param databaseMeta databaseMeta the database meta used for possible string enclosure of the tablespace. This method needs
+   *                     this as this is done after environmental substitution.
+   * @return String the tablespace name for indices in the format &quot;tablespace TABLESPACE_NAME&quot;. The TABLESPACE_NAME and
+   * the passed DatabaseMata determines if TABLESPACE_NAME is to be enclosed in quotes.
+   */
+  @Override
+  public String getIndexTablespaceDDL( IVariables variables, DatabaseMeta databaseMeta ) {
+<span class="fc" id="L1805">    return getTablespaceDDL( variables, databaseMeta, databaseMeta.getIDatabase().getIndexTablespace() );</span>
+  }
+
+  /**
+   * Returns an empty string as most databases do not support tablespaces. Subclasses can override this method to
+   * generate the DDL.
+   *
+   * @param variables      variables needed for variable substitution.
+   * @param databaseMeta   databaseMeta needed for it's quoteField method. Since we are doing variable substitution we need to meta
+   *                       so that we can act on the variable substitution first and then the creation of the entire string that will
+   *                       be retuned.
+   * @param tablespaceName tablespaceName name of the tablespace.
+   * @return String an empty String as most databases do not use tablespaces.
+   */
+  public String getTablespaceDDL( IVariables variables, DatabaseMeta databaseMeta, String tablespaceName ) {
+<span class="fc" id="L1820">    return &quot;&quot;;</span>
+  }
+
+  /**
+   * This method allows a database dialect to convert database specific data types to Hop data types.
+   *
+   * @param rs  The result set to use
+   * @param val The description of the value to retrieve
+   * @param i   the index on which we need to retrieve the value, 0-based.
+   * @return The correctly converted Hop data type corresponding to the valueMeta description.
+   * @throws HopDatabaseException
+   */
+  @Override
+  public Object getValueFromResultSet( ResultSet rs, IValueMeta val, int i ) throws HopDatabaseException {
+
+<span class="nc" id="L1835">    return val.getValueFromResultSet( this, rs, i );</span>
+
+  }
+
+  /**
+   * @return true if the database supports the use of safe-points and if it is appropriate to ever use it (default to
+   * false)
+   */
+  @Override
+  public boolean useSafePoints() {
+<span class="fc" id="L1845">    return false;</span>
+  }
+
+  /**
+   * @return true if the database supports error handling (the default). Returns false for certain databases (SQLite)
+   * that invalidate a prepared statement or even the complete connection when an error occurs.
+   */
+  @Override
+  public boolean supportsErrorHandling() {
+<span class="fc" id="L1854">    return true;</span>
+  }
+
+  @Override
+  public String getSqlValue( IValueMeta valueMeta, Object valueData, String dateFormat ) throws HopValueException {
+
+<span class="fc" id="L1860">    StringBuilder ins = new StringBuilder();</span>
+
+<span class="pc bpc" id="L1862" title="1 of 2 branches missed.">    if ( valueMeta.isNull( valueData ) ) {</span>
+<span class="nc" id="L1863">      ins.append( &quot;null&quot; );</span>
+    } else {
+      // Normal cases...
+      //
+<span class="pc bpc" id="L1867" title="1 of 3 branches missed.">      switch ( valueMeta.getType() ) {</span>
+        case IValueMeta.TYPE_BOOLEAN:
+        case IValueMeta.TYPE_STRING:
+<span class="fc" id="L1870">          String string = valueMeta.getString( valueData );</span>
+          // Have the database dialect do the quoting.
+          // This also adds the single quotes around the string (thanks to PostgreSQL)
+          //
+<span class="fc" id="L1874">          string = quoteSqlString( string );</span>
+<span class="fc" id="L1875">          ins.append( string );</span>
+<span class="fc" id="L1876">          break;</span>
+        case IValueMeta.TYPE_DATE:
+<span class="fc" id="L1878">          Date date = valueMeta.getDate( valueData );</span>
+
+<span class="pc bpc" id="L1880" title="1 of 2 branches missed.">          if ( Utils.isEmpty( dateFormat ) ) {</span>
+<span class="nc" id="L1881">            ins.append( &quot;'&quot; + valueMeta.getString( valueData ) + &quot;'&quot; );</span>
+          } else {
+            try {
+<span class="fc" id="L1884">              java.text.SimpleDateFormat formatter = new java.text.SimpleDateFormat( dateFormat );</span>
+<span class="fc" id="L1885">              ins.append( &quot;'&quot; + formatter.format( date ) + &quot;'&quot; );</span>
+<span class="nc" id="L1886">            } catch ( Exception e ) {</span>
+<span class="nc" id="L1887">              throw new HopValueException( &quot;Error : &quot;, e );</span>
+<span class="fc" id="L1888">            }</span>
+          }
+          break;
+        default:
+<span class="nc" id="L1892">          ins.append( valueMeta.getString( valueData ) );</span>
+          break;
+      }
+    }
+
+<span class="fc" id="L1897">    return ins.toString();</span>
+  }
+
+  protected String getFieldnameProtector() {
+<span class="fc" id="L1901">    return FIELDNAME_PROTECTOR;</span>
+  }
+
+  /**
+   * Sanitize a string for usage as a field name
+   * &lt;ul&gt;
+   * &lt;li&gt;Append an underscore to any field name that matches a reserved word&lt;/li&gt;
+   * &lt;li&gt;Replaces spaces with underscores&lt;/li&gt;
+   * &lt;li&gt;Prefixes a string with underscore that begins with a number&lt;/li&gt;
+   * &lt;/ul&gt;
+   *
+   * @param fieldname value to sanitize
+   * @return
+   */
+  @Override
+  public String getSafeFieldname( String fieldname ) {
+<span class="fc" id="L1917">    StringBuilder newName = new StringBuilder( fieldname.length() );</span>
+
+<span class="fc" id="L1919">    char[] protectors = getFieldnameProtector().toCharArray();</span>
+
+    // alpha numerics , underscores, field protectors only
+<span class="fc bfc" id="L1922" title="All 2 branches covered.">    for ( int idx = 0; idx &lt; fieldname.length(); idx++ ) {</span>
+<span class="fc" id="L1923">      char c = fieldname.charAt( idx );</span>
+<span class="pc bpc" id="L1924" title="6 of 14 branches missed.">      if ( ( c &gt;= 'a' &amp;&amp; c &lt;= 'z' ) || ( c &gt;= 'A' &amp;&amp; c &lt;= 'Z' ) || ( c &gt;= '0' &amp;&amp; c &lt;= '9' ) || ( c == '_' ) ) {</span>
+<span class="fc" id="L1925">        newName.append( c );</span>
+<span class="pc bpc" id="L1926" title="1 of 2 branches missed.">      } else if ( c == ' ' ) {</span>
+<span class="fc" id="L1927">        newName.append( '_' );</span>
+      } else {
+        // allow protectors
+<span class="nc bnc" id="L1930" title="All 2 branches missed.">        for ( char protector : protectors ) {</span>
+<span class="nc bnc" id="L1931" title="All 2 branches missed.">          if ( c == protector ) {</span>
+<span class="nc" id="L1932">            newName.append( c );</span>
+          }
+        }
+      }
+      // else {
+      // swallow this character
+      // }
+    }
+<span class="fc" id="L1940">    fieldname = newName.toString();</span>
+
+    // don't allow reserved words
+<span class="fc bfc" id="L1943" title="All 2 branches covered.">    for ( String reservedWord : getReservedWords() ) {</span>
+<span class="pc bpc" id="L1944" title="1 of 2 branches missed.">      if ( fieldname.equalsIgnoreCase( reservedWord ) ) {</span>
+<span class="fc" id="L1945">        fieldname = fieldname + getFieldnameProtector();</span>
+      }
+    }
+
+<span class="fc" id="L1949">    fieldname = fieldname.replace( &quot; &quot;, getFieldnameProtector() );</span>
+
+    // can't start with a number
+<span class="fc bfc" id="L1952" title="All 2 branches covered.">    if ( fieldname.matches( &quot;^[0-9].*&quot; ) ) {</span>
+<span class="fc" id="L1953">      fieldname = getFieldnameProtector() + fieldname;</span>
+    }
+<span class="fc" id="L1955">    return fieldname;</span>
+  }
+
+  /**
+   * @return string with the no max value sequence option.
+   */
+  @Override
+  public String getSequenceNoMaxValueOption() {
+<span class="fc" id="L1963">    return &quot;NOMAXVALUE&quot;;</span>
+  }
+
+  /**
+   * @return true if the database supports autoGeneratedKeys
+   */
+  @Override
+  public boolean supportsAutoGeneratedKeys() {
+<span class="fc" id="L1971">    return true;</span>
+  }
+
+
+  /**
+   * Customizes the IValueMeta defined in the base
+   *
+   * @param v     the determined iValueMeta
+   * @param rm    the sql result
+   * @param index the index to the column
+   * @return IValueMeta customized with the data base specific types
+   */
+  @Override
+  public IValueMeta customizeValueFromSqlType(IValueMeta v, java.sql.ResultSetMetaData rm, int index )
+    throws SQLException {
+<span class="fc" id="L1986">    return null;</span>
+  }
+
+  /**
+   * Customizes the IValueMeta defined in the base
+   *
+   * @return String the create table statement
+   */
+  @Override
+  public String getCreateTableStatement() {
+<span class="fc" id="L1996">    return &quot;CREATE TABLE &quot;;</span>
+  }
+
+  /**
+   * Forms drop table statement.
+   * This standard construct syntax is not legal for certain RDBMSs,
+   * and should be overridden according to their specifics.
+   *
+   * @param tableName Name of the table to drop
+   * @return Standard drop table statement
+   */
+  @Override
+  public String getDropTableIfExistsStatement( String tableName ) {
+<span class="fc" id="L2009">    return &quot;DROP TABLE IF EXISTS &quot; + tableName;</span>
+  }
+
+  @Override
+  public boolean fullExceptionLog( Exception e ) {
+<span class="fc" id="L2014">    return true;</span>
+  }
+
+  @Override
+  public void addDefaultOptions() {
+<span class="fc" id="L2019">  }</span>
+
+  @Override
+  public void addAttribute( String attributeId, String value ) {
+<span class="fc" id="L2023">    attributes.put( attributeId, value );</span>
+<span class="fc" id="L2024">  }</span>
+
+  @Override
+  public String getAttribute( String attributeId, String defaultValue ) {
+<span class="nc" id="L2028">    return getAttributeProperty( attributeId, defaultValue );</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

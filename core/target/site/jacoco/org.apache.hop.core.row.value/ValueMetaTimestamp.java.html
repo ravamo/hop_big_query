@@ -1,0 +1,696 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ValueMetaTimestamp.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.row.value</a> &gt; <span class="el_source">ValueMetaTimestamp.java</span></div><h1>ValueMetaTimestamp.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.row.value;
+
+import org.apache.hop.core.Const;
+import org.apache.hop.core.database.IDatabase;
+import org.apache.hop.core.database.DatabaseMeta;
+import org.apache.hop.core.exception.HopDatabaseException;
+import org.apache.hop.core.exception.HopEofException;
+import org.apache.hop.core.exception.HopFileException;
+import org.apache.hop.core.exception.HopValueException;
+import org.apache.hop.core.row.IValueMeta;
+import org.apache.hop.core.row.value.timestamp.SimpleTimestampFormat;
+import org.apache.hop.core.util.Utils;
+
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.EOFException;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.net.SocketTimeoutException;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+
+public class ValueMetaTimestamp extends ValueMetaDate {
+
+  public ValueMetaTimestamp() {
+<span class="fc" id="L55">    this( null );</span>
+<span class="fc" id="L56">  }</span>
+
+  public ValueMetaTimestamp( String name ) {
+<span class="fc" id="L59">    super( name, IValueMeta.TYPE_TIMESTAMP );</span>
+<span class="fc" id="L60">  }</span>
+
+  @Override
+  public boolean isDate() {
+<span class="nc" id="L64">    return true;</span>
+  }
+
+  @Override
+  public Date getDate( Object object ) throws HopValueException {
+<span class="fc" id="L69">    Timestamp timestamp = getTimestamp( object );</span>
+<span class="pc bpc" id="L70" title="1 of 2 branches missed.">    if ( timestamp == null ) {</span>
+<span class="fc" id="L71">      return null;</span>
+    }
+<span class="nc" id="L73">    return timestamp;</span>
+  }
+
+  @Override
+  public Long getInteger( Object object ) throws HopValueException {
+<span class="nc" id="L78">    Timestamp timestamp = getTimestamp( object );</span>
+<span class="nc bnc" id="L79" title="All 2 branches missed.">    if ( timestamp == null ) {</span>
+<span class="nc" id="L80">      return null;</span>
+    }
+
+<span class="nc" id="L83">    return timestamp.getTime();</span>
+  }
+
+  @Override
+  public Double getNumber( Object object ) throws HopValueException {
+<span class="nc" id="L88">    Timestamp timestamp = getTimestamp( object );</span>
+<span class="nc bnc" id="L89" title="All 2 branches missed.">    if ( timestamp == null ) {</span>
+<span class="nc" id="L90">      return null;</span>
+    }    
+    
+<span class="nc" id="L93">    return Double.valueOf( timestamp.getTime() );   </span>
+  }
+
+  @Override
+  public BigDecimal getBigNumber( Object object ) throws HopValueException {
+<span class="nc" id="L98">    Timestamp timestamp = getTimestamp( object );</span>
+<span class="nc bnc" id="L99" title="All 2 branches missed.">    if ( timestamp == null ) {</span>
+<span class="nc" id="L100">      return null;</span>
+    }
+<span class="nc" id="L102">    BigDecimal nanos =</span>
+<span class="nc" id="L103">      BigDecimal.valueOf( timestamp.getTime() ).multiply( BigDecimal.valueOf( 1000000000L ) ).add(</span>
+<span class="nc" id="L104">        BigDecimal.valueOf( timestamp.getNanos() ) );</span>
+<span class="nc" id="L105">    return nanos;</span>
+  }
+
+  @Override
+  public Boolean getBoolean( Object object ) throws HopValueException {
+<span class="nc" id="L110">    throw new HopValueException( toStringMeta() + &quot;: it's not possible to convert from Timestamp to Boolean&quot; );</span>
+  }
+
+  @Override
+  public String getString( Object object ) throws HopValueException {
+<span class="nc" id="L115">    return convertTimestampToString( getTimestamp( object ) );</span>
+  }
+
+  public Timestamp getTimestamp( Object object ) throws HopValueException {
+<span class="fc bfc" id="L119" title="All 2 branches covered.">    if ( object == null ) {</span>
+<span class="fc" id="L120">      return null;</span>
+    }
+<span class="pc bpc" id="L122" title="8 of 9 branches missed.">    switch ( type ) {</span>
+      case TYPE_TIMESTAMP:
+<span class="pc bpc" id="L124" title="3 of 4 branches missed.">        switch ( storageType ) {</span>
+          case STORAGE_TYPE_NORMAL:
+<span class="fc" id="L126">            return (Timestamp) object;</span>
+          case STORAGE_TYPE_BINARY_STRING:
+<span class="nc" id="L128">            return (Timestamp) convertBinaryStringToNativeType( (byte[]) object );</span>
+          case STORAGE_TYPE_INDEXED:
+<span class="nc" id="L130">            return (Timestamp) index[ ( (Integer) object ).intValue() ];</span>
+          default:
+<span class="nc" id="L132">            throw new HopValueException( toString() + &quot; : Unknown storage type &quot; + storageType + &quot; specified.&quot; );</span>
+        }
+      case TYPE_STRING:
+<span class="nc bnc" id="L135" title="All 4 branches missed.">        switch ( storageType ) {</span>
+          case STORAGE_TYPE_NORMAL:
+<span class="nc" id="L137">            return convertStringToTimestamp( (String) object );</span>
+          case STORAGE_TYPE_BINARY_STRING:
+<span class="nc" id="L139">            return convertStringToTimestamp( (String) convertBinaryStringToNativeType( (byte[]) object ) );</span>
+          case STORAGE_TYPE_INDEXED:
+<span class="nc" id="L141">            return convertStringToTimestamp( (String) index[ ( (Integer) object ).intValue() ] );</span>
+          default:
+<span class="nc" id="L143">            throw new HopValueException( toString() + &quot; : Unknown storage type &quot; + storageType + &quot; specified.&quot; );</span>
+        }
+      case TYPE_NUMBER:
+<span class="nc bnc" id="L146" title="All 4 branches missed.">        switch ( storageType ) {</span>
+          case STORAGE_TYPE_NORMAL:
+<span class="nc" id="L148">            return convertNumberToTimestamp( (Double) object );</span>
+          case STORAGE_TYPE_BINARY_STRING:
+<span class="nc" id="L150">            return convertNumberToTimestamp( (Double) convertBinaryStringToNativeType( (byte[]) object ) );</span>
+          case STORAGE_TYPE_INDEXED:
+<span class="nc" id="L152">            return convertNumberToTimestamp( (Double) index[ ( (Integer) object ).intValue() ] );</span>
+          default:
+<span class="nc" id="L154">            throw new HopValueException( toString() + &quot; : Unknown storage type &quot; + storageType + &quot; specified.&quot; );</span>
+        }
+      case TYPE_INTEGER:
+<span class="nc bnc" id="L157" title="All 4 branches missed.">        switch ( storageType ) {</span>
+          case STORAGE_TYPE_NORMAL:
+<span class="nc" id="L159">            return convertIntegerToTimestamp( (Long) object );</span>
+          case STORAGE_TYPE_BINARY_STRING:
+<span class="nc" id="L161">            return convertIntegerToTimestamp( (Long) convertBinaryStringToNativeType( (byte[]) object ) );</span>
+          case STORAGE_TYPE_INDEXED:
+<span class="nc" id="L163">            return convertIntegerToTimestamp( (Long) index[ ( (Integer) object ).intValue() ] );</span>
+          default:
+<span class="nc" id="L165">            throw new HopValueException( toString() + &quot; : Unknown storage type &quot; + storageType + &quot; specified.&quot; );</span>
+        }
+      case TYPE_BIGNUMBER:
+<span class="nc bnc" id="L168" title="All 4 branches missed.">        switch ( storageType ) {</span>
+          case STORAGE_TYPE_NORMAL:
+<span class="nc" id="L170">            return convertBigNumberToTimestamp( (BigDecimal) object );</span>
+          case STORAGE_TYPE_BINARY_STRING:
+<span class="nc" id="L172">            return convertBigNumberToTimestamp( (BigDecimal) convertBinaryStringToNativeType( (byte[]) object ) );</span>
+          case STORAGE_TYPE_INDEXED:
+<span class="nc" id="L174">            return convertBigNumberToTimestamp( (BigDecimal) index[ ( (Integer) object ).intValue() ] );</span>
+          default:
+<span class="nc" id="L176">            throw new HopValueException( toString() + &quot; : Unknown storage type &quot; + storageType + &quot; specified.&quot; );</span>
+        }
+      case TYPE_BOOLEAN:
+<span class="nc" id="L179">        throw new HopValueException( toString() + &quot; : I don't know how to convert a boolean to a timestamp.&quot; );</span>
+      case TYPE_BINARY:
+<span class="nc" id="L181">        throw new HopValueException( toString() + &quot; : I don't know how to convert a binary value to timestamp.&quot; );</span>
+      case TYPE_SERIALIZABLE:
+<span class="nc" id="L183">        throw new HopValueException( toString()</span>
+          + &quot; : I don't know how to convert a serializable value to timestamp.&quot; );
+
+      default:
+<span class="nc" id="L187">        throw new HopValueException( toString() + &quot; : Unknown type &quot; + type + &quot; specified.&quot; );</span>
+    }
+  }
+
+  public int compare( Object data1, Object data2 ) throws HopValueException {
+<span class="fc" id="L192">    Timestamp timestamp1 = getTimestamp( data1 );</span>
+<span class="fc" id="L193">    Timestamp timestamp2 = getTimestamp( data2 );</span>
+<span class="fc" id="L194">    int cmp = 0;</span>
+<span class="fc bfc" id="L195" title="All 2 branches covered.">    if ( timestamp1 == null ) {</span>
+<span class="fc bfc" id="L196" title="All 2 branches covered.">      if ( timestamp2 == null ) {</span>
+<span class="fc" id="L197">        cmp = 0;</span>
+      } else {
+<span class="fc" id="L199">        cmp = -1;</span>
+      }
+<span class="fc bfc" id="L201" title="All 2 branches covered.">    } else if ( timestamp2 == null ) {</span>
+<span class="fc" id="L202">      cmp = 1;</span>
+    } else {
+<span class="fc" id="L204">      cmp = timestamp1.compareTo( timestamp2 );</span>
+    }
+<span class="fc bfc" id="L206" title="All 2 branches covered.">    if ( isSortedDescending() ) {</span>
+<span class="fc" id="L207">      return -cmp;</span>
+    } else {
+<span class="fc" id="L209">      return cmp;</span>
+    }
+  }
+
+  protected Timestamp convertBigNumberToTimestamp( BigDecimal bd ) {
+<span class="nc bnc" id="L214" title="All 2 branches missed.">    if ( bd == null ) {</span>
+<span class="nc" id="L215">      return null;</span>
+    }
+<span class="nc" id="L217">    return convertIntegerToTimestamp( bd.longValue() );</span>
+  }
+
+  protected Timestamp convertNumberToTimestamp( Double d ) {
+<span class="nc bnc" id="L221" title="All 2 branches missed.">    if ( d == null ) {</span>
+<span class="nc" id="L222">      return null;</span>
+    }
+<span class="nc" id="L224">    long nanos = d.longValue();</span>
+
+<span class="nc" id="L226">    return convertIntegerToTimestamp( nanos );</span>
+  }
+
+  protected Timestamp convertIntegerToTimestamp( Long nanos ) {
+<span class="nc bnc" id="L230" title="All 2 branches missed.">    if ( nanos == null ) {</span>
+<span class="nc" id="L231">      return null;</span>
+    }
+
+<span class="nc" id="L234">    long msSinceEpoch = nanos / 1000000;</span>
+<span class="nc" id="L235">    int leftNanos = (int) ( nanos - ( msSinceEpoch * 1000000 ) );</span>
+<span class="nc" id="L236">    Timestamp timestamp = new Timestamp( msSinceEpoch );</span>
+<span class="nc" id="L237">    timestamp.setNanos( leftNanos );</span>
+
+<span class="nc" id="L239">    return timestamp;</span>
+  }
+
+  protected synchronized Timestamp convertStringToTimestamp( String string ) throws HopValueException {
+    // See if trimming needs to be performed before conversion
+    //
+<span class="fc" id="L245">    string = Const.trimToType( string, getTrimType() );</span>
+
+<span class="pc bpc" id="L247" title="1 of 2 branches missed.">    if ( Utils.isEmpty( string ) ) {</span>
+<span class="nc" id="L248">      return null;</span>
+    }
+    Timestamp returnValue;
+    try {
+<span class="nc" id="L252">      returnValue = Timestamp.valueOf( string );</span>
+<span class="fc" id="L253">    } catch ( IllegalArgumentException e ) {</span>
+      try {
+<span class="fc" id="L255">        returnValue = (Timestamp) getDateFormat().parse( string );</span>
+<span class="nc" id="L256">      } catch ( ParseException ex ) {</span>
+<span class="nc" id="L257">        throw new HopValueException( toString() + &quot; : couldn't convert string [&quot; + string</span>
+          + &quot;] to a timestamp, expecting format [yyyy-mm-dd hh:mm:ss.ffffff]&quot;, e );
+<span class="fc" id="L259">      }</span>
+<span class="nc" id="L260">    }</span>
+<span class="fc" id="L261">    return returnValue;</span>
+  }
+
+  protected synchronized String convertTimestampToString( Timestamp timestamp ) throws HopValueException {
+
+<span class="pc bpc" id="L266" title="1 of 2 branches missed.">    if ( timestamp == null ) {</span>
+<span class="nc" id="L267">      return null;</span>
+    }
+
+<span class="fc" id="L270">    return getDateFormat().format( timestamp );</span>
+  }
+
+  @Override
+  public Object convertDataFromString( String pol, IValueMeta convertMeta, String nullIf, String ifNull,
+                                       int trim_type ) throws HopValueException {
+    // null handling and conversion of value to null
+    //
+<span class="nc" id="L278">    String nullValue = nullIf;</span>
+<span class="nc bnc" id="L279" title="All 2 branches missed.">    if ( nullValue == null ) {</span>
+<span class="nc bnc" id="L280" title="All 8 branches missed.">      switch ( convertMeta.getType() ) {</span>
+        case IValueMeta.TYPE_BOOLEAN:
+<span class="nc" id="L282">          nullValue = Const.NULL_BOOLEAN;</span>
+<span class="nc" id="L283">          break;</span>
+        case IValueMeta.TYPE_STRING:
+<span class="nc" id="L285">          nullValue = Const.NULL_STRING;</span>
+<span class="nc" id="L286">          break;</span>
+        case IValueMeta.TYPE_BIGNUMBER:
+<span class="nc" id="L288">          nullValue = Const.NULL_BIGNUMBER;</span>
+<span class="nc" id="L289">          break;</span>
+        case IValueMeta.TYPE_NUMBER:
+<span class="nc" id="L291">          nullValue = Const.NULL_NUMBER;</span>
+<span class="nc" id="L292">          break;</span>
+        case IValueMeta.TYPE_INTEGER:
+<span class="nc" id="L294">          nullValue = Const.NULL_INTEGER;</span>
+<span class="nc" id="L295">          break;</span>
+        case IValueMeta.TYPE_DATE:
+<span class="nc" id="L297">          nullValue = Const.NULL_DATE;</span>
+<span class="nc" id="L298">          break;</span>
+        case IValueMeta.TYPE_BINARY:
+<span class="nc" id="L300">          nullValue = Const.NULL_BINARY;</span>
+<span class="nc" id="L301">          break;</span>
+        default:
+<span class="nc" id="L303">          nullValue = Const.NULL_NONE;</span>
+          break;
+      }
+    }
+
+    // See if we need to convert a null value into a String
+    // For example, we might want to convert null into &quot;Empty&quot;.
+    //
+<span class="nc bnc" id="L311" title="All 2 branches missed.">    if ( !Utils.isEmpty( ifNull ) ) {</span>
+      // Note that you can't pull the pad method up here as a nullComp variable
+      // because you could get an NPE since you haven't checked isEmpty(pol)
+      // yet!
+<span class="nc bnc" id="L315" title="All 2 branches missed.">      if ( Utils.isEmpty( pol )</span>
+<span class="nc bnc" id="L316" title="All 2 branches missed.">        || pol.equalsIgnoreCase( Const.rightPad( new StringBuilder( nullValue ), pol.length() ) ) ) {</span>
+<span class="nc" id="L317">        pol = ifNull;</span>
+      }
+    }
+
+    // See if the polled value is empty
+    // In that case, we have a null value on our hands...
+    //
+<span class="nc bnc" id="L324" title="All 2 branches missed.">    if ( Utils.isEmpty( pol ) ) {</span>
+<span class="nc" id="L325">      return null;</span>
+    } else {
+      // if the null_value is specified, we try to match with that.
+      //
+<span class="nc bnc" id="L329" title="All 2 branches missed.">      if ( !Utils.isEmpty( nullValue ) ) {</span>
+<span class="nc bnc" id="L330" title="All 2 branches missed.">        if ( nullValue.length() &lt;= pol.length() ) {</span>
+          // If the polled value is equal to the spaces right-padded null_value,
+          // we have a match
+          //
+<span class="nc bnc" id="L334" title="All 2 branches missed.">          if ( pol.equalsIgnoreCase( Const.rightPad( new StringBuilder( nullValue ), pol.length() ) ) ) {</span>
+<span class="nc" id="L335">            return null;</span>
+          }
+        }
+      } else {
+        // Verify if there are only spaces in the polled value...
+        // We consider that empty as well...
+        //
+<span class="nc bnc" id="L342" title="All 2 branches missed.">        if ( Const.onlySpaces( pol ) ) {</span>
+<span class="nc" id="L343">          return null;</span>
+        }
+      }
+    }
+
+    // Trimming
+    StringBuilder strpol;
+<span class="nc bnc" id="L350" title="All 4 branches missed.">    switch ( trim_type ) {</span>
+      case IValueMeta.TRIM_TYPE_LEFT:
+<span class="nc" id="L352">        strpol = new StringBuilder( pol );</span>
+<span class="nc bnc" id="L353" title="All 4 branches missed.">        while ( strpol.length() &gt; 0 &amp;&amp; strpol.charAt( 0 ) == ' ' ) {</span>
+<span class="nc" id="L354">          strpol.deleteCharAt( 0 );</span>
+        }
+<span class="nc" id="L356">        pol = strpol.toString();</span>
+
+<span class="nc" id="L358">        break;</span>
+      case IValueMeta.TRIM_TYPE_RIGHT:
+<span class="nc" id="L360">        strpol = new StringBuilder( pol );</span>
+<span class="nc bnc" id="L361" title="All 4 branches missed.">        while ( strpol.length() &gt; 0 &amp;&amp; strpol.charAt( strpol.length() - 1 ) == ' ' ) {</span>
+<span class="nc" id="L362">          strpol.deleteCharAt( strpol.length() - 1 );</span>
+        }
+<span class="nc" id="L364">        pol = strpol.toString();</span>
+<span class="nc" id="L365">        break;</span>
+      case IValueMeta.TRIM_TYPE_BOTH:
+<span class="nc" id="L367">        strpol = new StringBuilder( pol );</span>
+<span class="nc bnc" id="L368" title="All 4 branches missed.">        while ( strpol.length() &gt; 0 &amp;&amp; strpol.charAt( 0 ) == ' ' ) {</span>
+<span class="nc" id="L369">          strpol.deleteCharAt( 0 );</span>
+        }
+<span class="nc bnc" id="L371" title="All 4 branches missed.">        while ( strpol.length() &gt; 0 &amp;&amp; strpol.charAt( strpol.length() - 1 ) == ' ' ) {</span>
+<span class="nc" id="L372">          strpol.deleteCharAt( strpol.length() - 1 );</span>
+        }
+<span class="nc" id="L374">        pol = strpol.toString();</span>
+<span class="nc" id="L375">        break;</span>
+      default:
+        break;
+    }
+
+    // On with the regular program...
+    // Simply call the ValueMeta routines to do the conversion
+    // We need to do some effort here: copy all
+    //
+<span class="nc" id="L384">    return convertData( convertMeta, pol );</span>
+  }
+
+  public Timestamp convertDateToTimestamp( Date date ) throws HopValueException {
+<span class="pc bpc" id="L388" title="1 of 2 branches missed.">    if ( date == null ) {</span>
+<span class="nc" id="L389">      return null;</span>
+    }
+<span class="fc" id="L391">    Timestamp result = null;</span>
+<span class="fc bfc" id="L392" title="All 2 branches covered.">    if ( date instanceof Timestamp ) {</span>
+<span class="fc" id="L393">      result = (Timestamp) date;</span>
+    } else {
+<span class="fc" id="L395">      result = new Timestamp( date.getTime() );</span>
+    }
+<span class="fc" id="L397">    return result;</span>
+  }
+
+  /**
+   * Convert the specified data to the data type specified in this object.
+   *
+   * @param meta2 the metadata of the object to be converted
+   * @param data2 the data of the object to be converted
+   * @return the object in the data type of this value metadata object
+   * @throws HopValueException in case there is a data conversion error
+   */
+  @Override
+  public Object convertData( IValueMeta meta2, Object data2 ) throws HopValueException {
+<span class="nc bnc" id="L410" title="All 7 branches missed.">    switch ( meta2.getType() ) {</span>
+      case TYPE_TIMESTAMP:
+<span class="nc" id="L412">        return ( (ValueMetaTimestamp) meta2 ).getTimestamp( data2 );</span>
+      case TYPE_STRING:
+<span class="nc" id="L414">        return convertStringToTimestamp( meta2.getString( data2 ) );</span>
+      case TYPE_INTEGER:
+<span class="nc" id="L416">        return convertIntegerToTimestamp( meta2.getInteger( data2 ) );</span>
+      case TYPE_NUMBER:
+<span class="nc" id="L418">        return convertNumberToTimestamp( meta2.getNumber( data2 ) );</span>
+      case TYPE_DATE:
+<span class="nc" id="L420">        return convertDateToTimestamp( meta2.getDate( data2 ) );</span>
+      case TYPE_BIGNUMBER:
+<span class="nc" id="L422">        return convertBigNumberToTimestamp( meta2.getBigNumber( data2 ) );</span>
+      default:
+<span class="nc" id="L424">        throw new HopValueException( meta2.toStringMeta() + &quot; : can't be converted to a timestamp&quot; );</span>
+    }
+  }
+
+  @Override
+  public Object cloneValueData( Object object ) throws HopValueException {
+<span class="nc" id="L430">    Timestamp timestamp = getTimestamp( object );</span>
+<span class="nc bnc" id="L431" title="All 2 branches missed.">    if ( timestamp == null ) {</span>
+<span class="nc" id="L432">      return null;</span>
+    }
+
+<span class="nc" id="L435">    Timestamp clone = new Timestamp( timestamp.getTime() );</span>
+<span class="nc" id="L436">    clone.setNanos( timestamp.getNanos() );</span>
+<span class="nc" id="L437">    return clone;</span>
+  }
+
+  @Override
+  public IValueMeta getMetadataPreview( DatabaseMeta databaseMeta, ResultSet rs )
+    throws HopDatabaseException {
+
+    try {
+<span class="nc bnc" id="L445" title="All 2 branches missed.">      if ( java.sql.Types.TIMESTAMP == rs.getInt( &quot;COLUMN_TYPE&quot; ) ) {</span>
+<span class="nc" id="L446">        IValueMeta vmi = super.getMetadataPreview( databaseMeta, rs );</span>
+        IValueMeta valueMeta;
+<span class="nc bnc" id="L448" title="All 2 branches missed.">        if ( databaseMeta.supportsTimestampDataType() ) {</span>
+<span class="nc" id="L449">          valueMeta = new ValueMetaTimestamp( name );</span>
+        } else {
+<span class="nc" id="L451">          valueMeta = new ValueMetaDate( name );</span>
+        }
+<span class="nc" id="L453">        valueMeta.setLength( vmi.getLength() );</span>
+<span class="nc" id="L454">        valueMeta.setOriginalColumnType( vmi.getOriginalColumnType() );</span>
+<span class="nc" id="L455">        valueMeta.setOriginalColumnTypeName( vmi.getOriginalColumnTypeName() );</span>
+<span class="nc" id="L456">        valueMeta.setOriginalNullable( vmi.getOriginalNullable() );</span>
+<span class="nc" id="L457">        valueMeta.setOriginalPrecision( vmi.getOriginalPrecision() );</span>
+<span class="nc" id="L458">        valueMeta.setOriginalScale( vmi.getOriginalScale() );</span>
+<span class="nc" id="L459">        valueMeta.setOriginalSigned( vmi.getOriginalSigned() );</span>
+<span class="nc" id="L460">        return valueMeta;</span>
+      }
+<span class="nc" id="L462">    } catch ( SQLException e ) {</span>
+<span class="nc" id="L463">      throw new HopDatabaseException( e );</span>
+<span class="nc" id="L464">    }</span>
+<span class="nc" id="L465">    return null;</span>
+  }
+
+  @Override
+  public IValueMeta getValueFromSqlType(DatabaseMeta databaseMeta, String name, ResultSetMetaData rm,
+                                        int index, boolean ignoreLength, boolean lazyConversion ) throws HopDatabaseException {
+
+    try {
+<span class="fc" id="L473">      int type = rm.getColumnType( index );</span>
+<span class="pc bpc" id="L474" title="1 of 2 branches missed.">      if ( type == java.sql.Types.TIMESTAMP ) {</span>
+<span class="nc" id="L475">        int length = rm.getScale( index );</span>
+        IValueMeta valueMeta;
+<span class="nc bnc" id="L477" title="All 2 branches missed.">        if ( databaseMeta.supportsTimestampDataType() ) {</span>
+<span class="nc" id="L478">          valueMeta = new ValueMetaTimestamp( name );</span>
+        } else {
+<span class="nc" id="L480">          valueMeta = new ValueMetaDate( name );</span>
+        }
+<span class="nc" id="L482">        valueMeta.setLength( length );</span>
+
+        // Also get original column details, comment, etc.
+        //
+<span class="nc" id="L486">        getOriginalColumnMetadata( valueMeta, rm, index, ignoreLength );</span>
+
+<span class="nc" id="L488">        return valueMeta;</span>
+      }
+
+<span class="fc" id="L491">      return null;</span>
+<span class="nc" id="L492">    } catch ( Exception e ) {</span>
+<span class="nc" id="L493">      throw new HopDatabaseException( &quot;Error evaluating timestamp value metadata&quot;, e );</span>
+    }
+  }
+
+  @Override
+  public Object getValueFromResultSet( IDatabase iDatabase, ResultSet resultSet, int index )
+    throws HopDatabaseException {
+
+    try {
+
+<span class="nc" id="L503">      return resultSet.getTimestamp( index + 1 );</span>
+
+<span class="nc" id="L505">    } catch ( Exception e ) {</span>
+<span class="nc" id="L506">      throw new HopDatabaseException(</span>
+<span class="nc" id="L507">        toStringMeta() + &quot; : Unable to get timestamp from resultset at index &quot; + index, e );</span>
+    }
+
+  }
+
+  @Override
+  public void setPreparedStatementValue( DatabaseMeta databaseMeta, PreparedStatement preparedStatement, int index,
+                                         Object data ) throws HopDatabaseException {
+
+    try {
+<span class="pc bpc" id="L517" title="1 of 2 branches missed.">      if ( data != null ) {</span>
+<span class="nc" id="L518">        preparedStatement.setTimestamp( index, getTimestamp( data ) );</span>
+      } else {
+<span class="fc" id="L520">        preparedStatement.setNull( index, java.sql.Types.TIMESTAMP );</span>
+      }
+<span class="nc" id="L522">    } catch ( Exception e ) {</span>
+<span class="nc" id="L523">      throw new HopDatabaseException( toStringMeta() + &quot; : Unable to set value on prepared statement on index &quot;</span>
+        + index, e );
+<span class="fc" id="L525">    }</span>
+
+<span class="fc" id="L527">  }</span>
+
+  @Override
+  public Object convertDataUsingConversionMetaData( Object data2 ) throws HopValueException {
+<span class="nc bnc" id="L531" title="All 2 branches missed.">    if ( conversionMetadata == null ) {</span>
+<span class="nc" id="L532">      throw new HopValueException(</span>
+        &quot;API coding error: please specify the conversion metadata before attempting to convert value &quot; + name );
+    }
+
+<span class="nc" id="L536">    return super.convertDataUsingConversionMetaData( data2 );</span>
+  }
+
+  @Override
+  public byte[] getBinaryString( Object object ) throws HopValueException {
+
+<span class="nc bnc" id="L542" title="All 2 branches missed.">    if ( object == null ) {</span>
+<span class="nc" id="L543">      return null;</span>
+    }
+
+<span class="nc bnc" id="L546" title="All 4 branches missed.">    if ( isStorageBinaryString() &amp;&amp; identicalFormat ) {</span>
+<span class="nc" id="L547">      return (byte[]) object; // shortcut it directly for better performance.</span>
+    }
+
+<span class="nc bnc" id="L550" title="All 4 branches missed.">    switch ( storageType ) {</span>
+      case STORAGE_TYPE_NORMAL:
+<span class="nc" id="L552">        return convertStringToBinaryString( getString( object ) );</span>
+      case STORAGE_TYPE_BINARY_STRING:
+<span class="nc" id="L554">        return convertStringToBinaryString( (String) convertBinaryStringToNativeType( (byte[]) object ) );</span>
+      case STORAGE_TYPE_INDEXED:
+<span class="nc" id="L556">        return convertStringToBinaryString( getString( index[ ( (Integer) object ).intValue() ] ) );</span>
+      default:
+<span class="nc" id="L558">        throw new HopValueException( toString() + &quot; : Unknown storage type &quot; + storageType + &quot; specified.&quot; );</span>
+    }
+
+  }
+
+  @Override
+  public void writeData( DataOutputStream outputStream, Object object ) throws HopFileException {
+    try {
+      // Is the value NULL?
+<span class="pc bpc" id="L567" title="1 of 2 branches missed.">      outputStream.writeBoolean( object == null );</span>
+
+<span class="pc bpc" id="L569" title="1 of 2 branches missed.">      if ( object != null ) {</span>
+<span class="pc bpc" id="L570" title="3 of 4 branches missed.">        switch ( storageType ) {</span>
+          case STORAGE_TYPE_NORMAL:
+            // Handle Content -- only when not NULL
+<span class="fc" id="L573">            Timestamp timestamp = convertDateToTimestamp( (Date) object );</span>
+
+<span class="fc" id="L575">            outputStream.writeLong( timestamp.getTime() );</span>
+<span class="fc" id="L576">            outputStream.writeInt( timestamp.getNanos() );</span>
+<span class="fc" id="L577">            break;</span>
+
+          case STORAGE_TYPE_BINARY_STRING:
+            // Handle binary string content -- only when not NULL
+            // In this case, we opt not to convert anything at all for speed.
+            // That way, we can save on CPU power.
+            // Since the streams can be compressed, volume shouldn't be an issue
+            // at all.
+            //
+<span class="nc" id="L586">            writeBinaryString( outputStream, (byte[]) object );</span>
+<span class="nc" id="L587">            break;</span>
+
+          case STORAGE_TYPE_INDEXED:
+<span class="nc" id="L590">            writeInteger( outputStream, (Integer) object ); // just an index</span>
+<span class="nc" id="L591">            break;</span>
+
+          default:
+<span class="nc" id="L594">            throw new HopFileException( toString() + &quot; : Unknown storage type &quot; + getStorageType() );</span>
+        }
+      }
+<span class="nc" id="L597">    } catch ( ClassCastException e ) {</span>
+<span class="nc" id="L598">      throw new RuntimeException( toString() + &quot; : There was a data type error: the data type of &quot;</span>
+<span class="nc" id="L599">        + object.getClass().getName() + &quot; object [&quot; + object + &quot;] does not correspond to value meta [&quot;</span>
+<span class="nc" id="L600">        + toStringMeta() + &quot;]&quot; );</span>
+<span class="nc" id="L601">    } catch ( IOException e ) {</span>
+<span class="nc" id="L602">      throw new HopFileException( toString() + &quot; : Unable to write value timestamp data to output stream&quot;, e );</span>
+<span class="nc" id="L603">    } catch ( HopValueException e ) {</span>
+<span class="nc" id="L604">      throw new RuntimeException( toString() + &quot; : There was a data type error: the data type of &quot;</span>
+<span class="nc" id="L605">        + object.getClass().getName() + &quot; object [&quot; + object + &quot;] does not correspond to value meta [&quot;</span>
+<span class="nc" id="L606">        + toStringMeta() + &quot;]&quot; );</span>
+<span class="fc" id="L607">    }</span>
+<span class="fc" id="L608">  }</span>
+
+  @Override
+  public Object readData( DataInputStream inputStream ) throws HopFileException, HopEofException,
+    SocketTimeoutException {
+    try {
+      // Is the value NULL?
+<span class="pc bpc" id="L615" title="1 of 2 branches missed.">      if ( inputStream.readBoolean() ) {</span>
+<span class="nc" id="L616">        return null; // done</span>
+      }
+
+<span class="pc bpc" id="L619" title="3 of 4 branches missed.">      switch ( storageType ) {</span>
+        case STORAGE_TYPE_NORMAL:
+          // Handle Content -- only when not NULL
+<span class="fc" id="L622">          long time = inputStream.readLong();</span>
+<span class="fc" id="L623">          int nanos = inputStream.readInt();</span>
+<span class="fc" id="L624">          Timestamp timestamp = new Timestamp( time );</span>
+<span class="fc" id="L625">          timestamp.setNanos( nanos );</span>
+<span class="fc" id="L626">          return timestamp;</span>
+
+        case STORAGE_TYPE_BINARY_STRING:
+<span class="nc" id="L629">          return readBinaryString( inputStream );</span>
+
+        case STORAGE_TYPE_INDEXED:
+<span class="nc" id="L632">          return readSmallInteger( inputStream ); // just an index: 4-bytes should be enough.</span>
+
+        default:
+<span class="nc" id="L635">          throw new HopFileException( toString() + &quot; : Unknown storage type &quot; + getStorageType() );</span>
+      }
+<span class="nc" id="L637">    } catch ( EOFException e ) {</span>
+<span class="nc" id="L638">      throw new HopEofException( e );</span>
+<span class="nc" id="L639">    } catch ( SocketTimeoutException e ) {</span>
+<span class="nc" id="L640">      throw e;</span>
+<span class="nc" id="L641">    } catch ( IOException e ) {</span>
+<span class="nc" id="L642">      throw new HopFileException( toString() + &quot; : Unable to read value timestamp data from input stream&quot;, e );</span>
+    }
+  }
+
+  @Override
+  public synchronized SimpleDateFormat getDateFormat() {
+<span class="fc" id="L648">    return getDateFormat( getType() );</span>
+  }
+
+  private synchronized SimpleDateFormat getDateFormat( int valueMetaType ) {
+<span class="pc bpc" id="L652" title="1 of 2 branches missed.">    if ( conversionMetadata != null ) {</span>
+<span class="nc" id="L653">      return new SimpleTimestampFormat( conversionMetadata.getDateFormat().toPattern() );</span>
+    }
+
+<span class="pc bpc" id="L656" title="1 of 4 branches missed.">    if ( dateFormat == null || dateFormatChanged ) {</span>
+      // This may not become static as the class is not thread-safe!
+<span class="fc" id="L658">      dateFormat = new SimpleTimestampFormat( new SimpleDateFormat().toPattern() );</span>
+
+<span class="fc" id="L660">      String mask = getMask( valueMetaType );</span>
+
+      // Do we have a locale?
+      //
+<span class="pc bpc" id="L664" title="2 of 4 branches missed.">      if ( dateFormatLocale == null || dateFormatLocale.equals( Locale.getDefault() ) ) {</span>
+<span class="fc" id="L665">        dateFormat = new SimpleTimestampFormat( mask );</span>
+      } else {
+<span class="nc" id="L667">        dateFormat = new SimpleTimestampFormat( mask, dateFormatLocale );</span>
+      }
+
+      // Do we have a time zone?
+      //
+<span class="pc bpc" id="L672" title="1 of 2 branches missed.">      if ( dateFormatTimeZone != null ) {</span>
+<span class="fc" id="L673">        dateFormat.setTimeZone( dateFormatTimeZone );</span>
+      }
+
+      // Set the conversion leniency as well
+      //
+<span class="fc" id="L678">      dateFormat.setLenient( dateFormatLenient );</span>
+
+<span class="fc" id="L680">      dateFormatChanged = false;</span>
+    }
+
+<span class="fc" id="L683">    return dateFormat;</span>
+  }
+
+  @Override
+  public String getFormatMask() {
+<span class="nc" id="L688">    return getTimestampFormatMask();</span>
+  }
+
+  @Override
+  public Class&lt;?&gt; getNativeDataTypeClass() throws HopValueException {
+<span class="fc" id="L693">    return Timestamp.class;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

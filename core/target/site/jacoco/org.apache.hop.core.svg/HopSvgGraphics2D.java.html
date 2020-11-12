@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HopSvgGraphics2D.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.svg</a> &gt; <span class="el_source">HopSvgGraphics2D.java</span></div><h1>HopSvgGraphics2D.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.svg;
+
+import org.apache.batik.anim.dom.SVGDOMImplementation;
+import org.apache.batik.dom.GenericDOMImplementation;
+import org.apache.batik.svggen.DOMGroupManager;
+import org.apache.batik.svggen.ExtensionHandler;
+import org.apache.batik.svggen.ImageHandler;
+import org.apache.batik.svggen.SVGGeneratorContext;
+import org.apache.batik.svggen.SVGGraphics2D;
+import org.apache.batik.util.SVGConstants;
+import org.w3c.dom.DOMImplementation;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+import java.awt.font.TextLayout;
+import java.io.StringWriter;
+import java.text.DecimalFormat;
+
+import static org.apache.batik.svggen.DOMGroupManager.DRAW;
+import static org.apache.batik.svggen.DOMGroupManager.FILL;
+
+public class HopSvgGraphics2D extends SVGGraphics2D {
+  public HopSvgGraphics2D( Document domFactory ) {
+<span class="fc" id="L54">    super( domFactory );</span>
+<span class="fc" id="L55">  }</span>
+
+  public HopSvgGraphics2D( Document domFactory, ImageHandler imageHandler, ExtensionHandler extensionHandler, boolean textAsShapes ) {
+<span class="nc" id="L58">    super( domFactory, imageHandler, extensionHandler, textAsShapes );</span>
+<span class="nc" id="L59">  }</span>
+
+  public HopSvgGraphics2D( SVGGeneratorContext generatorCtx, boolean textAsShapes ) {
+<span class="nc" id="L62">    super( generatorCtx, textAsShapes );</span>
+<span class="nc" id="L63">  }</span>
+
+  public HopSvgGraphics2D( SVGGraphics2D g ) {
+<span class="nc" id="L66">    super( g );</span>
+<span class="nc" id="L67">  }</span>
+
+  public DOMGroupManager getDomGroupManager() {
+<span class="nc" id="L70">    return super.getDOMGroupManager();</span>
+  }
+
+  @Override public void drawString( String str, int x, int y ) {
+
+<span class="nc bnc" id="L75" title="All 2 branches missed.">    if (str.contains( &quot;\\n&quot; )) {</span>
+
+<span class="nc" id="L77">      String[] lines = str.split( &quot;\\n&quot; );</span>
+<span class="nc" id="L78">      int lineX = x;</span>
+<span class="nc" id="L79">      int lineY = y;</span>
+<span class="nc bnc" id="L80" title="All 2 branches missed.">      for (String line : lines) {</span>
+<span class="nc" id="L81">        TextLayout tl = new TextLayout( line, getFont(), getFontRenderContext() );</span>
+<span class="nc" id="L82">        drawString( line, lineX, lineY );</span>
+<span class="nc" id="L83">        lineY+=tl.getBounds().getHeight()+tl.getDescent();</span>
+      }
+
+<span class="nc" id="L86">    } else {</span>
+<span class="nc" id="L87">      super.drawString( str, x, y );</span>
+    }
+<span class="nc" id="L89">  }</span>
+
+  public static HopSvgGraphics2D newDocument() {
+<span class="fc" id="L92">    DOMImplementation domImplementation = GenericDOMImplementation.getDOMImplementation();</span>
+
+    // Create an instance of org.w3c.dom.Document.
+<span class="fc" id="L95">    Document document = domImplementation.createDocument( SVGDOMImplementation.SVG_NAMESPACE_URI, &quot;svg&quot;, null);</span>
+
+<span class="fc" id="L97">    HopSvgGraphics2D graphics2D = new HopSvgGraphics2D(document);</span>
+
+<span class="fc" id="L99">    return graphics2D;</span>
+  }
+
+  public String toXml() throws TransformerException {
+<span class="fc" id="L103">    Transformer transformer = TransformerFactory.newInstance().newTransformer();</span>
+<span class="fc" id="L104">    transformer.setOutputProperty( OutputKeys.INDENT, &quot;yes&quot; );</span>
+<span class="fc" id="L105">    transformer.setOutputProperty( &quot;{http://xml.apache.org/xslt}indent-amount&quot;, &quot;2&quot; );</span>
+<span class="fc" id="L106">    StreamResult streamResult = new StreamResult( new StringWriter() );</span>
+<span class="fc" id="L107">    DOMSource domSource = new DOMSource( getRoot() );</span>
+<span class="fc" id="L108">    transformer.transform( domSource, streamResult );</span>
+<span class="fc" id="L109">    return streamResult.getWriter().toString();</span>
+  }
+
+  private String format(double d) {
+<span class="nc" id="L113">    return new DecimalFormat(&quot;0.###&quot;).format( d );</span>
+  }
+
+  /**
+   *  Embed the given SVG from the given node into this SVG 2D
+   *
+   * @param svgNode The source SVG node which is copied
+   * @param filename The filename will be added as information (not if null)
+   * @param x The x location to translate to
+   * @param y The y location to translate to
+   * @param width The width of the SVG to embed.
+   * @param height The height of the SVG to embed
+   * @param xMagnification The horizontal magnification
+   * @param yMagnification The vertical magnification
+   * @param angleDegrees The rotation angle in degrees (not radians)
+   */
+  public void embedSvg( Node svgNode, String filename, int x, int y, float width, float height, float xMagnification, float yMagnification, double angleDegrees ) {
+
+<span class="nc" id="L131">    Document domFactory = getDOMFactory();</span>
+<span class="nc" id="L132">    float centreX = width / 2;</span>
+<span class="nc" id="L133">    float centreY = height / 2;</span>
+
+    // Add a &lt;g&gt; group tag
+    // Do the magnification, translation and rotation in that group
+    //
+<span class="nc" id="L138">    Element svgG = domFactory.createElementNS( SVGConstants.SVG_NAMESPACE_URI, SVGConstants.SVG_G_TAG );</span>
+<span class="nc" id="L139">    getDomGroupManager().addElement( svgG, (short) (DRAW | FILL) );</span>
+
+<span class="nc" id="L141">    svgG.setAttributeNS( null, SVGConstants.SVG_STROKE_ATTRIBUTE, SVGConstants.SVG_NONE_VALUE );</span>
+<span class="nc" id="L142">    svgG.removeAttributeNS( null, SVGConstants.SVG_FILL_ATTRIBUTE );</span>
+
+<span class="nc" id="L144">    String transformString = &quot;translate(&quot; + x + &quot; &quot; + y + &quot;) &quot;;</span>
+<span class="nc" id="L145">    transformString += &quot;scale(&quot; + format(xMagnification) + &quot; &quot; + format(yMagnification) + &quot;) &quot;;</span>
+<span class="nc" id="L146">    transformString += &quot;rotate(&quot; + format(angleDegrees) + &quot; &quot; + format(centreX) + &quot; &quot; + format(centreY) + &quot;)&quot;;</span>
+<span class="nc" id="L147">    svgG.setAttributeNS( null, SVGConstants.SVG_TRANSFORM_ATTRIBUTE, transformString );</span>
+
+<span class="nc bnc" id="L149" title="All 2 branches missed.">    if (filename!=null) {</span>
+      // Just informational
+<span class="nc" id="L151">      svgG.setAttributeNS( null, &quot;filename&quot;, filename );</span>
+    }
+
+<span class="nc" id="L154">    svgG.setAttributeNS(&quot;http://www.w3.org/2000/xmlns/&quot;, &quot;xmlns:dc&quot;, &quot;http://purl.org/dc/elements/1.1/&quot;);</span>
+<span class="nc" id="L155">    svgG.setAttributeNS(&quot;http://www.w3.org/2000/xmlns/&quot;, &quot;xmlns:cc&quot;, &quot;http://creativecommons.org/ns#&quot; );</span>
+<span class="nc" id="L156">    svgG.setAttributeNS(&quot;http://www.w3.org/2000/xmlns/&quot;, &quot;xmlns:rdf&quot;, &quot;http://www.w3.org/1999/02/22-rdf-syntax-ns#&quot; );</span>
+<span class="nc" id="L157">    svgG.setAttributeNS(&quot;http://www.w3.org/2000/xmlns/&quot;, &quot;xmlns:sodipodi&quot;, &quot;http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd&quot; );</span>
+<span class="nc" id="L158">    svgG.setAttributeNS(&quot;http://www.w3.org/2000/xmlns/&quot;, &quot;xmlns:inkscape&quot;, &quot;http://www.inkscape.org/namespaces/inkscape&quot; );</span>
+
+    // Add all the elements from the SVG Image...
+    //
+<span class="nc" id="L162">    copyChildren( domFactory, svgG, svgNode );</span>
+<span class="nc" id="L163">  }</span>
+
+  private void copyChildren( Document domFactory, Node target, Node svgImage ) {
+
+<span class="nc" id="L167">    NodeList childNodes = svgImage.getChildNodes();</span>
+<span class="nc bnc" id="L168" title="All 2 branches missed.">    for ( int c = 0; c &lt; childNodes.getLength(); c++ ) {</span>
+<span class="nc" id="L169">      Node childNode = childNodes.item( c );</span>
+
+      /*
+      if ( &quot;metadata&quot;.equals( childNode.getNodeName() ) ) {
+        continue; // skip some junk
+      }
+      if ( &quot;defs&quot;.equals( childNode.getNodeName() ) ) {
+        continue; // skip some junk
+      }
+      if ( &quot;sodipodi:namedview&quot;.equals( childNode.getNodeName() ) ) {
+        continue; // skip some junk
+      }
+       */
+
+      // Copy this node over to the svgSvg element
+      //
+<span class="nc" id="L185">      Node childNodeCopy = domFactory.importNode( childNode, true );</span>
+<span class="nc" id="L186">      target.appendChild( childNodeCopy );</span>
+    }
+<span class="nc" id="L188">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

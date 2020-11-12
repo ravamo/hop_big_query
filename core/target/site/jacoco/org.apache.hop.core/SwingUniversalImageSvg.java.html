@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SwingUniversalImageSvg.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core</a> &gt; <span class="el_source">SwingUniversalImageSvg.java</span></div><h1>SwingUniversalImageSvg.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core;
+
+import org.apache.batik.bridge.BridgeContext;
+import org.apache.batik.bridge.DocumentLoader;
+import org.apache.batik.bridge.GVTBuilder;
+import org.apache.batik.bridge.UserAgentAdapter;
+import org.apache.batik.gvt.GraphicsNode;
+import org.apache.hop.core.svg.SvgImage;
+
+import java.awt.*;
+import java.awt.geom.AffineTransform;
+import java.awt.geom.Dimension2D;
+import java.awt.image.BufferedImage;
+
+public class SwingUniversalImageSvg extends SwingUniversalImage {
+  private final SvgImage svg;
+  private final GraphicsNode svgGraphicsNode;
+  private final Dimension2D svgGraphicsSize;
+
+<span class="nc" id="L42">  public SwingUniversalImageSvg( SvgImage svg ) {</span>
+<span class="nc" id="L43">    this.svg = svg;</span>
+
+    // get GraphicsNode and size from svg document
+<span class="nc" id="L46">    UserAgentAdapter userAgentAdapter = new UserAgentAdapter();</span>
+<span class="nc" id="L47">    DocumentLoader documentLoader = new DocumentLoader( userAgentAdapter );</span>
+<span class="nc" id="L48">    BridgeContext ctx = new BridgeContext( userAgentAdapter, documentLoader );</span>
+<span class="nc" id="L49">    GVTBuilder builder = new GVTBuilder();</span>
+<span class="nc" id="L50">    svgGraphicsNode = builder.build( ctx, svg.getDocument() );</span>
+<span class="nc" id="L51">    svgGraphicsSize = ctx.getDocumentSize();</span>
+<span class="nc" id="L52">  }</span>
+
+  @Override
+  public boolean isBitmap() {
+<span class="nc" id="L56">    return false;</span>
+  }
+
+  @Override
+  protected void renderSimple( BufferedImage area ) {
+<span class="nc" id="L61">    Graphics2D gc = createGraphics( area );</span>
+
+<span class="nc" id="L63">    render( gc, area.getWidth() / 2, area.getHeight() / 2, area.getWidth(), area.getHeight(), 0 );</span>
+
+<span class="nc" id="L65">    gc.dispose();</span>
+<span class="nc" id="L66">  }</span>
+
+  /**
+   * Draw SVG image to Graphics2D.
+   */
+  @Override
+  protected void render( Graphics2D gc, int centerX, int centerY, int width, int height, double angleRadians ) {
+<span class="nc" id="L73">    render( gc, svgGraphicsNode, svgGraphicsSize, centerX, centerY, width, height, angleRadians );</span>
+<span class="nc" id="L74">  }</span>
+
+  public static void render( Graphics2D gc, GraphicsNode svgGraphicsNode, Dimension2D svgGraphicsSize, int centerX,
+                             int centerY, int width, int height, double angleRadians ) {
+<span class="nc" id="L78">    double scaleX = width / svgGraphicsSize.getWidth();</span>
+<span class="nc" id="L79">    double scaleY = height / svgGraphicsSize.getHeight();</span>
+
+<span class="nc" id="L81">    AffineTransform affineTransform = new AffineTransform();</span>
+<span class="nc bnc" id="L82" title="All 4 branches missed.">    if ( centerX != 0 || centerY != 0 ) {</span>
+<span class="nc" id="L83">      affineTransform.translate( centerX, centerY );</span>
+    }
+<span class="nc" id="L85">    affineTransform.scale( scaleX, scaleY );</span>
+<span class="nc bnc" id="L86" title="All 2 branches missed.">    if ( angleRadians != 0 ) {</span>
+<span class="nc" id="L87">      affineTransform.rotate( angleRadians );</span>
+    }
+<span class="nc" id="L89">    affineTransform.translate( -svgGraphicsSize.getWidth() / 2, -svgGraphicsSize.getHeight() / 2 );</span>
+
+<span class="nc" id="L91">    svgGraphicsNode.setTransform( affineTransform );</span>
+
+<span class="nc" id="L93">    svgGraphicsNode.paint( gc );</span>
+<span class="nc" id="L94">  }</span>
+
+  /**
+   * Gets svg
+   *
+   * @return value of svg
+   */
+  public SvgImage getSvg() {
+<span class="nc" id="L102">    return svg;</span>
+  }
+
+  /**
+   * Gets svgGraphicsNode
+   *
+   * @return value of svgGraphicsNode
+   */
+  public GraphicsNode getSvgGraphicsNode() {
+<span class="nc" id="L111">    return svgGraphicsNode;</span>
+  }
+
+  /**
+   * Gets svgGraphicsSize
+   *
+   * @return value of svgGraphicsSize
+   */
+  public Dimension2D getSvgGraphicsSize() {
+<span class="nc" id="L120">    return svgGraphicsSize;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

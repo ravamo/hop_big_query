@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Slf4jLoggingEventListener.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.logging</a> &gt; <span class="el_source">Slf4jLoggingEventListener.java</span></div><h1>Slf4jLoggingEventListener.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.logging;
+
+import com.google.common.annotations.VisibleForTesting;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.function.Function;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.hop.core.logging.LoggingObjectType.DATABASE;
+import static org.apache.hop.core.logging.LoggingObjectType.WORKFLOW;
+import static org.apache.hop.core.logging.LoggingObjectType.ACTION;
+import static org.apache.hop.core.logging.LoggingObjectType.TRANSFORM;
+import static org.apache.hop.core.logging.LoggingObjectType.PIPELINE;
+
+public class Slf4jLoggingEventListener implements IHopLoggingEventListener {
+
+<span class="fc" id="L42">  @VisibleForTesting Logger pipelineLogger = LoggerFactory.getLogger( &quot;org.apache.hop.pipeline.Pipeline&quot; );</span>
+
+<span class="fc" id="L44">  @VisibleForTesting Logger jobLogger = LoggerFactory.getLogger( &quot;org.apache.hop.workflow.Workflow&quot; );</span>
+
+<span class="fc" id="L46">  @VisibleForTesting Logger diLogger = LoggerFactory.getLogger( &quot;org.apache.hop&quot; );</span>
+
+<span class="fc" id="L48">  @VisibleForTesting Function&lt;String, ILoggingObject&gt; logObjProvider =</span>
+<span class="fc" id="L49">    ( objId ) -&gt; LoggingRegistry.getInstance().getLoggingObject( objId );</span>
+
+  private static final String SEPARATOR = &quot;/&quot;;
+
+<span class="fc" id="L53">  public Slf4jLoggingEventListener() {</span>
+<span class="fc" id="L54">  }</span>
+
+
+  @Override
+  public void eventAdded( HopLoggingEvent event ) {
+<span class="fc" id="L59">    Object messageObject = event.getMessage();</span>
+<span class="fc" id="L60">    checkNotNull( messageObject, &quot;Expected log message to be defined.&quot; );</span>
+<span class="pc bpc" id="L61" title="1 of 2 branches missed.">    if ( messageObject instanceof LogMessage ) {</span>
+<span class="fc" id="L62">      LogMessage message = (LogMessage) messageObject;</span>
+<span class="fc" id="L63">      ILoggingObject loggingObject = logObjProvider.apply( message.getLogChannelId() );</span>
+
+<span class="fc bfc" id="L65" title="All 2 branches covered.">      if ( loggingObject == null ) {</span>
+        // this can happen if logObject has been discarded while log events are still in flight.
+<span class="fc" id="L67">        logToLogger( diLogger, message.getLevel(),</span>
+<span class="fc" id="L68">          message.getSubject() + &quot; &quot; + message.getMessage() );</span>
+<span class="pc bpc" id="L69" title="2 of 6 branches missed.">      } else if ( loggingObject.getObjectType() == PIPELINE || loggingObject.getObjectType() == TRANSFORM || loggingObject.getObjectType() == DATABASE ) {</span>
+<span class="fc" id="L70">        logToLogger( pipelineLogger, message.getLevel(), loggingObject, message );</span>
+<span class="pc bpc" id="L71" title="1 of 4 branches missed.">      } else if ( loggingObject.getObjectType() == WORKFLOW || loggingObject.getObjectType() == ACTION ) {</span>
+<span class="fc" id="L72">        logToLogger( jobLogger, message.getLevel(), loggingObject, message );</span>
+      }
+    }
+<span class="fc" id="L75">  }</span>
+
+  private void logToLogger( Logger logger, LogLevel logLevel, ILoggingObject loggingObject,
+                            LogMessage message ) {
+<span class="fc" id="L79">    logToLogger( logger, logLevel,</span>
+<span class="fc" id="L80">      &quot;[&quot; + getDetailedSubject( loggingObject ) + &quot;]  &quot; + message.getMessage() );</span>
+<span class="fc" id="L81">  }</span>
+
+  private void logToLogger( Logger logger, LogLevel logLevel, String message ) {
+<span class="pc bpc" id="L84" title="5 of 7 branches missed.">    switch ( logLevel ) {</span>
+      case NOTHING:
+<span class="nc" id="L86">        break;</span>
+      case ERROR:
+<span class="fc" id="L88">        logger.error( message );</span>
+<span class="fc" id="L89">        break;</span>
+      case MINIMAL:
+<span class="nc" id="L91">        logger.warn( message );</span>
+<span class="nc" id="L92">        break;</span>
+      case BASIC:
+      case DETAILED:
+<span class="fc" id="L95">        logger.info( message );</span>
+<span class="fc" id="L96">        break;</span>
+      case DEBUG:
+<span class="nc" id="L98">        logger.debug( message );</span>
+<span class="nc" id="L99">        break;</span>
+      case ROWLEVEL:
+<span class="nc" id="L101">        logger.trace( message );</span>
+<span class="nc" id="L102">        break;</span>
+      default:
+        break;
+    }
+<span class="fc" id="L106">  }</span>
+
+  private String getDetailedSubject( ILoggingObject loggingObject ) {
+<span class="fc" id="L109">    LinkedList&lt;String&gt; subjects = new LinkedList&lt;&gt;();</span>
+<span class="fc bfc" id="L110" title="All 2 branches covered.">    while ( loggingObject != null ) {</span>
+<span class="pc bpc" id="L111" title="1 of 4 branches missed.">      if ( loggingObject.getObjectType() == PIPELINE || loggingObject.getObjectType() == WORKFLOW ) {</span>
+<span class="fc" id="L112">        String filename = loggingObject.getFilename();</span>
+<span class="pc bpc" id="L113" title="2 of 4 branches missed.">        if ( filename != null &amp;&amp; filename.length() &gt; 0 ) {</span>
+<span class="fc" id="L114">          subjects.add( filename );</span>
+        }
+      }
+<span class="fc" id="L117">      loggingObject = loggingObject.getParent();</span>
+    }
+<span class="pc bpc" id="L119" title="1 of 2 branches missed.">    if ( subjects.size() &gt; 0 ) {</span>
+<span class="pc bpc" id="L120" title="1 of 2 branches missed.">      return subjects.size() &gt; 1 ? formatDetailedSubject( subjects ) : subjects.get( 0 );</span>
+    } else {
+<span class="nc" id="L122">      return &quot;&quot;;</span>
+    }
+  }
+
+  private String formatDetailedSubject( LinkedList&lt;String&gt; subjects ) {
+<span class="nc" id="L127">    StringBuilder string = new StringBuilder();</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">    for ( Iterator&lt;String&gt; it = subjects.descendingIterator(); it.hasNext(); ) {</span>
+<span class="nc" id="L129">      string.append( it.next() );</span>
+<span class="nc bnc" id="L130" title="All 2 branches missed.">      if ( it.hasNext() ) {</span>
+<span class="nc" id="L131">        string.append( &quot;  &quot; );</span>
+      }
+    }
+<span class="nc" id="L134">    return string.toString();</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

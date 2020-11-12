@@ -1,0 +1,15 @@
+# Created at 2020-09-21T10:38:44.216
+WARNING: An illegal reflective access operation has occurred
+
+# Created at 2020-09-21T10:38:44.216
+WARNING: Illegal reflective access by org.mockito.internal.creation.jmock.ClassImposterizer (file:/home/rafael/.m2/repository/org/mockito/mockito-all/1.8.4/mockito-all-1.8.4.jar) to constructor java.io.File(java.lang.String,java.io.File)
+
+# Created at 2020-09-21T10:38:44.216
+WARNING: Please consider reporting this to the maintainers of org.mockito.internal.creation.jmock.ClassImposterizer
+
+# Created at 2020-09-21T10:38:44.216
+WARNING: Use --illegal-access=warn to enable warnings of further illegal reflective access operations
+
+# Created at 2020-09-21T10:38:44.216
+WARNING: All illegal access operations will be denied in a future release
+

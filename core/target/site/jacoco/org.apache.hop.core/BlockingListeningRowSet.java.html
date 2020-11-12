@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BlockingListeningRowSet.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core</a> &gt; <span class="el_source">BlockingListeningRowSet.java</span></div><h1>BlockingListeningRowSet.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core;
+
+import org.apache.hop.core.row.IRowMeta;
+
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+/**
+ * Contains a buffer of rows. Getting rows from the buffer or putting rows in the buffer is synchronized to allow
+ * concurrent use of multiple Threads.
+ * &lt;p&gt;
+ * This class also monitors the idle state of a IRowSet
+ *
+ * @author Matt
+ * @since 23-12-2010
+ */
+public class BlockingListeningRowSet extends BaseRowSet implements Comparable&lt;IRowSet&gt;, IRowSet {
+  private BlockingQueue&lt;Object[]&gt; queArray;
+
+  private AtomicBoolean blocking;
+
+  /**
+   * Create new non-blocking-queue with maxSize capacity.
+   *
+   * @param maxSize
+   */
+  public BlockingListeningRowSet( int maxSize ) {
+<span class="fc" id="L52">    super();</span>
+
+    // create an empty queue
+<span class="fc" id="L55">    queArray = new ArrayBlockingQueue&lt;Object[]&gt;( maxSize, false );</span>
+<span class="fc" id="L56">    blocking = new AtomicBoolean( false );</span>
+<span class="fc" id="L57">  }</span>
+
+  /*
+   * (non-Javadoc)
+   *
+   * @see org.apache.hop.core.RowSetInterface#putRow(org.apache.hop.core.row.IRowMeta, java.lang.Object[])
+   */
+  @Override
+  public boolean putRow( IRowMeta rowMeta, Object[] rowData ) {
+<span class="fc" id="L66">    return putRowWait( rowMeta, rowData, 100, TimeUnit.NANOSECONDS );</span>
+  }
+
+  /*
+   * (non-Javadoc)
+   *
+   * @see org.apache.hop.core.RowSetInterface#putRowWait(org.apache.hop.core.row.IRowMeta, java.lang.Object[],
+   * long, java.util.concurrent.TimeUnit)
+   */
+  @Override
+  public boolean putRowWait( IRowMeta rowMeta, Object[] rowData, long time, TimeUnit tu ) {
+<span class="fc" id="L77">    this.rowMeta = rowMeta;</span>
+    try {
+<span class="fc" id="L79">      blocking.set( true );</span>
+<span class="fc" id="L80">      boolean b = queArray.offer( rowData, time, tu );</span>
+<span class="fc" id="L81">      blocking.set( false );</span>
+<span class="fc" id="L82">      return b;</span>
+<span class="nc" id="L83">    } catch ( InterruptedException e ) {</span>
+<span class="nc" id="L84">      blocking.set( false );</span>
+<span class="nc" id="L85">      return false;</span>
+<span class="nc" id="L86">    } catch ( NullPointerException e ) {</span>
+<span class="nc" id="L87">      blocking.set( false );</span>
+<span class="nc" id="L88">      return false;</span>
+    }
+
+  }
+
+  // default getRow with wait time = 100ms
+  //
+  /*
+   * (non-Javadoc)
+   *
+   * @see org.apache.hop.core.RowSetInterface#getRow()
+   */
+  @Override
+  public Object[] getRow() {
+<span class="fc" id="L102">    blocking.set( true );</span>
+<span class="fc" id="L103">    Object[] row = getRowWait( 100, TimeUnit.NANOSECONDS );</span>
+<span class="fc" id="L104">    blocking.set( false );</span>
+<span class="fc" id="L105">    return row;</span>
+  }
+
+  /*
+   * (non-Javadoc)
+   *
+   * @see org.apache.hop.core.RowSetInterface#getRowImmediate()
+   */
+  @Override
+  public Object[] getRowImmediate() {
+
+<span class="fc" id="L116">    blocking.set( true );</span>
+<span class="fc" id="L117">    Object[] row = queArray.poll();</span>
+<span class="fc" id="L118">    blocking.set( false );</span>
+<span class="fc" id="L119">    return row;</span>
+  }
+
+  /*
+   * (non-Javadoc)
+   *
+   * @see org.apache.hop.core.RowSetInterface#getRowWait(long, java.util.concurrent.TimeUnit)
+   */
+  @Override
+  public Object[] getRowWait( long timeout, TimeUnit tu ) {
+
+    try {
+<span class="fc" id="L131">      blocking.set( true );</span>
+<span class="fc" id="L132">      Object[] row = queArray.poll( timeout, tu );</span>
+<span class="fc" id="L133">      blocking.set( false );</span>
+<span class="fc" id="L134">      return row;</span>
+<span class="nc" id="L135">    } catch ( InterruptedException e ) {</span>
+<span class="nc" id="L136">      blocking.set( false );</span>
+<span class="nc" id="L137">      return null;</span>
+    }
+  }
+
+  @Override
+  public int size() {
+<span class="fc" id="L143">    return queArray.size();</span>
+  }
+
+  /**
+   * @return true if this row set is blocking.
+   */
+  @Override
+  public boolean isBlocking() {
+<span class="fc" id="L151">    return blocking.get();</span>
+  }
+
+  @Override
+  public void clear() {
+<span class="fc" id="L156">    queArray.clear();</span>
+<span class="fc" id="L157">    done.set( false );</span>
+<span class="fc" id="L158">  }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

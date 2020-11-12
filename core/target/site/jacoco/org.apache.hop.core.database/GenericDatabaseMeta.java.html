@@ -1,0 +1,921 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GenericDatabaseMeta.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.database</a> &gt; <span class="el_source">GenericDatabaseMeta.java</span></div><h1>GenericDatabaseMeta.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.database;
+
+import org.apache.hop.core.Const;
+import org.apache.hop.core.exception.HopValueException;
+import org.apache.hop.core.gui.plugin.GuiElementType;
+import org.apache.hop.core.gui.plugin.GuiWidgetElement;
+import org.apache.hop.core.row.IValueMeta;
+
+import java.sql.SQLException;
+import java.util.Map;
+
+/**
+ * Contains Generic Database Connection information through static final members
+ *
+ * @author Matt
+ * @since 11-mrt-2005
+ */
+
+<span class="fc" id="L41">public class GenericDatabaseMeta extends BaseDatabaseMeta implements IDatabase {</span>
+  public static final String ATRRIBUTE_CUSTOM_DRIVER_CLASS = &quot;CUSTOM_DRIVER_CLASS&quot;;
+  public static final String DATABASE_DIALECT_ID = &quot;DATABASE_DIALECT_ID&quot;;
+<span class="fc" id="L44">  private IDatabase databaseDialect = null;</span>
+
+  @GuiWidgetElement( id = &quot;hostname&quot;, type = GuiElementType.NONE, parentId = DatabaseMeta.GUI_PLUGIN_ELEMENT_PARENT_ID, ignored = true )
+  protected String hostname;
+  @GuiWidgetElement( id = &quot;port&quot;, type = GuiElementType.NONE, parentId = DatabaseMeta.GUI_PLUGIN_ELEMENT_PARENT_ID, ignored = true )
+  protected String port;
+  @GuiWidgetElement( id = &quot;databaseName&quot;, type = GuiElementType.NONE, parentId = DatabaseMeta.GUI_PLUGIN_ELEMENT_PARENT_ID, ignored = true )
+  protected String databaseName;
+
+  @GuiWidgetElement(
+    id = &quot;driverClass&quot;,
+    order = &quot;10&quot;,
+    i18nPackage = &quot;org.apache.hop.ui.core.database&quot;,
+    label = &quot;DatabaseDialog.label.DriverClass&quot;,
+    type = GuiElementType.TEXT,
+    variables = true,
+    parentId = DatabaseMeta.GUI_PLUGIN_ELEMENT_PARENT_ID )
+  protected String driverClass;
+
+  /**
+   * @param driverClass The driverClass to set
+   */
+  public void setDriverClass( String driverClass ) {
+<span class="nc" id="L67">    getAttributes().put( ATRRIBUTE_CUSTOM_DRIVER_CLASS, driverClass );</span>
+<span class="nc" id="L68">  }</span>
+
+  @Override
+  public String getDriverClass() {
+<span class="fc" id="L72">    return getAttributeProperty( ATRRIBUTE_CUSTOM_DRIVER_CLASS, &quot;&quot; );</span>
+  }
+
+  @Override
+  public void addAttribute( String attributeId, String value ) {
+<span class="fc" id="L77">    super.addAttribute( attributeId, value );</span>
+<span class="pc bpc" id="L78" title="1 of 2 branches missed.">    if ( DATABASE_DIALECT_ID.equals( attributeId ) ) {</span>
+<span class="fc" id="L79">      resolveDialect( value );</span>
+    }
+<span class="fc" id="L81">  }</span>
+
+  @Override
+  public int[] getAccessTypeList() {
+<span class="fc" id="L85">    return new int[] {</span>
+      DatabaseMeta.TYPE_ACCESS_NATIVE };
+  }
+
+  /**
+   * @see IDatabase#getNotFoundTK(boolean)
+   */
+  @Override
+  public int getNotFoundTK( boolean use_autoinc ) {
+<span class="pc bpc" id="L94" title="1 of 4 branches missed.">    if ( supportsAutoInc() &amp;&amp; use_autoinc ) {</span>
+<span class="fc" id="L95">      return 1;</span>
+    }
+<span class="fc" id="L97">    return super.getNotFoundTK( use_autoinc );</span>
+  }
+
+  @Override
+  public String getURL( String hostname, String port, String databaseName ) {
+<span class="fc" id="L102">    return manualUrl;</span>
+  }
+
+  /**
+   * Checks whether or not the command setFetchSize() is supported by the JDBC driver...
+   *
+   * @return true is setFetchSize() is supported!
+   */
+  @Override
+  public boolean isFetchSizeSupported() {
+<span class="fc" id="L112">    return false;</span>
+  }
+
+  /**
+   * @return true if the database supports bitmap indexes
+   */
+  @Override
+  public boolean supportsBitmapIndex() {
+<span class="fc" id="L120">    return false;</span>
+  }
+
+  /**
+   * @param tableName The table to be truncated.
+   * @return The SQL statement to truncate a table: remove all rows from it without a transaction
+   */
+  @Override
+  public String getTruncateTableStatement( String tableName ) {
+<span class="pc bpc" id="L129" title="1 of 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L130">      return databaseDialect.getTruncateTableStatement( tableName );</span>
+    }
+<span class="fc" id="L132">    return &quot;DELETE FROM &quot; + tableName;</span>
+  }
+
+  /**
+   * Generates the SQL statement to add a column to the specified table For this generic type, i set it to the most
+   * common possibility.
+   *
+   * @param tablename   The table to add
+   * @param v           The column defined as a value
+   * @param tk          the name of the technical key field
+   * @param use_autoinc whether or not this field uses auto increment
+   * @param pk          the name of the primary key field
+   * @param semicolon   whether or not to add a semi-colon behind the statement.
+   * @return the SQL statement to add a column to the specified table
+   */
+  @Override
+  public String getAddColumnStatement( String tablename, IValueMeta v, String tk, boolean use_autoinc,
+                                       String pk, boolean semicolon ) {
+<span class="pc bpc" id="L150" title="1 of 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L151">      return databaseDialect.getAddColumnStatement( tablename, v, tk, use_autoinc, pk, semicolon );</span>
+    }
+
+<span class="fc" id="L154">    return &quot;ALTER TABLE &quot; + tablename + &quot; ADD &quot; + getFieldDefinition( v, tk, pk, use_autoinc, true, false );</span>
+  }
+
+  /**
+   * Generates the SQL statement to modify a column in the specified table
+   *
+   * @param tablename   The table to add
+   * @param v           The column defined as a value
+   * @param tk          the name of the technical key field
+   * @param use_autoinc whether or not this field uses auto increment
+   * @param pk          the name of the primary key field
+   * @param semicolon   whether or not to add a semi-colon behind the statement.
+   * @return the SQL statement to modify a column in the specified table
+   */
+  @Override
+  public String getModifyColumnStatement( String tablename, IValueMeta v, String tk, boolean use_autoinc,
+                                          String pk, boolean semicolon ) {
+<span class="pc bpc" id="L171" title="1 of 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L172">      return databaseDialect.getModifyColumnStatement( tablename, v, tk, use_autoinc, pk, semicolon );</span>
+    }
+<span class="fc" id="L174">    return &quot;ALTER TABLE &quot; + tablename + &quot; MODIFY &quot; + getFieldDefinition( v, tk, pk, use_autoinc, true, false );</span>
+  }
+
+  @Override
+  public String getFieldDefinition( IValueMeta v, String tk, String pk, boolean use_autoinc,
+                                    boolean add_fieldname, boolean add_cr ) {
+
+<span class="pc bpc" id="L181" title="1 of 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L182">      return databaseDialect.getFieldDefinition( v, tk, pk, use_autoinc, add_fieldname, add_cr );</span>
+    }
+
+<span class="fc" id="L185">    String retval = &quot;&quot;;</span>
+
+<span class="fc" id="L187">    String fieldname = v.getName();</span>
+<span class="fc" id="L188">    int length = v.getLength();</span>
+<span class="fc" id="L189">    int precision = v.getPrecision();</span>
+
+<span class="pc bpc" id="L191" title="1 of 2 branches missed.">    if ( add_fieldname ) {</span>
+<span class="fc" id="L192">      retval += fieldname + &quot; &quot;;</span>
+    }
+
+<span class="fc" id="L195">    int type = v.getType();</span>
+<span class="fc bfc" id="L196" title="All 5 branches covered.">    switch ( type ) {</span>
+      case IValueMeta.TYPE_TIMESTAMP:
+      case IValueMeta.TYPE_DATE:
+<span class="fc" id="L199">        retval += &quot;TIMESTAMP&quot;;</span>
+<span class="fc" id="L200">        break;</span>
+      case IValueMeta.TYPE_BOOLEAN:
+<span class="pc bpc" id="L202" title="1 of 2 branches missed.">        if ( supportsBooleanDataType() ) {</span>
+<span class="nc" id="L203">          retval += &quot;BOOLEAN&quot;;</span>
+        } else {
+<span class="fc" id="L205">          retval += &quot;CHAR(1)&quot;;</span>
+        }
+<span class="fc" id="L207">        break;</span>
+      case IValueMeta.TYPE_NUMBER:
+      case IValueMeta.TYPE_INTEGER:
+      case IValueMeta.TYPE_BIGNUMBER:
+<span class="fc bfc" id="L211" title="All 2 branches covered.">        if ( fieldname.equalsIgnoreCase( tk ) || // Technical key</span>
+<span class="pc bpc" id="L212" title="1 of 2 branches missed.">          fieldname.equalsIgnoreCase( pk ) // Primary key</span>
+        ) {
+<span class="fc" id="L214">          retval += &quot;BIGSERIAL&quot;;</span>
+        } else {
+<span class="fc bfc" id="L216" title="All 2 branches covered.">          if ( length &gt; 0 ) {</span>
+<span class="fc bfc" id="L217" title="All 4 branches covered.">            if ( precision &gt; 0 || length &gt; 18 ) {</span>
+<span class="fc" id="L218">              retval += &quot;NUMERIC(&quot; + length + &quot;, &quot; + precision + &quot;)&quot;;</span>
+            } else {
+<span class="fc bfc" id="L220" title="All 2 branches covered.">              if ( length &gt; 9 ) {</span>
+<span class="fc" id="L221">                retval += &quot;BIGINT&quot;;</span>
+              } else {
+<span class="fc bfc" id="L223" title="All 2 branches covered.">                if ( length &lt; 5 ) {</span>
+<span class="fc" id="L224">                  retval += &quot;SMALLINT&quot;;</span>
+                } else {
+<span class="fc" id="L226">                  retval += &quot;INTEGER&quot;;</span>
+                }
+              }
+            }
+
+          } else {
+<span class="fc" id="L232">            retval += &quot;DOUBLE PRECISION&quot;;</span>
+          }
+        }
+<span class="fc" id="L235">        break;</span>
+      case IValueMeta.TYPE_STRING:
+<span class="fc bfc" id="L237" title="All 2 branches covered.">        if ( length &gt;= DatabaseMeta.CLOB_LENGTH ) {</span>
+<span class="fc" id="L238">          retval += &quot;TEXT&quot;;</span>
+        } else {
+<span class="fc" id="L240">          retval += &quot;VARCHAR&quot;;</span>
+<span class="fc bfc" id="L241" title="All 2 branches covered.">          if ( length &gt; 0 ) {</span>
+<span class="fc" id="L242">            retval += &quot;(&quot; + length;</span>
+          } else {
+<span class="fc" id="L244">            retval += &quot;(&quot;; // Maybe use some default DB String length?</span>
+          }
+<span class="fc" id="L246">          retval += &quot;)&quot;;</span>
+        }
+<span class="fc" id="L248">        break;</span>
+      default:
+<span class="fc" id="L250">        retval += &quot; UNKNOWN&quot;;</span>
+        break;
+    }
+
+<span class="pc bpc" id="L254" title="1 of 2 branches missed.">    if ( add_cr ) {</span>
+<span class="nc" id="L255">      retval += Const.CR;</span>
+    }
+
+<span class="fc" id="L258">    return retval;</span>
+  }
+
+  /**
+   * Most databases allow you to retrieve result metadata by preparing a SELECT statement.
+   *
+   * @return true if the database supports retrieval of query metadata from a prepared statement. False if the query
+   * needs to be executed first.
+   */
+  @Override
+  public boolean supportsPreparedStatementMetadataRetrieval() {
+<span class="pc bpc" id="L269" title="1 of 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L270">      return databaseDialect.supportsPreparedStatementMetadataRetrieval();</span>
+    }
+<span class="fc" id="L272">    return false;</span>
+  }
+
+  /**
+   * Get the SQL to insert a new empty unknown record in a dimension.
+   *
+   * @param schemaTable  the schema-table name to insert into
+   * @param keyField     The key field
+   * @param versionField the version field
+   * @return the SQL to insert the unknown record into the SCD.
+   */
+  @Override
+  public String getSqlInsertAutoIncUnknownDimensionRow( String schemaTable, String keyField, String versionField ) {
+<span class="pc bpc" id="L285" title="1 of 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L286">      return databaseDialect.getSqlInsertAutoIncUnknownDimensionRow( schemaTable, keyField, versionField );</span>
+    }
+<span class="fc" id="L288">    return &quot;insert into &quot; + schemaTable + &quot;(&quot; + versionField + &quot;) values (1)&quot;;</span>
+  }
+
+  public void setDatabaseDialect( String databaseDialect ) {
+<span class="nc" id="L292">    super.addAttribute( DATABASE_DIALECT_ID, databaseDialect );</span>
+<span class="nc" id="L293">    resolveDialect( databaseDialect );</span>
+<span class="nc" id="L294">  }</span>
+
+  public String getDatabaseDialect() {
+<span class="nc" id="L297">    return super.getAttribute( DATABASE_DIALECT_ID, getPluginName() );</span>
+  }
+
+  private void resolveDialect( String dialectName ) {
+<span class="pc bpc" id="L301" title="1 of 2 branches missed.">    if ( dialectName == null ) {</span>
+<span class="nc" id="L302">      return;</span>
+    }
+<span class="pc bpc" id="L304" title="1 of 2 branches missed.">    if ( dialectName.equals( getPluginName() ) ) {</span>
+<span class="nc" id="L305">      databaseDialect = null;</span>
+    } else {
+<span class="fc" id="L307">      IDatabase[] dialects = DatabaseMeta.getDatabaseInterfaces();</span>
+<span class="pc bpc" id="L308" title="1 of 2 branches missed.">      for ( IDatabase dialect : dialects ) {</span>
+<span class="pc bpc" id="L309" title="1 of 2 branches missed.">        if ( dialectName.equals( dialect.getPluginName() ) ) {</span>
+<span class="fc" id="L310">          databaseDialect = dialect;</span>
+<span class="fc" id="L311">          break;</span>
+        }
+      }
+    }
+<span class="fc" id="L315">  }</span>
+
+  @Override
+  public String[] getReservedWords() {
+<span class="nc bnc" id="L319" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L320">      return databaseDialect.getReservedWords();</span>
+    }
+<span class="nc" id="L322">    return super.getReservedWords();</span>
+  }
+
+  @Override
+  public String getEndQuote() {
+<span class="nc bnc" id="L327" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L328">      return databaseDialect.getEndQuote();</span>
+    }
+<span class="nc" id="L330">    return super.getEndQuote();</span>
+  }
+
+
+  @Override
+  public String getFunctionSum() {
+<span class="nc bnc" id="L336" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L337">      return databaseDialect.getFunctionSum();</span>
+    }
+<span class="nc" id="L339">    return super.getFunctionSum();</span>
+  }
+
+  @Override
+  public String getFunctionAverage() {
+<span class="nc bnc" id="L344" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L345">      return databaseDialect.getFunctionAverage();</span>
+    }
+<span class="nc" id="L347">    return super.getFunctionAverage();</span>
+  }
+
+  @Override
+  public String getFunctionMinimum() {
+<span class="nc bnc" id="L352" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L353">      return databaseDialect.getFunctionMinimum();</span>
+    }
+<span class="nc" id="L355">    return super.getFunctionMinimum();</span>
+  }
+
+  @Override
+  public String getFunctionMaximum() {
+<span class="nc bnc" id="L360" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L361">      return databaseDialect.getFunctionMaximum();</span>
+    }
+<span class="nc" id="L363">    return super.getFunctionMaximum();</span>
+  }
+
+  @Override
+  public String getFunctionCount() {
+<span class="nc bnc" id="L368" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L369">      return databaseDialect.getFunctionCount();</span>
+    }
+<span class="nc" id="L371">    return super.getFunctionCount();</span>
+  }
+
+  @Override
+  public String getSqlQueryFields( String tableName ) {
+<span class="pc bpc" id="L376" title="1 of 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L377">      return databaseDialect.getSqlQueryFields( tableName );</span>
+    }
+<span class="fc" id="L379">    return super.getSqlQueryFields( tableName );</span>
+  }
+
+  @Override
+  public String getSqlColumnExists( String columnname, String tablename ) {
+<span class="pc bpc" id="L384" title="1 of 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L385">      return databaseDialect.getSqlColumnExists( columnname, tablename );</span>
+    }
+<span class="fc" id="L387">    return super.getSqlColumnExists( columnname, tablename );</span>
+  }
+
+  @Override
+  public String getSqlTableExists( String tableName ) {
+<span class="pc bpc" id="L392" title="1 of 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L393">      return databaseDialect.getSqlTableExists( tableName );</span>
+    }
+<span class="fc" id="L395">    return super.getSqlTableExists( tableName );</span>
+  }
+
+  @Override
+  public String getLimitClause( int nrRows ) {
+<span class="nc bnc" id="L400" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L401">      return databaseDialect.getLimitClause( nrRows );</span>
+    }
+<span class="nc" id="L403">    return super.getLimitClause( nrRows );</span>
+  }
+
+  @Override
+  public String getSelectCountStatement( String tableName ) {
+<span class="nc bnc" id="L408" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L409">      return databaseDialect.getSelectCountStatement( tableName );</span>
+    }
+<span class="nc" id="L411">    return super.getSelectCountStatement( tableName );</span>
+  }
+
+  @Override
+  public String getSqlUnlockTables( String[] tableName ) {
+<span class="nc bnc" id="L416" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L417">      return databaseDialect.getSqlUnlockTables( tableName );</span>
+    }
+<span class="nc" id="L419">    return super.getSqlUnlockTables( tableName );</span>
+  }
+
+  @Override
+  public String getSequenceNoMaxValueOption() {
+<span class="nc bnc" id="L424" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L425">      return databaseDialect.getSequenceNoMaxValueOption();</span>
+    }
+<span class="nc" id="L427">    return super.getSequenceNoMaxValueOption();</span>
+  }
+
+  @Override
+  public boolean useSchemaNameForTableList() {
+<span class="nc bnc" id="L432" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L433">      return databaseDialect.useSchemaNameForTableList();</span>
+    }
+<span class="nc" id="L435">    return super.useSchemaNameForTableList();</span>
+  }
+
+  @Override
+  public boolean supportsViews() {
+<span class="nc bnc" id="L440" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L441">      return databaseDialect.supportsViews();</span>
+    }
+<span class="nc" id="L443">    return super.supportsViews();</span>
+  }
+
+  @Override
+  public boolean supportsTimeStampToDateConversion() {
+<span class="nc bnc" id="L448" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L449">      return databaseDialect.supportsTimeStampToDateConversion();</span>
+    }
+<span class="nc" id="L451">    return super.supportsTimeStampToDateConversion();</span>
+  }
+
+  @Override
+  public String getCreateTableStatement() {
+<span class="nc bnc" id="L456" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L457">      return databaseDialect.getCreateTableStatement();</span>
+    }
+<span class="nc" id="L459">    return super.getCreateTableStatement();</span>
+  }
+
+  @Override
+  public boolean supportsAutoGeneratedKeys() {
+<span class="nc bnc" id="L464" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L465">      return databaseDialect.supportsAutoGeneratedKeys();</span>
+    }
+<span class="nc" id="L467">    return super.supportsAutoGeneratedKeys();</span>
+  }
+
+  @Override
+  public String getSafeFieldname( String fieldname ) {
+<span class="nc bnc" id="L472" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L473">      return databaseDialect.getSafeFieldname( fieldname );</span>
+    }
+<span class="nc" id="L475">    return super.getSafeFieldname( fieldname );</span>
+  }
+
+  @Override
+  public void setSupportsTimestampDataType( boolean b ) {
+<span class="pc bpc" id="L480" title="1 of 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L481">      databaseDialect.setSupportsTimestampDataType( b );</span>
+    }
+<span class="fc" id="L483">    super.setSupportsTimestampDataType( b );</span>
+<span class="fc" id="L484">  }</span>
+
+  @Override
+  public boolean supportsTimestampDataType() {
+<span class="nc bnc" id="L488" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L489">      return databaseDialect.supportsTimestampDataType();</span>
+    }
+<span class="nc" id="L491">    return super.supportsTimestampDataType();</span>
+  }
+
+  @Override
+  public boolean supportsResultSetMetadataRetrievalOnly() {
+<span class="pc bpc" id="L496" title="1 of 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L497">      return databaseDialect.supportsResultSetMetadataRetrievalOnly();</span>
+    }
+<span class="fc" id="L499">    return super.supportsResultSetMetadataRetrievalOnly();</span>
+  }
+
+  @Override
+  public String getSqlValue( IValueMeta valueMeta, Object valueData, String dateFormat ) throws
+    HopValueException {
+<span class="nc bnc" id="L505" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L506">      return databaseDialect.getSqlValue( valueMeta, valueData, dateFormat );</span>
+    }
+<span class="nc" id="L508">    return super.getSqlValue( valueMeta, valueData, dateFormat );</span>
+  }
+
+  @Override
+  public IValueMeta customizeValueFromSqlType(IValueMeta v, java.sql.ResultSetMetaData rm, int index )
+    throws SQLException {
+<span class="pc bpc" id="L514" title="1 of 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L515">      return databaseDialect.customizeValueFromSqlType( v, rm, index );</span>
+    }
+<span class="fc" id="L517">    return super.customizeValueFromSqlType( v, rm, index );</span>
+  }
+
+  @Override
+  public boolean isMySqlVariant() {
+<span class="pc bpc" id="L522" title="1 of 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L523">      return databaseDialect.isMySqlVariant();</span>
+    }
+<span class="fc" id="L525">    return super.isMySqlVariant();</span>
+  }
+
+  @Override
+  public String generateColumnAlias( int columnIndex, String suggestedName ) {
+<span class="nc bnc" id="L530" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L531">      return databaseDialect.generateColumnAlias( columnIndex, suggestedName );</span>
+    }
+<span class="nc" id="L533">    return super.generateColumnAlias( columnIndex, suggestedName );</span>
+  }
+
+  @Override
+  public String quoteSqlString(String string ) {
+<span class="nc bnc" id="L538" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L539">      return databaseDialect.quoteSqlString( string );</span>
+    }
+<span class="nc" id="L541">    return super.quoteSqlString( string );</span>
+  }
+
+  @Override
+  public boolean isExplorable() {
+<span class="nc bnc" id="L546" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L547">      return databaseDialect.isExplorable();</span>
+    }
+<span class="nc" id="L549">    return super.isExplorable();</span>
+  }
+
+  @Override
+  public int getMaxColumnsInIndex() {
+<span class="nc bnc" id="L554" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L555">      return databaseDialect.getMaxColumnsInIndex();</span>
+    }
+<span class="nc" id="L557">    return super.getMaxColumnsInIndex();</span>
+  }
+
+  @Override
+  public String getSqlListOfSchemas() {
+<span class="nc bnc" id="L562" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L563">      return databaseDialect.getSqlListOfSchemas();</span>
+    }
+<span class="nc" id="L565">    return super.getSqlListOfSchemas();</span>
+  }
+
+  @Override
+  public boolean supportsNewLinesInSql() {
+<span class="nc bnc" id="L570" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L571">      return databaseDialect.supportsNewLinesInSql();</span>
+    }
+<span class="nc" id="L573">    return super.supportsNewLinesInSql();</span>
+  }
+
+  @Override
+  public boolean isSystemTable( String tableName ) {
+<span class="nc bnc" id="L578" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L579">      return databaseDialect.isSystemTable( tableName );</span>
+    }
+<span class="nc" id="L581">    return super.isSystemTable( tableName );</span>
+  }
+
+  @Override
+  public boolean isDisplaySizeTwiceThePrecision() {
+<span class="nc bnc" id="L586" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L587">      return databaseDialect.isDisplaySizeTwiceThePrecision();</span>
+    }
+<span class="nc" id="L589">    return super.isDisplaySizeTwiceThePrecision();</span>
+  }
+
+  @Override
+  public boolean requiresCastToVariousForIsNull() {
+<span class="nc bnc" id="L594" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L595">      return databaseDialect.requiresCastToVariousForIsNull();</span>
+    }
+<span class="nc" id="L597">    return super.requiresCastToVariousForIsNull();</span>
+  }
+
+  @Override
+  public boolean requiresCreateTablePrimaryKeyAppend() {
+<span class="nc bnc" id="L602" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L603">      return databaseDialect.requiresCreateTablePrimaryKeyAppend();</span>
+    }
+<span class="nc" id="L605">    return super.requiresCreateTablePrimaryKeyAppend();</span>
+  }
+
+  @Override
+  public boolean supportsSequenceNoMaxValueOption() {
+<span class="nc bnc" id="L610" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L611">      return databaseDialect.supportsSequenceNoMaxValueOption();</span>
+    }
+<span class="nc" id="L613">    return super.supportsSequenceNoMaxValueOption();</span>
+  }
+
+  @Override
+  public void setUsingDoubleDecimalAsSchemaTableSeparator( boolean useDoubleDecimalSeparator ) {
+<span class="nc bnc" id="L618" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L619">      databaseDialect.setUsingDoubleDecimalAsSchemaTableSeparator( useDoubleDecimalSeparator );</span>
+    }
+<span class="nc" id="L621">    super.setUsingDoubleDecimalAsSchemaTableSeparator( useDoubleDecimalSeparator );</span>
+<span class="nc" id="L622">  }</span>
+
+  @Override
+  public boolean isUsingDoubleDecimalAsSchemaTableSeparator() {
+<span class="nc bnc" id="L626" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L627">      return databaseDialect.isUsingDoubleDecimalAsSchemaTableSeparator();</span>
+    }
+<span class="nc" id="L629">    return super.isUsingDoubleDecimalAsSchemaTableSeparator();</span>
+  }
+
+  @Override
+  public void setForcingIdentifiersToUpperCase( boolean forceUpperCase ) {
+<span class="nc bnc" id="L634" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L635">      databaseDialect.setForcingIdentifiersToUpperCase( forceUpperCase );</span>
+    }
+<span class="nc" id="L637">    super.setForcingIdentifiersToUpperCase( forceUpperCase );</span>
+<span class="nc" id="L638">  }</span>
+
+  @Override
+  public boolean isForcingIdentifiersToUpperCase() {
+<span class="nc bnc" id="L642" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L643">      return databaseDialect.isForcingIdentifiersToUpperCase();</span>
+    }
+<span class="nc" id="L645">    return super.isForcingIdentifiersToUpperCase();</span>
+  }
+
+  @Override
+  public void setForcingIdentifiersToLowerCase( boolean forceUpperCase ) {
+<span class="nc bnc" id="L650" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L651">      databaseDialect.setForcingIdentifiersToLowerCase( forceUpperCase );</span>
+    }
+<span class="nc" id="L653">    super.setForcingIdentifiersToLowerCase( forceUpperCase );</span>
+<span class="nc" id="L654">  }</span>
+
+  @Override
+  public boolean isForcingIdentifiersToLowerCase() {
+<span class="nc bnc" id="L658" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L659">      return databaseDialect.isForcingIdentifiersToLowerCase();</span>
+    }
+<span class="nc" id="L661">    return super.isForcingIdentifiersToLowerCase();</span>
+  }
+
+  @Override
+  public void setQuoteAllFields( boolean quoteAllFields ) {
+<span class="nc bnc" id="L666" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L667">      databaseDialect.setQuoteAllFields( quoteAllFields );</span>
+    }
+<span class="nc" id="L669">    super.setQuoteAllFields( quoteAllFields );</span>
+<span class="nc" id="L670">  }</span>
+
+  @Override
+  public boolean isQuoteAllFields() {
+<span class="nc bnc" id="L674" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L675">      return databaseDialect.isQuoteAllFields();</span>
+    }
+<span class="nc" id="L677">    return super.isQuoteAllFields();</span>
+  }
+
+  @Override
+  public void setStreamingResults( boolean useStreaming ) {
+<span class="nc bnc" id="L682" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L683">      databaseDialect.setStreamingResults( useStreaming );</span>
+    }
+<span class="nc" id="L685">    super.setStreamingResults( useStreaming );</span>
+<span class="nc" id="L686">  }</span>
+
+  @Override
+  public boolean isStreamingResults() {
+<span class="nc bnc" id="L690" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L691">      return databaseDialect.isStreamingResults();</span>
+    }
+<span class="nc" id="L693">    return super.isStreamingResults();</span>
+  }
+
+  @Override
+  public boolean supportsSetMaxRows() {
+<span class="nc bnc" id="L698" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L699">      return databaseDialect.supportsSetMaxRows();</span>
+    }
+<span class="nc" id="L701">    return super.supportsSetMaxRows();</span>
+  }
+
+  @Override
+  public boolean supportsGetBlob() {
+<span class="nc bnc" id="L706" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L707">      return databaseDialect.supportsGetBlob();</span>
+    }
+<span class="nc" id="L709">    return super.supportsGetBlob();</span>
+  }
+
+  @Override
+  public boolean isDefaultingToUppercase() {
+<span class="nc bnc" id="L714" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L715">      return databaseDialect.isDefaultingToUppercase();</span>
+    }
+<span class="nc" id="L717">    return super.isDefaultingToUppercase();</span>
+  }
+
+  @Override
+  public void setPreserveReservedCase( boolean b ) {
+<span class="nc bnc" id="L722" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L723">      databaseDialect.setPreserveReservedCase( b );</span>
+    }
+<span class="nc" id="L725">    super.setPreserveReservedCase( b );</span>
+<span class="nc" id="L726">  }</span>
+
+  @Override
+  public boolean preserveReservedCase() {
+<span class="nc bnc" id="L730" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L731">      return databaseDialect.preserveReservedCase();</span>
+    }
+<span class="nc" id="L733">    return super.preserveReservedCase();</span>
+  }
+
+  @Override
+  public void setSupportsBooleanDataType( boolean b ) {
+<span class="pc bpc" id="L738" title="1 of 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L739">      databaseDialect.setSupportsBooleanDataType( b );</span>
+    }
+<span class="fc" id="L741">    super.setSupportsBooleanDataType( b );</span>
+<span class="fc" id="L742">  }</span>
+
+  @Override
+  public boolean supportsBooleanDataType() {
+<span class="pc bpc" id="L746" title="1 of 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L747">      return databaseDialect.supportsBooleanDataType();</span>
+    }
+<span class="fc" id="L749">    return super.supportsBooleanDataType();</span>
+  }
+
+  @Override
+  public boolean supportsBatchUpdates() {
+<span class="nc bnc" id="L754" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L755">      return databaseDialect.supportsBatchUpdates();</span>
+    }
+<span class="nc" id="L757">    return super.supportsBatchUpdates();</span>
+  }
+
+  @Override
+  public String getSqlLockTables( String[] tableNames ) {
+<span class="nc bnc" id="L762" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L763">      return databaseDialect.getSqlLockTables( tableNames );</span>
+    }
+<span class="nc" id="L765">    return super.getSqlLockTables( tableNames );</span>
+  }
+
+  @Override
+  public boolean supportsFloatRoundingOnUpdate() {
+<span class="nc bnc" id="L770" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L771">      return databaseDialect.supportsFloatRoundingOnUpdate();</span>
+    }
+<span class="nc" id="L773">    return super.supportsFloatRoundingOnUpdate();</span>
+  }
+
+  @Override
+  public boolean supportsSynonyms() {
+<span class="nc bnc" id="L778" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L779">      return databaseDialect.supportsSynonyms();</span>
+    }
+<span class="nc" id="L781">    return super.supportsSynonyms();</span>
+  }
+
+  @Override
+  public String[] getSynonymTypes() {
+<span class="nc bnc" id="L786" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L787">      return databaseDialect.getSynonymTypes();</span>
+    }
+<span class="nc" id="L789">    return super.getSynonymTypes();</span>
+  }
+
+  @Override
+  public String[] getViewTypes() {
+<span class="nc bnc" id="L794" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L795">      return databaseDialect.getViewTypes();</span>
+    }
+<span class="nc" id="L797">    return super.getViewTypes();</span>
+  }
+
+  @Override
+  public String[] getTableTypes() {
+<span class="nc bnc" id="L802" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L803">      return databaseDialect.getTableTypes();</span>
+    }
+<span class="nc" id="L805">    return super.getTableTypes();</span>
+  }
+
+  @Override
+  public String getStartQuote() {
+<span class="nc bnc" id="L810" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L811">      return databaseDialect.getStartQuote();</span>
+    }
+<span class="nc" id="L813">    return super.getStartQuote();</span>
+  }
+
+  @Override
+  public boolean quoteReservedWords() {
+<span class="nc bnc" id="L818" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L819">      return databaseDialect.quoteReservedWords();</span>
+    }
+<span class="nc" id="L821">    return super.quoteReservedWords();</span>
+  }
+
+  @Override
+  public String getDropColumnStatement( String tablename, IValueMeta v, String tk, boolean use_autoinc,
+                                        String pk, boolean semicolon ) {
+<span class="pc bpc" id="L827" title="1 of 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L828">      return databaseDialect.getDropColumnStatement( tablename, v, tk, use_autoinc, pk, semicolon );</span>
+    }
+<span class="fc" id="L830">    return super.getDropColumnStatement( tablename, v, tk, use_autoinc, pk, semicolon );</span>
+  }
+
+  @Override
+  public int getMaxVARCHARLength() {
+<span class="pc bpc" id="L835" title="1 of 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L836">      return databaseDialect.getMaxVARCHARLength();</span>
+    }
+<span class="fc" id="L838">    return super.getMaxVARCHARLength();</span>
+  }
+
+  @Override
+  public int getMaxTextFieldLength() {
+<span class="nc bnc" id="L843" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L844">      return databaseDialect.getMaxTextFieldLength();</span>
+    }
+<span class="nc" id="L846">    return super.getMaxTextFieldLength();</span>
+  }
+
+  @Override
+  public String getSchemaTableCombination( String schema_name, String table_part ) {
+<span class="nc bnc" id="L851" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L852">      return databaseDialect.getSchemaTableCombination( schema_name, table_part );</span>
+    }
+<span class="nc" id="L854">    return super.getSchemaTableCombination( schema_name, table_part );</span>
+  }
+
+  @Override
+  public Map&lt;String, String&gt; getDefaultOptions() {
+<span class="nc bnc" id="L859" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L860">      return databaseDialect.getDefaultOptions();</span>
+    }
+<span class="nc" id="L862">    return super.getDefaultOptions();</span>
+  }
+
+  @Override
+  public Map&lt;String, String&gt; getExtraOptions() {
+<span class="nc bnc" id="L867" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L868">      return databaseDialect.getExtraOptions();</span>
+    }
+<span class="nc" id="L870">    return super.getExtraOptions();</span>
+  }
+
+  @Override
+  public void addExtraOption( String databaseTypeCode, String option, String value ) {
+<span class="nc bnc" id="L875" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L876">      databaseDialect.addExtraOption( databaseTypeCode, option, value );</span>
+    }
+<span class="nc" id="L878">    super.addExtraOption( databaseTypeCode, option, value );</span>
+<span class="nc" id="L879">  }</span>
+
+  @Override
+  public String getExtraOptionSeparator() {
+<span class="nc bnc" id="L883" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L884">      return databaseDialect.getExtraOptionSeparator();</span>
+    }
+<span class="nc" id="L886">    return super.getExtraOptionSeparator();</span>
+  }
+
+  @Override
+  public String getExtraOptionValueSeparator() {
+<span class="nc bnc" id="L891" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L892">      return databaseDialect.getExtraOptionValueSeparator();</span>
+    }
+<span class="nc" id="L894">    return super.getExtraOptionValueSeparator();</span>
+  }
+
+  @Override
+  public String getExtraOptionIndicator() {
+<span class="nc bnc" id="L899" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L900">      return databaseDialect.getExtraOptionIndicator();</span>
+    }
+<span class="nc" id="L902">    return super.getExtraOptionIndicator();</span>
+  }
+
+  @Override
+  public boolean supportsOptionsInURL() {
+<span class="nc bnc" id="L907" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L908">      return databaseDialect.supportsOptionsInURL();</span>
+    }
+<span class="nc" id="L910">    return super.supportsOptionsInURL();</span>
+  }
+
+  @Override
+  public String getExtraOptionsHelpText() {
+<span class="nc bnc" id="L915" title="All 2 branches missed.">    if ( databaseDialect != null ) {</span>
+<span class="nc" id="L916">      return databaseDialect.getExtraOptionsHelpText();</span>
+    }
+<span class="nc" id="L918">    return super.getExtraOptionsHelpText();</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

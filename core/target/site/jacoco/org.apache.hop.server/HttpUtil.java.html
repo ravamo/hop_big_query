@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HttpUtil.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.server</a> &gt; <span class="el_source">HttpUtil.java</span></div><h1>HttpUtil.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.server;
+
+import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.codec.binary.Base64OutputStream;
+import org.apache.commons.lang.StringUtils;
+import org.apache.hop.core.Const;
+import org.apache.hop.core.util.Utils;
+import org.apache.hop.core.variables.IVariables;
+
+import java.io.BufferedInputStream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.StringWriter;
+import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
+
+public class HttpUtil {
+
+  public static final int ZIP_BUFFER_SIZE = 8192;
+  private static final String PROTOCOL_UNSECURE = &quot;http&quot;;
+  private static final String PROTOCOL_SECURE = &quot;https&quot;;
+
+  private HttpUtil() {
+  }
+
+  /**
+   * Returns http GET request string using specified parameters.
+   *
+   * @param variables
+   * @param hostname
+   * @param port
+   * @param webAppName
+   * @param serviceAndArguments
+   * @return
+   * @throws UnsupportedEncodingException
+   */
+  public static String constructUrl( IVariables variables, String hostname, String port, String webAppName,
+                                     String serviceAndArguments ) throws UnsupportedEncodingException {
+<span class="fc" id="L65">    return constructUrl( variables, hostname, port, webAppName, serviceAndArguments, false );</span>
+  }
+
+  public static String constructUrl( IVariables variables, String hostname, String port, String webAppName,
+                                     String serviceAndArguments, boolean isSecure )
+    throws UnsupportedEncodingException {
+<span class="fc" id="L71">    String realHostname = variables.environmentSubstitute( hostname );</span>
+<span class="pc bpc" id="L72" title="1 of 2 branches missed.">    if ( !StringUtils.isEmpty( webAppName ) ) {</span>
+<span class="fc" id="L73">      serviceAndArguments = &quot;/&quot; + variables.environmentSubstitute( webAppName ) + serviceAndArguments;</span>
+    }
+<span class="fc bfc" id="L75" title="All 2 branches covered.">    String protocol = isSecure ? PROTOCOL_SECURE : PROTOCOL_UNSECURE;</span>
+<span class="fc" id="L76">    String retval = protocol + &quot;://&quot; + realHostname + getPortSpecification( variables, port ) + serviceAndArguments;</span>
+<span class="fc" id="L77">    retval = Const.replace( retval, &quot; &quot;, &quot;%20&quot; );</span>
+<span class="fc" id="L78">    return retval;</span>
+  }
+
+  public static String getPortSpecification( IVariables variables, String port ) {
+<span class="fc" id="L82">    String realPort = variables.environmentSubstitute( port );</span>
+<span class="fc" id="L83">    String portSpec = &quot;:&quot; + realPort;</span>
+<span class="pc bpc" id="L84" title="2 of 4 branches missed.">    if ( Utils.isEmpty( realPort ) || port.equals( &quot;80&quot; ) ) {</span>
+<span class="nc" id="L85">      portSpec = &quot;&quot;;</span>
+    }
+<span class="fc" id="L87">    return portSpec;</span>
+  }
+
+  /**
+   * Base 64 decode, unzip and extract text using UTF-8 charset value for byte-wise
+   * multi-byte character handling.
+   *
+   * @param loggingString64 base64 zip archive string representation
+   * @return text from zip archive
+   * @throws IOException
+   */
+  public static String decodeBase64ZippedString( String loggingString64 ) throws IOException {
+<span class="pc bpc" id="L99" title="2 of 4 branches missed.">    if ( loggingString64 == null || loggingString64.isEmpty() ) {</span>
+<span class="nc" id="L100">      return &quot;&quot;;</span>
+    }
+<span class="fc" id="L102">    StringWriter writer = new StringWriter();</span>
+    // base 64 decode
+<span class="fc" id="L104">    byte[] bytes64 = Base64.decodeBase64( loggingString64.getBytes() );</span>
+    // unzip to string encoding-wise
+<span class="fc" id="L106">    ByteArrayInputStream zip = new ByteArrayInputStream( bytes64 );</span>
+
+
+    // PDI-4325 originally used xml encoding in servlet
+<span class="fc" id="L110">    try ( GZIPInputStream unzip = new GZIPInputStream( zip, HttpUtil.ZIP_BUFFER_SIZE );</span>
+<span class="fc" id="L111">          BufferedInputStream in = new BufferedInputStream( unzip, HttpUtil.ZIP_BUFFER_SIZE );</span>
+<span class="fc" id="L112">          InputStreamReader reader = new InputStreamReader( in, StandardCharsets.UTF_8 ) ) {</span>
+
+<span class="fc" id="L114">      writer = new StringWriter();</span>
+
+      // use same buffer size
+<span class="fc" id="L117">      char[] buff = new char[ HttpUtil.ZIP_BUFFER_SIZE ];</span>
+<span class="fc bfc" id="L118" title="All 2 branches covered.">      for ( int length = 0; ( length = reader.read( buff ) ) &gt; 0; ) {</span>
+<span class="fc" id="L119">        writer.write( buff, 0, length );</span>
+      }
+    }
+<span class="fc" id="L122">    return writer.toString();</span>
+  }
+
+  public static String encodeBase64ZippedString( String in ) throws IOException {
+<span class="fc" id="L126">    ByteArrayOutputStream baos = new ByteArrayOutputStream( 1024 );</span>
+<span class="fc" id="L127">    try ( Base64OutputStream base64OutputStream = new Base64OutputStream( baos );</span>
+<span class="fc" id="L128">          GZIPOutputStream gzos = new GZIPOutputStream( base64OutputStream ) ) {</span>
+<span class="fc" id="L129">      gzos.write( in.getBytes( StandardCharsets.UTF_8 ) );</span>
+    }
+<span class="fc" id="L131">    return baos.toString();</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

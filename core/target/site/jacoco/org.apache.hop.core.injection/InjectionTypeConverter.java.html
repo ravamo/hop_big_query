@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>InjectionTypeConverter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.injection</a> &gt; <span class="el_source">InjectionTypeConverter.java</span></div><h1>InjectionTypeConverter.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.injection;
+
+import org.apache.hop.core.exception.HopValueException;
+
+/**
+ * Base class converter for metadata injection.
+ * &lt;p&gt;
+ * Developer can extend it for own converter implementation.
+ *
+ * @author Alexander Buloichik
+ */
+<span class="fc" id="L34">public class InjectionTypeConverter {</span>
+  public String string2string( String v ) throws HopValueException {
+<span class="nc" id="L36">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public int string2intPrimitive( String v ) throws HopValueException {
+<span class="nc" id="L40">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public Integer string2integer( String v ) throws HopValueException {
+<span class="nc" id="L44">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public long string2longPrimitive( String v ) throws HopValueException {
+<span class="nc" id="L48">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public Long string2long( String v ) throws HopValueException {
+<span class="nc" id="L52">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public boolean string2booleanPrimitive( String v ) throws HopValueException {
+<span class="nc" id="L56">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public Boolean string2boolean( String v ) throws HopValueException {
+<span class="nc" id="L60">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public Enum&lt;?&gt; string2enum( Class&lt;?&gt; enumClass, String v ) throws HopValueException {
+<span class="nc" id="L64">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public String boolean2string( Boolean v ) throws HopValueException {
+<span class="nc" id="L68">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public int boolean2intPrimitive( Boolean v ) throws HopValueException {
+<span class="nc" id="L72">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public Integer boolean2integer( Boolean v ) throws HopValueException {
+<span class="nc" id="L76">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public long boolean2longPrimitive( Boolean v ) throws HopValueException {
+<span class="nc" id="L80">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public Long boolean2long( Boolean v ) throws HopValueException {
+<span class="nc" id="L84">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public boolean boolean2booleanPrimitive( Boolean v ) throws HopValueException {
+<span class="nc" id="L88">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public Boolean boolean2boolean( Boolean v ) throws HopValueException {
+<span class="nc" id="L92">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public Enum&lt;?&gt; boolean2enum( Class&lt;?&gt; enumClass, Boolean v ) throws HopValueException {
+<span class="nc" id="L96">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public String integer2string( Long v ) throws HopValueException {
+<span class="nc" id="L100">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public int integer2intPrimitive( Long v ) throws HopValueException {
+<span class="nc" id="L104">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public Integer integer2integer( Long v ) throws HopValueException {
+<span class="nc" id="L108">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public long integer2longPrimitive( Long v ) throws HopValueException {
+<span class="nc" id="L112">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public Long integer2long( Long v ) throws HopValueException {
+<span class="nc" id="L116">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public boolean integer2booleanPrimitive( Long v ) throws HopValueException {
+<span class="nc" id="L120">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public Boolean integer2boolean( Long v ) throws HopValueException {
+<span class="nc" id="L124">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public Enum&lt;?&gt; integer2enum( Class&lt;?&gt; enumClass, Long v ) throws HopValueException {
+<span class="nc" id="L128">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public String number2string( Double v ) throws HopValueException {
+<span class="nc" id="L132">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public int number2intPrimitive( Double v ) throws HopValueException {
+<span class="nc" id="L136">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public Integer number2integer( Double v ) throws HopValueException {
+<span class="nc" id="L140">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public long number2longPrimitive( Double v ) throws HopValueException {
+<span class="nc" id="L144">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public Long number2long( Double v ) throws HopValueException {
+<span class="nc" id="L148">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public boolean number2booleanPrimitive( Double v ) throws HopValueException {
+<span class="nc" id="L152">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public Boolean number2boolean( Double v ) throws HopValueException {
+<span class="nc" id="L156">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+
+  public Enum&lt;?&gt; number2enum( Class&lt;?&gt; enumClass, Double v ) throws HopValueException {
+<span class="nc" id="L160">    throw new RuntimeException( &quot;Conversion not supported&quot; );</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DatabasePluginType.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.database</a> &gt; <span class="el_source">DatabasePluginType.java</span></div><h1>DatabasePluginType.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.database;
+
+import org.apache.commons.lang.StringUtils;
+import org.apache.hop.core.Const;
+import org.apache.hop.core.exception.HopPluginException;
+import org.apache.hop.core.plugins.BasePluginType;
+import org.apache.hop.core.plugins.IPluginType;
+
+import java.util.Map;
+
+/**
+ * This class represents the transform plugin type.
+ *
+ * @author matt
+ */
+public class DatabasePluginType extends BasePluginType&lt;DatabaseMetaPlugin&gt; implements IPluginType&lt;DatabaseMetaPlugin&gt; {
+  private static DatabasePluginType pluginType;
+
+  private DatabasePluginType() {
+<span class="fc" id="L42">    super( DatabaseMetaPlugin.class, &quot;DATABASE&quot;, &quot;Database&quot; );</span>
+<span class="fc" id="L43">    populateFolders( &quot;databases&quot; );</span>
+
+<span class="fc" id="L45">    String sharedJdbcDirectory = System.getProperty( Const.HOP_SHARED_JDBC_FOLDER );</span>
+<span class="pc bpc" id="L46" title="1 of 2 branches missed.">    if ( StringUtils.isNotEmpty(sharedJdbcDirectory)) {</span>
+<span class="nc" id="L47">      extraLibraryFolders.add(sharedJdbcDirectory);</span>
+    }
+<span class="fc" id="L49">  }</span>
+
+  public static DatabasePluginType getInstance() {
+<span class="fc bfc" id="L52" title="All 2 branches covered.">    if ( pluginType == null ) {</span>
+<span class="fc" id="L53">      pluginType = new DatabasePluginType();</span>
+    }
+<span class="fc" id="L55">    return pluginType;</span>
+  }
+
+
+
+  protected void registerPluginJars() throws HopPluginException {
+<span class="fc" id="L61">    super.registerPluginJars();</span>
+<span class="fc" id="L62">  }</span>
+
+  @Override
+  public String getXmlPluginFile() {
+<span class="fc" id="L66">    return Const.XML_FILE_HOP_DATABASE_TYPES;</span>
+  }
+
+  @Override
+  public String getMainTag() {
+<span class="fc" id="L71">    return &quot;database-types&quot;;</span>
+  }
+
+  @Override
+  public String getSubTag() {
+<span class="fc" id="L76">    return &quot;database-type&quot;;</span>
+  }
+
+  @Override
+  protected String getPath() {
+<span class="fc" id="L81">    return &quot;./&quot;;</span>
+  }
+
+  public String[] getNaturalCategoriesOrder() {
+<span class="nc" id="L85">    return new String[ 0 ];</span>
+  }
+
+  @Override
+  protected String extractCategory( DatabaseMetaPlugin annotation ) {
+<span class="nc" id="L90">    return &quot;&quot;;</span>
+  }
+
+  @Override
+  protected String extractDesc( DatabaseMetaPlugin annotation ) {
+<span class="nc" id="L95">    return annotation.typeDescription();</span>
+  }
+
+  @Override
+  protected String extractID( DatabaseMetaPlugin annotation ) {
+<span class="nc" id="L100">    return annotation.type();</span>
+  }
+
+  @Override
+  protected String extractName( DatabaseMetaPlugin annotation ) {
+<span class="nc" id="L105">    return annotation.typeDescription();</span>
+  }
+
+  @Override
+  protected String extractImageFile( DatabaseMetaPlugin annotation ) {
+<span class="nc" id="L110">    return null;</span>
+  }
+
+  @Override
+  protected boolean extractSeparateClassLoader( DatabaseMetaPlugin annotation ) {
+<span class="nc" id="L115">    return false;</span>
+  }
+
+  @Override
+  protected String extractI18nPackageName( DatabaseMetaPlugin annotation ) {
+<span class="nc" id="L120">    return null;</span>
+  }
+
+  @Override
+  protected void addExtraClasses( Map&lt;Class&lt;?&gt;, String&gt; classMap, Class&lt;?&gt; clazz, DatabaseMetaPlugin annotation ) {
+<span class="nc" id="L125">  }</span>
+
+  @Override
+  protected String extractDocumentationUrl( DatabaseMetaPlugin annotation ) {
+<span class="nc" id="L129">    return null;</span>
+  }
+
+  @Override
+  protected String extractCasesUrl( DatabaseMetaPlugin annotation ) {
+<span class="nc" id="L134">    return null;</span>
+  }
+
+  @Override
+  protected String extractForumUrl( DatabaseMetaPlugin annotation ) {
+<span class="nc" id="L139">    return null;</span>
+  }
+
+  @Override
+  protected String extractSuggestion( DatabaseMetaPlugin annotation ) {
+<span class="nc" id="L144">    return null;</span>
+  }
+
+  @Override
+  protected String extractClassLoaderGroup( DatabaseMetaPlugin annotation ) {
+<span class="nc" id="L149">    return annotation.classLoaderGroup();</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

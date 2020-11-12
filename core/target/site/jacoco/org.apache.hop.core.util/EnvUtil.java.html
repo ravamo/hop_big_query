@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EnvUtil.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.util</a> &gt; <span class="el_source">EnvUtil.java</span></div><h1>EnvUtil.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.util;
+
+import java.util.Arrays;
+import java.util.Locale;
+import java.util.Properties;
+import java.util.StringTokenizer;
+import java.util.TimeZone;
+
+public class EnvUtil {
+<span class="fc" id="L32">  private static Properties env = null;</span>
+
+  private EnvUtil() {
+  }
+
+  /**
+   * This method is written especially for weird JVM's like
+   *
+   * @param key The key, the name of the environment variable to return
+   * @param def The default value to return in case the key can't be found
+   * @return The value of a System environment variable in the java virtual machine. If the key is not present, the
+   * variable is not defined and the default value is returned.
+   */
+  public static final String getSystemProperty( String key, String def ) {
+<span class="fc" id="L46">    return System.getProperty( key, def );</span>
+  }
+
+  /**
+   * @param key The key, the name of the environment variable to return
+   * @return The value of a System environment variable in the java virtual machine. If the key is not present, the
+   * variable is not defined and null returned.
+   */
+  public static final String getSystemProperty( String key ) {
+<span class="fc" id="L55">    return getSystemProperty( key, null );</span>
+  }
+
+  /**
+   * @param key The key, the name of the environment variable to clear
+   * @return The value of a System environment variable in the java virtual machine. If the key is not present, the
+   * variable is not defined and null returned.
+   */
+  public static final String clearSystemProperty( String key ) {
+<span class="nc" id="L64">    return System.clearProperty( key );</span>
+  }
+
+  /**
+   * Returns an available java.util.Locale object for the given localeCode.
+   * &lt;p&gt;
+   * The localeCode code can be case insensitive, if it is available the method will find it and return it.
+   *
+   * @param localeCode
+   * @return java.util.Locale.
+   */
+  public static Locale createLocale( String localeCode ) {
+<span class="pc bpc" id="L76" title="1 of 2 branches missed.">    if ( Utils.isEmpty( localeCode ) ) {</span>
+<span class="nc" id="L77">      return null;</span>
+    }
+<span class="fc" id="L79">    StringTokenizer parser = new StringTokenizer( localeCode, &quot;_&quot; );</span>
+<span class="pc bpc" id="L80" title="1 of 2 branches missed.">    if ( parser.countTokens() == 2 ) {</span>
+<span class="fc" id="L81">      return new Locale( parser.nextToken(), parser.nextToken() );</span>
+    }
+<span class="nc bnc" id="L83" title="All 2 branches missed.">    if ( parser.countTokens() == 3 ) {</span>
+<span class="nc" id="L84">      return new Locale( parser.nextToken(), parser.nextToken(), parser.nextToken() );</span>
+    }
+<span class="nc" id="L86">    return new Locale( localeCode );</span>
+  }
+
+  public static TimeZone createTimeZone( String timeZoneId ) {
+
+<span class="fc" id="L91">    TimeZone resultTimeZone = null;</span>
+<span class="pc bpc" id="L92" title="1 of 2 branches missed.">    if ( !Utils.isEmpty( timeZoneId ) ) {</span>
+<span class="fc" id="L93">      return TimeZone.getTimeZone( timeZoneId );</span>
+    } else {
+<span class="nc" id="L95">      resultTimeZone = TimeZone.getDefault();</span>
+    }
+<span class="nc" id="L97">    return resultTimeZone;</span>
+  }
+
+  public static String[] getTimeZones() {
+<span class="nc" id="L101">    String[] timeZones = TimeZone.getAvailableIDs();</span>
+<span class="nc" id="L102">    Arrays.sort( timeZones );</span>
+<span class="nc" id="L103">    return timeZones;</span>
+  }
+
+  public static String[] getLocaleList() {
+<span class="nc" id="L107">    Locale[] locales = Locale.getAvailableLocales();</span>
+<span class="nc" id="L108">    String[] strings = new String[ locales.length ];</span>
+<span class="nc bnc" id="L109" title="All 2 branches missed.">    for ( int i = 0; i &lt; strings.length; i++ ) {</span>
+<span class="nc" id="L110">      strings[ i ] = locales[ i ].toString();</span>
+    }
+<span class="nc" id="L112">    Arrays.sort( strings );</span>
+<span class="nc" id="L113">    return strings;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

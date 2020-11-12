@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GlobalMessages.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.i18n</a> &gt; <span class="el_source">GlobalMessages.java</span></div><h1>GlobalMessages.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.i18n;
+
+import com.google.common.annotations.VisibleForTesting;
+import org.apache.hop.core.logging.LogChannel;
+import org.apache.hop.core.logging.ILogChannel;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.MissingResourceException;
+import java.util.ResourceBundle;
+
+public class GlobalMessages extends AbstractMessageHandler {
+<span class="fc" id="L37">  protected static Class&lt;?&gt; PKG = GlobalMessages.class;</span>
+
+<span class="fc" id="L39">  protected static final String SYSTEM_BUNDLE_PACKAGE = PKG.getPackage().getName();</span>
+
+  protected static final String BUNDLE_NAME = &quot;messages.messages&quot;;
+
+<span class="fc" id="L43">  protected static final Map&lt;String, ResourceBundle&gt; locales = Collections</span>
+<span class="fc" id="L44">    .synchronizedMap( new HashMap&lt;String, ResourceBundle&gt;() );</span>
+
+<span class="fc" id="L46">  protected static final ILogChannel log = new LogChannel( &quot;i18n&quot; );</span>
+
+<span class="fc" id="L48">  public static final String[] localeCodes = {</span>
+    &quot;en_US&quot;, &quot;nl_NL&quot;, &quot;zh_CN&quot;, &quot;es_ES&quot;, &quot;fr_FR&quot;, &quot;de_DE&quot;, &quot;pt_BR&quot;, &quot;pt_PT&quot;, &quot;es_AR&quot;, &quot;no_NO&quot;, &quot;it_IT&quot;, &quot;ja_JP&quot;,
+    &quot;ko_KR&quot; };
+
+<span class="fc" id="L52">  public static final String[] localeDescr = {</span>
+    &quot;English (US)&quot;, &quot;Nederlands&quot;, &quot;Simplified Chinese&quot;, &quot;Espa\u00F1ol (Spain)&quot;, &quot;Fran\u00E7ais&quot;, &quot;Deutsch&quot;,
+    &quot;Portuguese (Brazil)&quot;, &quot;Portuguese (Portugal)&quot;, &quot;Espa\u00F1ol (Argentina)&quot;, &quot;Norwegian (Norway)&quot;,
+    &quot;Italian (Italy)&quot;, &quot;Japanese (Japan)&quot;, &quot;Korean (Korea)&quot;, };
+
+<span class="fc" id="L57">  protected static GlobalMessages GMinstance = null;</span>
+
+  /**
+   * TODO: extend from abstract class to ensure singleton status and migrate instantiation to class controlled private
+   */
+<span class="fc" id="L62">  public GlobalMessages() {</span>
+<span class="fc" id="L63">  }</span>
+
+  public static synchronized IMessageHandler getInstance() {
+<span class="pc bpc" id="L66" title="1 of 2 branches missed.">    if ( GMinstance == null ) {</span>
+<span class="fc" id="L67">      GMinstance = new GlobalMessages();</span>
+    }
+<span class="fc" id="L69">    return GMinstance;</span>
+  }
+
+  protected static Map&lt;String, ResourceBundle&gt; getLocales() {
+<span class="nc" id="L73">    return locales;</span>
+  }
+
+  protected static String buildBundleName( String packageName ) {
+<span class="nc" id="L77">    return packageName + &quot;.&quot; + BUNDLE_NAME;</span>
+  }
+
+  /**
+   * Retrieve a resource bundle of the default or fail-over locale.
+   *
+   * @param packageName The package to search in
+   * @return The resource bundle
+   * @throws MissingResourceException in case both resource bundles couldn't be found.
+   */
+  public static ResourceBundle getBundle( String packageName ) throws MissingResourceException {
+<span class="fc" id="L88">    return GlobalMessageUtil.getBundle( packageName, PKG );</span>
+  }
+
+  /**
+   * Returns the localized string for the given {@code key} and {@code parameters} in a bundle defined by the the
+   * concatenation of {@code packageName} and {@link #BUNDLE_NAME}, using the {@link GlobalMessages} class loader.
+   *
+   * @param packageName the package containing the localized messages
+   * @param key         the message key being looked up
+   * @param parameters  parameters within the looked up message
+   * @return the localized string for the given {@code key} and {@code parameters} in a bundle defined by the the
+   * concatenation of {@code packageName} and {@link #BUNDLE_NAME}, using the {@link GlobalMessages} class loader.
+   */
+  protected String calculateString( String packageName, String key, Object[] parameters ) {
+<span class="fc" id="L102">    return calculateString( packageName, key, parameters, PKG );</span>
+  }
+
+  /**
+   * Returns the localized string for the given {@code key} and {@code parameters} in a bundle defined by the the
+   * concatenation of {@code packageName} and {@link #BUNDLE_NAME}, using the provided {@code resourceClass}'s class
+   * loader.
+   *
+   * @param packageName   the package containing the localized messages
+   * @param key           the message key being looked up
+   * @param parameters    parameters within the looked up message
+   * @param resourceClass the class whose class loader is used to getch the resource bundle
+   * @return the localized string for the given {@code key} and {@code parameters} in a bundle defined by the the
+   * concatenation of {@code packageName} and {@link #BUNDLE_NAME}, using the provided {@code resourceClass}'s class
+   * loader.
+   */
+  protected String calculateString( String packageName, String key, Object[] parameters, Class&lt;?&gt; resourceClass ) {
+<span class="fc" id="L119">    final String[] pkgNames = new String[] { packageName, SYSTEM_BUNDLE_PACKAGE };</span>
+<span class="fc" id="L120">    return calculateString( pkgNames, key, parameters, resourceClass );</span>
+  }
+
+  /**
+   * Returns the localized string for the given {@code key} and {@code parameters} in a bundle defined by the the
+   * concatenation of the package names defined in {@code packageName} and {@link #BUNDLE_NAME} (the first valid
+   * combination of {@code packageName} + {@link #BUNDLE_NAME} wins), sing the provided {@code resourceClass}'s class
+   * loader.
+   *
+   * @param pkgNames      an array of packages potentially containing the localized messages the first one found to
+   *                      contain the messages is the one that is used to localize the message
+   * @param key           the message key being looked up
+   * @param parameters    parameters within the looked up message
+   * @param resourceClass the class whose class loader is used to getch the resource bundle
+   * @return the localized string for the given {@code key} and {@code parameters} in a bundle defined by the the
+   * concatenation of the package names defined in {@code packageName} and {@link #BUNDLE_NAME} (the first valid
+   * combination of {@code packageName} + {@link #BUNDLE_NAME} wins), sing the provided {@code resourceClass}'s class
+   * loader
+   */
+  protected String calculateString( String[] pkgNames, String key, Object[] parameters, Class&lt;?&gt; resourceClass ) {
+<span class="fc" id="L140">    return GlobalMessageUtil.calculateString( pkgNames, key, parameters, resourceClass, BUNDLE_NAME );</span>
+  }
+
+  /**
+   * Returns a {@link ResourceBundle} for the given {@link Locale} and {@code packagePath}, using the {@link
+   * GlobalMessages} class loader.
+   *
+   * @param locale      the {@link Locale} for which the {@link ResourceBundle} is being retrieved
+   * @param packagePath the full path to the localized message file without the {@code .properties} extension
+   * @return a {@link ResourceBundle} for the given {@link Locale} and {@code packagePath}, using the {@link
+   * GlobalMessages} class loader
+   * @throws MissingResourceException when the {@link ResourceBundle} cannot be found
+   */
+  @VisibleForTesting
+  static ResourceBundle getBundle( final Locale locale, final String packagePath ) throws MissingResourceException {
+<span class="fc" id="L155">    return GlobalMessageUtil.getBundle( locale, packagePath, PKG );</span>
+  }
+
+  @Override
+  public String getString( String key ) {
+<span class="fc" id="L160">    Object[] parameters = null;</span>
+<span class="fc" id="L161">    return calculateString( SYSTEM_BUNDLE_PACKAGE, key, parameters );</span>
+  }
+
+  @Override
+  public String getString( String packageName, String key ) {
+<span class="nc" id="L166">    Object[] parameters = new Object[] {};</span>
+<span class="nc" id="L167">    return calculateString( packageName, key, parameters );</span>
+  }
+
+  @Override
+  public String getString( String packageName, String key, String... parameters ) {
+<span class="nc" id="L172">    return calculateString( packageName, key, parameters );</span>
+  }
+
+  @Override
+  public String getString( String packageName, String key, Class&lt;?&gt; resourceClass, String... parameters ) {
+<span class="fc" id="L177">    return calculateString( packageName, key, parameters, resourceClass );</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

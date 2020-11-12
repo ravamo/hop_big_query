@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SortedFileOutputStream.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.util</a> &gt; <span class="el_source">SortedFileOutputStream.java</span></div><h1>SortedFileOutputStream.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.util;
+
+import org.apache.hop.core.logging.ILogChannel;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.Collections;
+import java.util.Vector;
+
+public class SortedFileOutputStream extends FileOutputStream {
+  /**
+   * Internal buffer to catch output. Before really writing output, the properties get sorted.
+   */
+<span class="nc" id="L38">  private StringBuilder sb = null;</span>
+
+  /**
+   * Logger, for the few errors that may occur.
+   */
+<span class="nc" id="L43">  private ILogChannel log = null;</span>
+
+  /**
+   * CT
+   *
+   * @param file
+   * @throws FileNotFoundException
+   */
+  public SortedFileOutputStream( File file ) throws FileNotFoundException {
+<span class="nc" id="L52">    super( file );</span>
+<span class="nc" id="L53">  }</span>
+
+  /**
+   * Setter
+   *
+   * @param log
+   */
+  public void setLogger( ILogChannel log ) {
+<span class="nc" id="L61">    this.log = log;</span>
+<span class="nc" id="L62">  }</span>
+
+  /**
+   * Appending to internal StringBuilder, instead of immediately writing to the file
+   */
+  @Override
+  public void write( byte[] b, int off, int len ) throws IOException {
+<span class="nc bnc" id="L69" title="All 2 branches missed.">    if ( sb == null ) {</span>
+<span class="nc" id="L70">      sb = new StringBuilder();</span>
+    }
+<span class="nc" id="L72">    sb.append( new String( b, off, len ) );</span>
+<span class="nc" id="L73">  }</span>
+
+  /**
+   * Appending to internal StringBuilder, instead of immediately writing to the file
+   */
+  @Override
+  public void write( byte[] b ) throws IOException {
+<span class="nc bnc" id="L80" title="All 2 branches missed.">    if ( sb == null ) {</span>
+<span class="nc" id="L81">      sb = new StringBuilder();</span>
+    }
+<span class="nc" id="L83">    sb.append( new String( b ) );</span>
+<span class="nc" id="L84">  }</span>
+
+  /**
+   * Appending to internal StringBuilder, instead of immediately writing to the file
+   */
+  @Override
+  public void write( int b ) throws IOException {
+<span class="nc bnc" id="L91" title="All 2 branches missed.">    if ( sb == null ) {</span>
+<span class="nc" id="L92">      sb = new StringBuilder();</span>
+    }
+<span class="nc" id="L94">    sb.append( b );</span>
+<span class="nc" id="L95">  }</span>
+
+  /**
+   * Catch &lt;code&gt;flush&lt;/code&gt; method, don't do nothing
+   */
+  @Override
+  public void flush() throws IOException {
+<span class="nc" id="L102">  }</span>
+
+  /**
+   * If internally stored content is available, sorting keys of content, then sending content to file. Then calling
+   * {@link FileOutputStream#close()} method.
+   */
+  @Override
+  public void close() throws IOException {
+<span class="nc bnc" id="L110" title="All 4 branches missed.">    if ( sb == null || sb.length() == 0 ) {</span>
+<span class="nc" id="L111">      super.flush();</span>
+<span class="nc" id="L112">      super.close();</span>
+    }
+
+<span class="nc" id="L115">    int[] iPos = new int[ 1 ];</span>
+<span class="nc" id="L116">    iPos[ 0 ] = 0;</span>
+<span class="nc" id="L117">    String sLine = nextLine( iPos );</span>
+
+<span class="nc" id="L119">    Vector&lt;String&gt; lines = new Vector&lt;String&gt;();</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">    while ( sLine != null ) {</span>
+      // Length 0 -&gt; do nothing
+<span class="nc bnc" id="L122" title="All 2 branches missed.">      if ( sLine.length() == 0 ) {</span>
+<span class="nc" id="L123">        sLine = nextLine( iPos );</span>
+<span class="nc" id="L124">        continue;</span>
+      }
+
+      // Character at first position is a '#' -&gt; this is a comment
+<span class="nc bnc" id="L128" title="All 2 branches missed.">      if ( sLine.charAt( 0 ) == '#' ) {</span>
+<span class="nc" id="L129">        super.write( sLine.getBytes() );</span>
+<span class="nc" id="L130">        sLine = nextLine( iPos );</span>
+<span class="nc" id="L131">        continue;</span>
+      }
+
+      // Get first occurrence of '=' character, that is not a position 0 and not
+      // escaped by a '\\'
+<span class="nc" id="L136">      int idx = sLine.indexOf( '=' );</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">      if ( idx &lt;= 0 ) {</span>
+        // '=' either does not exist or is at first position (that should never happen!).
+        // Write line immediately
+<span class="nc" id="L140">        log</span>
+<span class="nc" id="L141">          .logError(</span>
+<span class="nc" id="L142">            this.getClass().getName(), &quot;Unexpected: '=' character not found or found at first position.&quot; );</span>
+<span class="nc" id="L143">        super.write( sLine.getBytes() );</span>
+      } else {
+<span class="nc bnc" id="L145" title="All 4 branches missed.">        while ( idx != -1 &amp;&amp; sLine.charAt( idx - 1 ) == '\\' ) {</span>
+<span class="nc" id="L146">          idx = sLine.indexOf( '=', idx + 1 );</span>
+        }
+
+<span class="nc bnc" id="L149" title="All 2 branches missed.">        if ( idx == -1 ) {</span>
+<span class="nc" id="L150">          log.logError(</span>
+<span class="nc" id="L151">            this.getClass().getName(), &quot;Unexpected: No '=' character found that is not escaped by a '\\'.&quot; );</span>
+<span class="nc" id="L152">          super.write( sLine.getBytes() );</span>
+        } else {
+<span class="nc" id="L154">          lines.add( sLine );</span>
+        }
+      }
+<span class="nc" id="L157">      sLine = nextLine( iPos );</span>
+<span class="nc" id="L158">    }</span>
+
+<span class="nc" id="L160">    Collections.sort( lines );</span>
+<span class="nc bnc" id="L161" title="All 2 branches missed.">    for ( String line : lines ) {</span>
+<span class="nc" id="L162">      super.write( line.getBytes() );</span>
+<span class="nc" id="L163">    }</span>
+<span class="nc" id="L164">    super.flush();</span>
+<span class="nc" id="L165">    super.close();</span>
+<span class="nc" id="L166">  }</span>
+
+  /**
+   * Get next line. The line end is marked at the first occurrence of an unescaped '\n' or '\r' character. All following
+   * '\n' or '\r' characters after the first unescaped '\n' or '\r' character are included in the line.
+   *
+   * @param iPos The position from where to start at. This is passed as array of size one to &lt;i&gt;pass back&lt;/i&gt; the parsing
+   *             position (kind of C++ reference pass)
+   * @return
+   */
+  private String nextLine( int[] iPos ) {
+    // End of StringBuilder reached?
+<span class="nc bnc" id="L178" title="All 2 branches missed.">    if ( iPos[ 0 ] &gt;= sb.length() ) {</span>
+<span class="nc" id="L179">      return null;</span>
+    }
+
+    // Remember start
+<span class="nc" id="L183">    int iStart = iPos[ 0 ];</span>
+<span class="nc" id="L184">    char c = sb.charAt( iPos[ 0 ] );</span>
+
+    // Read until end of stream reached or first '\n' or '\r' character found
+<span class="nc bnc" id="L187" title="All 6 branches missed.">    while ( iPos[ 0 ] &lt; sb.length() &amp;&amp; c != '\n' &amp;&amp; c != '\r' ) {</span>
+<span class="nc" id="L188">      c = sb.charAt( iPos[ 0 ]++ );</span>
+
+      // If now we have '\r' or '\n' and they are escaped, we just read the next
+      // character. For this at least two characters must have been read.
+<span class="nc bnc" id="L192" title="All 2 branches missed.">      if ( iPos[ 0 ] &gt;= 2 ) {</span>
+        // Is it an escaped '\r' or '\n'?
+<span class="nc bnc" id="L194" title="All 6 branches missed.">        if ( ( c == '\n' || c == '\r' ) &amp;&amp; ( iPos[ 0 ] - 2 == '\\' ) ) {</span>
+          // Yes! Just read next character, if not end of stream reached
+<span class="nc bnc" id="L196" title="All 2 branches missed.">          if ( iPos[ 0 ] &lt; sb.length() ) {</span>
+<span class="nc" id="L197">            c = sb.charAt( iPos[ 0 ]++ );</span>
+          }
+        }
+      }
+    }
+
+    // Either we've found a '\r' or '\n' character or we are at the end of the stream.
+    // In either case return.
+<span class="nc bnc" id="L205" title="All 2 branches missed.">    if ( iPos[ 0 ] == sb.length() ) {</span>
+      // Return complete remainder
+<span class="nc" id="L207">      return sb.substring( iStart );</span>
+    } else {
+      // Consume characters as long as '\r' or '\n' is found.
+<span class="nc bnc" id="L210" title="All 6 branches missed.">      while ( iPos[ 0 ] &lt; sb.length() &amp;&amp; ( c == '\n' || c == '\r' ) ) {</span>
+<span class="nc" id="L211">        c = sb.charAt( iPos[ 0 ]++ );</span>
+      }
+
+      // Return complete remainder or part of stream
+<span class="nc bnc" id="L215" title="All 2 branches missed.">      if ( iPos[ 0 ] == sb.length() ) {</span>
+<span class="nc" id="L216">        return sb.substring( iStart );</span>
+      } else {
+<span class="nc" id="L218">        iPos[ 0 ]--;</span>
+<span class="nc" id="L219">        return sb.substring( iStart, iPos[ 0 ] );</span>
+      }
+    }
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

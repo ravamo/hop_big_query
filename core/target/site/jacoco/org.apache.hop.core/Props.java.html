@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Props.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core</a> &gt; <span class="el_source">Props.java</span></div><h1>Props.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core;
+
+import org.apache.commons.lang.StringUtils;
+import org.apache.hop.core.config.HopConfig;
+import org.apache.hop.core.logging.ILogChannel;
+import org.apache.hop.core.logging.LogChannel;
+
+import java.util.Map;
+
+/**
+ * We use Props to store all kinds of user interactive information such as the selected colors, fonts, positions of
+ * windows, etc.
+ *
+ * @author Matt
+ * @since 15-12-2003
+ */
+public class Props implements Cloneable {
+<span class="nc" id="L40">  private static Class&lt;?&gt; PKG = Const.class; // for i18n purposes, needed by Translator!!</span>
+
+  private static final String STRING_USER_PREFERENCES = &quot;User preferences&quot;;
+
+  public static final String STRING_FONT_FIXED_NAME = &quot;FontFixedName&quot;;
+  public static final String STRING_FONT_FIXED_SIZE = &quot;FontFixedSize&quot;;
+  public static final String STRING_FONT_FIXED_STYLE = &quot;FontFixedStyle&quot;;
+
+  public static final String STRING_FONT_DEFAULT_NAME = &quot;FontDefaultName&quot;;
+  public static final String STRING_FONT_DEFAULT_SIZE = &quot;FontDefaultSize&quot;;
+  public static final String STRING_FONT_DEFAULT_STYLE = &quot;FontDefaultStyle&quot;;
+
+  public static final String STRING_FONT_GRAPH_NAME = &quot;FontGraphName&quot;;
+  public static final String STRING_FONT_GRAPH_SIZE = &quot;FontGraphSize&quot;;
+  public static final String STRING_FONT_GRAPH_STYLE = &quot;FontGraphStyle&quot;;
+
+  public static final String STRING_FONT_NOTE_NAME = &quot;FontNoteName&quot;;
+  public static final String STRING_FONT_NOTE_SIZE = &quot;FontNoteSize&quot;;
+  public static final String STRING_FONT_NOTE_STYLE = &quot;FontNoteStyle&quot;;
+
+  public static final String STRING_BACKGROUND_COLOR_R = &quot;BackgroundColorR&quot;;
+  public static final String STRING_BACKGROUND_COLOR_G = &quot;BackgroundColorG&quot;;
+  public static final String STRING_BACKGROUND_COLOR_B = &quot;BackgroundColorB&quot;;
+
+  public static final String STRING_GRAPH_COLOR_R = &quot;GraphColorR&quot;;
+  public static final String STRING_GRAPH_COLOR_G = &quot;GraphColorG&quot;;
+  public static final String STRING_GRAPH_COLOR_B = &quot;GraphColorB&quot;;
+
+  public static final String STRING_TAB_COLOR_R = &quot;TabColorR&quot;;
+  public static final String STRING_TAB_COLOR_G = &quot;TabColorG&quot;;
+  public static final String STRING_TAB_COLOR_B = &quot;TabColorB&quot;;
+
+  public static final String STRING_ZOOM_FACTOR = &quot;ZoomFactor&quot;;
+  public static final String STRING_ICON_SIZE = &quot;IconSize&quot;;
+  public static final String STRING_LINE_WIDTH = &quot;LineWidth&quot;;
+  public static final String STRING_MIDDLE_PCT = &quot;MiddlePct&quot;;
+  public static final String STRING_INDICATE_SLOW_PIPELINE_TRANSFORMS = &quot;IndicateSlowPipelineTransforms&quot;;
+
+  public static final String STRING_LAST_PREVIEW_PIPELINE = &quot;LastPreviewPipeline&quot;;
+  public static final String STRING_LAST_PREVIEW_TRANSFORM = &quot;LastPreviewTransform&quot;;
+  public static final String STRING_LAST_PREVIEW_SIZE = &quot;LastPreviewSize&quot;;
+
+  public static final String STRING_MAX_UNDO = &quot;MaxUndo&quot;;
+
+  public static final String STRING_AUTO_SAVE = &quot;AutoSave&quot;;
+  public static final String STRING_SAVE_CONF = &quot;SaveConfirmation&quot;;
+  public static final String STRING_AUTO_SPLIT = &quot;AutoSplit&quot;;
+  public static final String STRING_AUTO_COLLAPSE_CORE_TREE = &quot;AutoCollapseCoreObjectsTree&quot;;
+
+  public static final String STRING_USE_DB_CACHE = &quot;UseDBCache&quot;;
+  public static final String STRING_OPEN_LAST_FILE = &quot;OpenLastFile&quot;;
+
+  public static final String STRING_SHOW_CANVAS_GRID = &quot;ShowCanvasGrid&quot;;
+  public static final String STRING_SHOW_EXIT_WARNING = &quot;ShowExitWarning&quot;;
+  public static final String STRING_SHOW_OS_LOOK = &quot;ShowOSLook&quot;;
+
+  public static final String STRING_CUSTOM_PARAMETER = &quot;CustomParameter&quot;;
+
+  public static final String STRING_DEFAULT_PREVIEW_SIZE = &quot;DefaultPreviewSize&quot;;
+
+  protected ILogChannel log;
+
+  public static final int WIDGET_STYLE_DEFAULT = 0;
+  public static final int WIDGET_STYLE_FIXED = 1;
+  public static final int WIDGET_STYLE_TABLE = 2;
+  public static final int WIDGET_STYLE_NOTEPAD = 3;
+  public static final int WIDGET_STYLE_GRAPH = 4;
+  public static final int WIDGET_STYLE_TAB = 5;
+  public static final int WIDGET_STYLE_TOOLBAR = 6;
+
+<span class="nc" id="L110">  public Props() {</span>
+<span class="nc" id="L111">    log = new LogChannel( STRING_USER_PREFERENCES );</span>
+<span class="nc" id="L112">  }</span>
+
+  @Override
+  public String toString() {
+<span class="nc" id="L116">    return STRING_USER_PREFERENCES;</span>
+  }
+
+
+  protected void setDefault() {
+<span class="nc bnc" id="L121" title="All 2 branches missed.">    if ( !containsKey( &quot;WorkflowDialogStyle&quot; ) ) {</span>
+<span class="nc" id="L122">      setProperty( &quot;WorkflowDialogStyle&quot;, &quot;RESIZE,MAX,MIN&quot; );</span>
+    }
+<span class="nc" id="L124">  }</span>
+
+  protected void setProperty(String key, String value) {
+    try {
+<span class="nc" id="L128">      HopConfig.setGuiProperty( key, value );</span>
+<span class="nc" id="L129">      HopConfig.getInstance().saveToFile();</span>
+<span class="nc" id="L130">    } catch(Exception e) {</span>
+<span class="nc" id="L131">      throw new RuntimeException(&quot;Error saving hop config option key '&quot;+key+&quot;', value '&quot;+value+&quot;'&quot;, e);</span>
+<span class="nc" id="L132">    }</span>
+<span class="nc" id="L133">  }</span>
+
+  public String getProperty( String propertyName ) {
+<span class="nc" id="L136">    return getProperty( propertyName, null );</span>
+  }
+
+  public String getProperty( String propertyName, String defaultValue ) {
+<span class="nc" id="L140">    String value = HopConfig.getGuiProperty( propertyName );</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">    if ( StringUtils.isEmpty(value)) {</span>
+<span class="nc" id="L142">      return defaultValue;</span>
+    }
+<span class="nc" id="L144">    return value;</span>
+  }
+
+  public boolean containsKey(String key) {
+<span class="nc" id="L148">    return HopConfig.getInstance().getConfigMap().containsKey( key );</span>
+  }
+
+  public void setUseDBCache( boolean use ) {
+<span class="nc bnc" id="L152" title="All 2 branches missed.">    setProperty( STRING_USE_DB_CACHE, use ? &quot;Y&quot; : &quot;N&quot; );</span>
+<span class="nc" id="L153">  }</span>
+
+  public boolean useDBCache() {
+<span class="nc" id="L156">    String use = getProperty( STRING_USE_DB_CACHE );</span>
+<span class="nc bnc" id="L157" title="All 2 branches missed.">    return !&quot;N&quot;.equalsIgnoreCase( use );</span>
+  }
+
+
+
+  /**
+   * @param parameterName The parameter name
+   * @param defaultValue  The default value in case the parameter doesn't exist yet.
+   * @return The custom parameter
+   */
+  public String getCustomParameter( String parameterName, String defaultValue ) {
+<span class="nc" id="L168">    return getProperty( STRING_CUSTOM_PARAMETER + parameterName, defaultValue );</span>
+  }
+
+  /**
+   * Set the custom parameter
+   *
+   * @param parameterName The name of the parameter
+   * @param value         The value to be stored in the properties file.
+   */
+  public void setCustomParameter( String parameterName, String value ) {
+<span class="nc" id="L178">    setProperty( STRING_CUSTOM_PARAMETER + parameterName, value );</span>
+<span class="nc" id="L179">  }</span>
+
+  public void clearCustomParameters() {
+<span class="nc" id="L182">    Map&lt;String, Object&gt; configMap = HopConfig.getInstance().getConfigMap();</span>
+<span class="nc bnc" id="L183" title="All 2 branches missed.">    for (String key : configMap.keySet() ) {</span>
+<span class="nc bnc" id="L184" title="All 2 branches missed.">      if ( key.startsWith( STRING_CUSTOM_PARAMETER ) ) {</span>
+        // Clear this one
+<span class="nc" id="L186">        configMap.remove( key );</span>
+      }
+<span class="nc" id="L188">    }</span>
+<span class="nc" id="L189">  }</span>
+
+  public void reset() {
+<span class="nc" id="L192">    clear();</span>
+<span class="nc" id="L193">  }</span>
+
+  private void clear() {
+<span class="nc" id="L196">    HopConfig.getInstance().getConfigMap().clear();</span>
+<span class="nc" id="L197">  }</span>
+
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

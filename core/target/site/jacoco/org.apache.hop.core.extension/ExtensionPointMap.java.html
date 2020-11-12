@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExtensionPointMap.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.extension</a> &gt; <span class="el_source">ExtensionPointMap.java</span></div><h1>ExtensionPointMap.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+package org.apache.hop.core.extension;
+
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
+import com.google.common.collect.HashBasedTable;
+import com.google.common.collect.Table;
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.logging.ILogChannel;
+import org.apache.hop.core.logging.LogChannel;
+import org.apache.hop.core.plugins.IPlugin;
+import org.apache.hop.core.plugins.PluginRegistry;
+import org.apache.hop.core.plugins.IPluginTypeListener;
+
+import java.util.List;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+/**
+ * This class maintains a map of IExtensionPoint object to its name.
+ */
+public class ExtensionPointMap {
+
+<span class="fc" id="L43">  private static ILogChannel log = new LogChannel( &quot;ExtensionPointMap&quot; );</span>
+<span class="fc" id="L44">  private static ExtensionPointMap INSTANCE = new ExtensionPointMap( PluginRegistry.getInstance() );</span>
+
+  private final PluginRegistry registry;
+  private Table&lt;String, String, Supplier&lt;IExtensionPoint&gt;&gt; extensionPointPluginMap;
+
+<span class="fc" id="L49">  private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();</span>
+
+<span class="fc" id="L51">  private ExtensionPointMap( PluginRegistry pluginRegistry ) {</span>
+<span class="fc" id="L52">    this.registry = pluginRegistry;</span>
+<span class="fc" id="L53">    extensionPointPluginMap = HashBasedTable.create();</span>
+<span class="fc" id="L54">    registry.addPluginListener( ExtensionPointPluginType.class, new IPluginTypeListener() {</span>
+
+      @Override
+      public void pluginAdded( Object serviceObject ) {
+<span class="nc" id="L58">        addExtensionPoint( (IPlugin) serviceObject );</span>
+<span class="nc" id="L59">      }</span>
+
+      @Override
+      public void pluginRemoved( Object serviceObject ) {
+<span class="nc" id="L63">        removeExtensionPoint( (IPlugin) serviceObject );</span>
+<span class="nc" id="L64">      }</span>
+
+      @Override
+      public void pluginChanged( Object serviceObject ) {
+<span class="nc" id="L68">        removeExtensionPoint( (IPlugin) serviceObject );</span>
+<span class="nc" id="L69">        addExtensionPoint( (IPlugin) serviceObject );</span>
+<span class="nc" id="L70">      }</span>
+
+    } );
+
+<span class="fc" id="L74">    List&lt;IPlugin&gt; extensionPointPlugins = registry.getPlugins( ExtensionPointPluginType.class );</span>
+<span class="pc bpc" id="L75" title="1 of 2 branches missed.">    for ( IPlugin extensionPointPlugin : extensionPointPlugins ) {</span>
+<span class="nc" id="L76">      addExtensionPoint( extensionPointPlugin );</span>
+<span class="nc" id="L77">    }</span>
+<span class="fc" id="L78">  }</span>
+
+  public static ExtensionPointMap getInstance() {
+<span class="fc" id="L81">    return INSTANCE;</span>
+  }
+
+  /**
+   * Add the extension point plugin to the map
+   *
+   * @param extensionPointPlugin
+   */
+  public void addExtensionPoint( IPlugin extensionPointPlugin ) {
+<span class="fc" id="L90">    lock.writeLock().lock();</span>
+    try {
+<span class="fc bfc" id="L92" title="All 2 branches covered.">      for ( String id : extensionPointPlugin.getIds() ) {</span>
+<span class="fc" id="L93">        extensionPointPluginMap.put( extensionPointPlugin.getName(), id, createLazyLoader( extensionPointPlugin ) );</span>
+      }
+    } finally {
+<span class="fc" id="L96">      lock.writeLock().unlock();</span>
+    }
+<span class="fc" id="L98">  }</span>
+
+  /**
+   * Remove the extension point plugin from the map
+   *
+   * @param extensionPointPlugin
+   */
+  public void removeExtensionPoint( IPlugin extensionPointPlugin ) {
+<span class="fc" id="L106">    lock.writeLock().lock();</span>
+    try {
+<span class="fc bfc" id="L108" title="All 2 branches covered.">      for ( String id : extensionPointPlugin.getIds() ) {</span>
+<span class="fc" id="L109">        extensionPointPluginMap.remove( extensionPointPlugin.getName(), id );</span>
+      }
+    } finally {
+<span class="fc" id="L112">      lock.writeLock().unlock();</span>
+    }
+<span class="fc" id="L114">  }</span>
+
+  /**
+   * Reinitialize the extension point plugins map
+   */
+  public void reInitialize() {
+<span class="fc" id="L120">    lock.writeLock().lock();</span>
+    try {
+<span class="fc" id="L122">      extensionPointPluginMap = HashBasedTable.create();</span>
+<span class="fc" id="L123">      final PluginRegistry registry = PluginRegistry.getInstance();</span>
+<span class="fc" id="L124">      List&lt;IPlugin&gt; extensionPointPlugins = registry.getPlugins( ExtensionPointPluginType.class );</span>
+<span class="fc bfc" id="L125" title="All 2 branches covered.">      for ( IPlugin extensionPointPlugin : extensionPointPlugins ) {</span>
+<span class="fc" id="L126">        addExtensionPoint( extensionPointPlugin );</span>
+<span class="fc" id="L127">      }</span>
+    } finally {
+<span class="fc" id="L129">      lock.writeLock().unlock();</span>
+    }
+<span class="fc" id="L131">  }</span>
+
+  Supplier&lt;IExtensionPoint&gt; createLazyLoader( IPlugin extensionPointPlugin ) {
+<span class="fc" id="L134">    return Suppliers.memoize( new ExtensionPointLoader( extensionPointPlugin ) );</span>
+  }
+
+  /**
+   * Call the extension point(s) corresponding to the given id
+   * &lt;p&gt;
+   * This iteration was isolated here to protect against ConcurrentModificationException using PluginRegistry's lock
+   *
+   * @param log    log channel to pass to extension point call
+   * @param id     the id of the extension point interface
+   * @param object object to pass to extension point call
+   */
+  public void callExtensionPoint( ILogChannel log, String id, Object object ) throws HopException {
+<span class="fc" id="L147">    lock.readLock().lock();</span>
+    try {
+<span class="pc bpc" id="L149" title="1 of 4 branches missed.">      if ( extensionPointPluginMap.containsRow( id ) &amp;&amp; !extensionPointPluginMap.rowMap().get( id ).values().isEmpty() ) {</span>
+<span class="fc bfc" id="L150" title="All 2 branches covered.">        for ( Supplier&lt;IExtensionPoint&gt; extensionPoint : extensionPointPluginMap.row( id ).values() ) {</span>
+<span class="fc" id="L151">          extensionPoint.get().callExtensionPoint( log, object );</span>
+<span class="fc" id="L152">        }</span>
+      }
+    } finally {
+<span class="fc" id="L155">      lock.readLock().unlock();</span>
+    }
+<span class="fc" id="L157">  }</span>
+
+  /**
+   * Returns the element in the position (rowId,columnId) of the table
+   * &lt;p&gt;
+   * Useful for Unit Testing
+   *
+   * @param rowId    the key of the row to be accessed
+   * @param columnId the key of the column to be accessed
+   */
+  IExtensionPoint getTableValue( String rowId, String columnId ) {
+<span class="fc" id="L168">    lock.readLock().lock();</span>
+    try {
+<span class="fc bfc" id="L170" title="All 2 branches covered.">      return extensionPointPluginMap.contains( rowId, columnId )</span>
+<span class="fc" id="L171">        ? extensionPointPluginMap.get( rowId, columnId ).get() : null;</span>
+    } finally {
+<span class="fc" id="L173">      lock.readLock().unlock();</span>
+    }
+  }
+
+  /**
+   * Returns the number of rows of the table
+   * &lt;p&gt;
+   * Useful for Unit Testing
+   */
+  int getNumberOfRows() {
+<span class="fc" id="L183">    lock.readLock().lock();</span>
+    try {
+<span class="fc" id="L185">      return extensionPointPluginMap.rowMap().size();</span>
+    } finally {
+<span class="fc" id="L187">      lock.readLock().unlock();</span>
+    }
+  }
+
+  private class ExtensionPointLoader implements Supplier&lt;IExtensionPoint&gt; {
+    private final IPlugin extensionPointPlugin;
+
+<span class="fc" id="L194">    private ExtensionPointLoader( IPlugin extensionPointPlugin ) {</span>
+<span class="fc" id="L195">      this.extensionPointPlugin = extensionPointPlugin;</span>
+<span class="fc" id="L196">    }</span>
+
+    @Override public IExtensionPoint get() {
+      try {
+<span class="fc" id="L200">        return registry.loadClass( extensionPointPlugin, IExtensionPoint.class );</span>
+<span class="nc" id="L201">      } catch ( Exception e ) {</span>
+<span class="nc bnc" id="L202" title="All 2 branches missed.">        getLog().logError( &quot;Unable to load extension point for name = [&quot;</span>
+<span class="nc" id="L203">          + ( extensionPointPlugin != null ? extensionPointPlugin.getName() : &quot;null&quot; ) + &quot;]&quot;, e );</span>
+<span class="nc" id="L204">        return null;</span>
+      }
+    }
+  }
+
+  public static ILogChannel getLog() {
+<span class="nc bnc" id="L210" title="All 2 branches missed.">    if ( log == null ) {</span>
+<span class="nc" id="L211">      log = new LogChannel( &quot;ExtensionPointMap&quot; );</span>
+    }
+<span class="nc" id="L213">    return log;</span>
+  }
+
+  public void reset() {
+<span class="fc" id="L217">    lock.writeLock().lock();</span>
+    try {
+<span class="fc" id="L219">      extensionPointPluginMap.clear();</span>
+<span class="fc" id="L220">      registry.addPluginListener( ExtensionPointPluginType.class, new IPluginTypeListener() {</span>
+
+        @Override
+        public void pluginAdded( Object serviceObject ) {
+<span class="fc" id="L224">          addExtensionPoint( (IPlugin) serviceObject );</span>
+<span class="fc" id="L225">        }</span>
+
+        @Override
+        public void pluginRemoved( Object serviceObject ) {
+<span class="fc" id="L229">          removeExtensionPoint( (IPlugin) serviceObject );</span>
+<span class="fc" id="L230">        }</span>
+
+        @Override
+        public void pluginChanged( Object serviceObject ) {
+<span class="fc" id="L234">          removeExtensionPoint( (IPlugin) serviceObject );</span>
+<span class="fc" id="L235">          addExtensionPoint( (IPlugin) serviceObject );</span>
+<span class="fc" id="L236">        }</span>
+
+      } );
+    } finally {
+<span class="fc" id="L240">      lock.writeLock().unlock();</span>
+    }
+<span class="fc" id="L242">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

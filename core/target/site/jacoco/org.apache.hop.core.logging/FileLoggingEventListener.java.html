@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FileLoggingEventListener.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.logging</a> &gt; <span class="el_source">FileLoggingEventListener.java</span></div><h1>FileLoggingEventListener.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.logging;
+
+import org.apache.commons.vfs2.FileObject;
+import org.apache.hop.core.Const;
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.vfs.HopVfs;
+
+import java.io.OutputStream;
+import java.util.List;
+
+public class FileLoggingEventListener implements IHopLoggingEventListener {
+
+  private String filename;
+  private FileObject file;
+
+  public FileObject getFile() {
+<span class="nc" id="L39">    return file;</span>
+  }
+
+  private OutputStream outputStream;
+  private HopLogLayout layout;
+
+  private HopException exception;
+  private String logChannelId;
+
+  /**
+   * Log all log lines to the specified file
+   *
+   * @param filename
+   * @param append
+   * @throws HopException
+   */
+  public FileLoggingEventListener( String filename, boolean append ) throws HopException {
+<span class="nc" id="L56">    this( null, filename, append );</span>
+<span class="nc" id="L57">  }</span>
+
+  /**
+   * Log only lines belonging to the specified log channel ID or one of it's children (grandchildren) to the specified
+   * file.
+   *
+   * @param logChannelId
+   * @param filename
+   * @param append
+   * @throws HopException
+   */
+<span class="nc" id="L68">  public FileLoggingEventListener( String logChannelId, String filename, boolean append ) throws HopException {</span>
+<span class="nc" id="L69">    this.logChannelId = logChannelId;</span>
+<span class="nc" id="L70">    this.filename = filename;</span>
+<span class="nc" id="L71">    this.layout = new HopLogLayout( true );</span>
+<span class="nc" id="L72">    this.exception = null;</span>
+
+<span class="nc" id="L74">    file = HopVfs.getFileObject( filename );</span>
+<span class="nc" id="L75">    outputStream = null;</span>
+    try {
+<span class="nc" id="L77">      outputStream = HopVfs.getOutputStream( file, append );</span>
+<span class="nc" id="L78">    } catch ( Exception e ) {</span>
+<span class="nc" id="L79">      throw new HopException(</span>
+        &quot;Unable to create a logging event listener to write to file '&quot; + filename + &quot;'&quot;, e );
+<span class="nc" id="L81">    }</span>
+<span class="nc" id="L82">  }</span>
+
+  @Override
+  public void eventAdded( HopLoggingEvent event ) {
+
+    try {
+<span class="nc" id="L88">      Object messageObject = event.getMessage();</span>
+<span class="nc bnc" id="L89" title="All 2 branches missed.">      if ( messageObject instanceof LogMessage ) {</span>
+<span class="nc" id="L90">        boolean logToFile = false;</span>
+
+<span class="nc bnc" id="L92" title="All 2 branches missed.">        if ( logChannelId == null ) {</span>
+<span class="nc" id="L93">          logToFile = true;</span>
+        } else {
+<span class="nc" id="L95">          LogMessage message = (LogMessage) messageObject;</span>
+          // This should be fast enough cause cached.
+<span class="nc" id="L97">          List&lt;String&gt; logChannelChildren = LoggingRegistry.getInstance().getLogChannelChildren( logChannelId );</span>
+          // This could be non-optimal, consider keeping the list sorted in the logging registry
+<span class="nc bnc" id="L99" title="All 2 branches missed.">          logToFile = Const.indexOfString( message.getLogChannelId(), logChannelChildren ) &gt;= 0;</span>
+        }
+
+<span class="nc bnc" id="L102" title="All 2 branches missed.">        if ( logToFile ) {</span>
+<span class="nc" id="L103">          String logText = layout.format( event );</span>
+<span class="nc" id="L104">          outputStream.write( logText.getBytes() );</span>
+<span class="nc" id="L105">          outputStream.write( Const.CR.getBytes() );</span>
+<span class="nc" id="L106">          outputStream.flush();</span>
+        }
+      }
+<span class="nc" id="L109">    } catch ( Exception e ) {</span>
+<span class="nc" id="L110">      exception = new HopException( &quot;Unable to write to logging event to file '&quot; + filename + &quot;'&quot;, e );</span>
+<span class="nc" id="L111">    }</span>
+<span class="nc" id="L112">  }</span>
+
+  public void close() throws HopException {
+    try {
+<span class="nc bnc" id="L116" title="All 2 branches missed.">      if ( outputStream != null ) {</span>
+<span class="nc" id="L117">        outputStream.close();</span>
+      }
+<span class="nc" id="L119">    } catch ( Exception e ) {</span>
+<span class="nc" id="L120">      throw new HopException( &quot;Unable to close output of file '&quot; + filename + &quot;'&quot;, e );</span>
+<span class="nc" id="L121">    }</span>
+<span class="nc" id="L122">  }</span>
+
+  public HopException getException() {
+<span class="nc" id="L125">    return exception;</span>
+  }
+
+  public void setException( HopException exception ) {
+<span class="nc" id="L129">    this.exception = exception;</span>
+<span class="nc" id="L130">  }</span>
+
+  public String getFilename() {
+<span class="nc" id="L133">    return filename;</span>
+  }
+
+  public void setFilename( String filename ) {
+<span class="nc" id="L137">    this.filename = filename;</span>
+<span class="nc" id="L138">  }</span>
+
+  public OutputStream getOutputStream() {
+<span class="nc" id="L141">    return outputStream;</span>
+  }
+
+  public void setOutputStream( OutputStream outputStream ) {
+<span class="nc" id="L145">    this.outputStream = outputStream;</span>
+<span class="nc" id="L146">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MetricsRegistry.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.logging</a> &gt; <span class="el_source">MetricsRegistry.java</span></div><h1>MetricsRegistry.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.logging;
+
+
+import org.apache.hop.core.metrics.IMetricsSnapshot;
+
+import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+
+/**
+ * This singleton will capture all the metrics coming from the various log channels based on the log channel ID.
+ *
+ * @author matt
+ */
+public class MetricsRegistry {
+<span class="fc" id="L39">  private static MetricsRegistry registry = new MetricsRegistry();</span>
+
+  private Map&lt;String, Map&lt;String, IMetricsSnapshot&gt;&gt; snapshotMaps;
+  private Map&lt;String, Queue&lt;IMetricsSnapshot&gt;&gt; snapshotLists;
+
+  public static MetricsRegistry getInstance() {
+<span class="fc" id="L45">    return registry;</span>
+  }
+
+<span class="fc" id="L48">  private MetricsRegistry() {</span>
+<span class="fc" id="L49">    snapshotMaps = new ConcurrentHashMap&lt;String, Map&lt;String, IMetricsSnapshot&gt;&gt;();</span>
+<span class="fc" id="L50">    snapshotLists = new ConcurrentHashMap&lt;String, Queue&lt;IMetricsSnapshot&gt;&gt;();</span>
+<span class="fc" id="L51">  }</span>
+
+  public void addSnapshot( ILogChannel logChannel, IMetricsSnapshot snapshot ) {
+<span class="nc" id="L54">    IMetrics metric = snapshot.getMetric();</span>
+<span class="nc" id="L55">    String channelId = logChannel.getLogChannelId();</span>
+<span class="nc bnc" id="L56" title="All 3 branches missed.">    switch ( metric.getType() ) {</span>
+      case START:
+      case STOP:
+<span class="nc" id="L59">        Queue&lt;IMetricsSnapshot&gt; list = getSnapshotList( channelId );</span>
+<span class="nc" id="L60">        list.add( snapshot );</span>
+
+<span class="nc" id="L62">        break;</span>
+      case MIN:
+      case MAX:
+      case SUM:
+      case COUNT:
+<span class="nc" id="L67">        Map&lt;String, IMetricsSnapshot&gt; map = getSnapshotMap( channelId );</span>
+<span class="nc" id="L68">        map.put( snapshot.getKey(), snapshot );</span>
+
+<span class="nc" id="L70">        break;</span>
+      default:
+        break;
+    }
+<span class="nc" id="L74">  }</span>
+
+  public Map&lt;String, Queue&lt;IMetricsSnapshot&gt;&gt; getSnapshotLists() {
+<span class="fc" id="L77">    return snapshotLists;</span>
+  }
+
+  public Map&lt;String, Map&lt;String, IMetricsSnapshot&gt;&gt; getSnapshotMaps() {
+<span class="nc" id="L81">    return snapshotMaps;</span>
+  }
+
+  /**
+   * Get the snapshot list for the given log channel ID. If no list is available, one is created (and stored).
+   *
+   * @param logChannelId The log channel to use.
+   * @return an existing or a new metrics snapshot list.
+   */
+  public Queue&lt;IMetricsSnapshot&gt; getSnapshotList( String logChannelId ) {
+<span class="fc" id="L91">    Queue&lt;IMetricsSnapshot&gt; list = snapshotLists.get( logChannelId );</span>
+<span class="fc bfc" id="L92" title="All 2 branches covered.">    if ( list == null ) {</span>
+<span class="fc" id="L93">      list = new ConcurrentLinkedQueue&lt;IMetricsSnapshot&gt;();</span>
+<span class="fc" id="L94">      snapshotLists.put( logChannelId, list );</span>
+    }
+<span class="fc" id="L96">    return list;</span>
+
+  }
+
+  /**
+   * Get the snapshot map for the given log channel ID. If no map is available, one is created (and stored).
+   *
+   * @param logChannelId The log channel to use.
+   * @return an existing or a new metrics snapshot map.
+   */
+  public Map&lt;String, IMetricsSnapshot&gt; getSnapshotMap( String logChannelId ) {
+<span class="nc" id="L107">    Map&lt;String, IMetricsSnapshot&gt; map = snapshotMaps.get( logChannelId );</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">    if ( map == null ) {</span>
+<span class="nc" id="L109">      map = new ConcurrentHashMap&lt;String, IMetricsSnapshot&gt;();</span>
+<span class="nc" id="L110">      snapshotMaps.put( logChannelId, map );</span>
+    }
+<span class="nc" id="L112">    return map;</span>
+  }
+
+  public void reset() {
+<span class="fc" id="L116">    snapshotMaps.clear();</span>
+<span class="fc" id="L117">    snapshotLists.clear();</span>
+<span class="fc" id="L118">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

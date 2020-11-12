@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BaseFragmentType.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.plugins</a> &gt; <span class="el_source">BaseFragmentType.java</span></div><h1>BaseFragmentType.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.plugins;
+
+import org.apache.hop.core.exception.HopPluginException;
+
+import java.lang.annotation.Annotation;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.Map;
+
+public abstract class BaseFragmentType&lt;T extends Annotation&gt; extends BasePluginType&lt;T&gt; {
+
+  BaseFragmentType( Class&lt;T&gt; pluginType, String id, String name, Class&lt;? extends IPluginType&gt; typeToTrack ) {
+<span class="fc" id="L35">    super( pluginType, id, name );</span>
+<span class="fc" id="L36">    populateFolders( null );</span>
+<span class="fc" id="L37">    initListeners( this.getClass(), typeToTrack );</span>
+<span class="fc" id="L38">  }</span>
+
+  protected void initListeners( Class&lt;? extends IPluginType&gt; aClass, Class&lt;? extends IPluginType&gt; typeToTrack ) {
+    // keep track of new fragments
+<span class="fc" id="L42">    registry.addPluginListener( aClass, new FragmentTypeListener( registry, typeToTrack ) {</span>
+      /**
+       * Keep track of new Fragments, keep note of the method signature's order
+       * @param fragment The plugin fragment to merge
+       * @param plugin The plugin to be merged
+       */
+      @Override
+      void mergePlugin( IPlugin fragment, IPlugin plugin ) {
+<span class="pc bpc" id="L50" title="1 of 2 branches missed.">        if ( plugin != null ) {</span>
+<span class="fc" id="L51">          plugin.merge( fragment );</span>
+        }
+<span class="fc" id="L53">      }</span>
+    } );
+
+    // start listening to interested parties
+<span class="fc" id="L57">    registry.addPluginListener( typeToTrack, new FragmentTypeListener( registry, aClass ) {</span>
+      /**
+       * Keep track of new Fragments, keep note of the method signature's order
+       * @param plugin The plugin to be merged
+       * @param fragment The plugin fragment to merge
+       */
+      @Override
+      void mergePlugin( IPlugin plugin, IPlugin fragment ) {
+<span class="pc bpc" id="L65" title="1 of 2 branches missed.">        if ( plugin != null ) {</span>
+<span class="fc" id="L66">          plugin.merge( fragment );</span>
+        }
+<span class="fc" id="L68">      }</span>
+    } );
+<span class="fc" id="L70">  }</span>
+
+  @Override
+  public boolean isFragment() {
+<span class="fc" id="L74">    return true;</span>
+  }
+
+  @Override protected URLClassLoader createUrlClassLoader( URL jarFileUrl, ClassLoader classLoader ) {
+<span class="nc" id="L78">    return new HopURLClassLoader( new URL[] { jarFileUrl }, classLoader );</span>
+  }
+
+  @Override protected void registerNatives() throws HopPluginException {
+<span class="nc" id="L82">  }</span>
+
+  @Override
+  protected String extractName( T annotation ) {
+<span class="nc" id="L86">    return null;</span>
+  }
+
+  @Override
+  protected String extractDesc( T annotation ) {
+<span class="nc" id="L91">    return null;</span>
+  }
+
+  @Override
+  protected String extractCategory( T annotation ) {
+<span class="nc" id="L96">    return null;</span>
+  }
+
+  @Override
+  protected boolean extractSeparateClassLoader( T annotation ) {
+<span class="nc" id="L101">    return false;</span>
+  }
+
+  @Override
+  protected String extractI18nPackageName( T annotation ) {
+<span class="nc" id="L106">    return null;</span>
+  }
+
+  @Override
+  protected void addExtraClasses( Map&lt;Class&lt;?&gt;, String&gt; classMap, Class&lt;?&gt; clazz, T annotation ) {
+<span class="nc" id="L111">  }</span>
+
+  protected abstract class FragmentTypeListener implements IPluginTypeListener {
+    private final PluginRegistry registry;
+    private final Class&lt;? extends IPluginType&gt; typeToTrack;
+
+<span class="fc" id="L117">    FragmentTypeListener( PluginRegistry registry, Class&lt;? extends IPluginType&gt; typeToTrack ) {</span>
+<span class="fc" id="L118">      this.registry = registry;</span>
+<span class="fc" id="L119">      this.typeToTrack = typeToTrack;</span>
+<span class="fc" id="L120">    }</span>
+
+    abstract void mergePlugin( IPlugin left, IPlugin right );
+
+    @Override
+    public void pluginAdded( Object serviceObject ) {
+<span class="fc" id="L126">      IPlugin left = (IPlugin) serviceObject;</span>
+<span class="fc" id="L127">      IPlugin right = registry.findPluginWithId( typeToTrack, left.getIds()[ 0 ] );</span>
+<span class="fc" id="L128">      mergePlugin( left, right );</span>
+<span class="fc" id="L129">    }</span>
+
+    @Override
+    public void pluginRemoved( Object serviceObject ) {
+<span class="fc" id="L133">    }</span>
+
+    @Override
+    public void pluginChanged( Object serviceObject ) {
+<span class="fc" id="L137">      pluginAdded( serviceObject );</span>
+<span class="fc" id="L138">    }</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

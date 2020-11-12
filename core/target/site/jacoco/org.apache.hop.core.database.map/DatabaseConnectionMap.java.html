@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DatabaseConnectionMap.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.database.map</a> &gt; <span class="el_source">DatabaseConnectionMap.java</span></div><h1>DatabaseConnectionMap.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.database.map;
+
+import org.apache.hop.core.database.Database;
+import org.apache.hop.core.database.IDatabaseTransaction;
+import org.apache.hop.core.util.Utils;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
+
+/**
+ * This class contains a map between on the one hand
+ * &lt;p/&gt;
+ * the pipeline name/thread the partition ID the connection group
+ * &lt;p/&gt;
+ * And on the other hand
+ * &lt;p/&gt;
+ * The database connection The number of times it was opened
+ *
+ * @author Matt
+ */
+public class DatabaseConnectionMap {
+  private final ConcurrentMap&lt;String, Database&gt; map;
+  private final AtomicInteger transactionId;
+  private final Map&lt;String, List&lt;IDatabaseTransaction&gt;&gt; transactionListenersMap;
+
+<span class="fc" id="L53">  private static final DatabaseConnectionMap connectionMap = new DatabaseConnectionMap();</span>
+
+  public static synchronized DatabaseConnectionMap getInstance() {
+<span class="fc" id="L56">    return connectionMap;</span>
+  }
+
+<span class="fc" id="L59">  private DatabaseConnectionMap() {</span>
+<span class="fc" id="L60">    map = new ConcurrentHashMap&lt;String, Database&gt;();</span>
+<span class="fc" id="L61">    transactionId = new AtomicInteger( 0 );</span>
+<span class="fc" id="L62">    transactionListenersMap = new HashMap&lt;String, List&lt;IDatabaseTransaction&gt;&gt;();</span>
+<span class="fc" id="L63">  }</span>
+
+  /**
+   * Tries to obtain an existing &lt;tt&gt;Database&lt;/tt&gt; instance for specified parameters. If none is found, then maps the
+   * key's value to &lt;tt&gt;database&lt;/tt&gt;. Similarly to {@linkplain ConcurrentHashMap#putIfAbsent(Object, Object)} returns
+   * &lt;tt&gt;null&lt;/tt&gt; if there was no value for the specified key and they mapped value otherwise.
+   *
+   * @param connectionGroup connection group
+   * @param partitionID     partition's id
+   * @param database        database
+   * @return &lt;tt&gt;null&lt;/tt&gt; or previous value
+   */
+  public Database getOrStoreIfAbsent( String connectionGroup, String partitionID, Database database ) {
+<span class="fc" id="L76">    String key = createEntryKey( connectionGroup, partitionID, database );</span>
+<span class="fc" id="L77">    return map.putIfAbsent( key, database );</span>
+  }
+
+  public void removeConnection( String connectionGroup, String partitionID, Database database ) {
+<span class="fc" id="L81">    String key = createEntryKey( connectionGroup, partitionID, database );</span>
+<span class="fc" id="L82">    map.remove( key );</span>
+<span class="fc" id="L83">  }</span>
+
+  /**
+   * @deprecated use {@linkplain #getOrStoreIfAbsent(String, String, Database)} instead
+   */
+  @Deprecated
+  public synchronized void storeDatabase( String connectionGroup, String partitionID, Database database ) {
+<span class="nc" id="L90">    String key = createEntryKey( connectionGroup, partitionID, database );</span>
+<span class="nc" id="L91">    map.put( key, database );</span>
+<span class="nc" id="L92">  }</span>
+
+  /**
+   * @deprecated use {@linkplain #getOrStoreIfAbsent(String, String, Database)} instead
+   */
+  @Deprecated
+  public synchronized Database getDatabase( String connectionGroup, String partitionID, Database database ) {
+<span class="nc" id="L99">    String key = createEntryKey( connectionGroup, partitionID, database );</span>
+<span class="nc" id="L100">    return map.get( key );</span>
+  }
+
+  public static String createEntryKey( String connectionGroup, String partitionID, Database database ) {
+<span class="fc" id="L104">    StringBuilder key = new StringBuilder( connectionGroup );</span>
+
+<span class="fc" id="L106">    key.append( ':' ).append( database.getDatabaseMeta().getName() );</span>
+<span class="pc bpc" id="L107" title="1 of 2 branches missed.">    if ( !Utils.isEmpty( partitionID ) ) {</span>
+<span class="nc" id="L108">      key.append( ':' ).append( partitionID );</span>
+    }
+
+<span class="fc" id="L111">    return key.toString();</span>
+  }
+
+  public Map&lt;String, Database&gt; getMap() {
+<span class="nc" id="L115">    return map;</span>
+  }
+
+  public String getNextTransactionId() {
+<span class="nc" id="L119">    return Integer.toString( transactionId.incrementAndGet() );</span>
+  }
+
+  public void addPipelineactionListener( String transactionId, IDatabaseTransaction listener ) {
+<span class="nc" id="L123">    List&lt;IDatabaseTransaction&gt; transactionListeners = getTransactionListeners( transactionId );</span>
+<span class="nc" id="L124">    transactionListeners.add( listener );</span>
+<span class="nc" id="L125">  }</span>
+
+  public void removeTransactionListener( String transactionId, IDatabaseTransaction listener ) {
+<span class="nc" id="L128">    List&lt;IDatabaseTransaction&gt; transactionListeners = getTransactionListeners( transactionId );</span>
+<span class="nc" id="L129">    transactionListeners.remove( listener );</span>
+<span class="nc" id="L130">  }</span>
+
+  public List&lt;IDatabaseTransaction&gt; getTransactionListeners( String transactionId ) {
+<span class="nc" id="L133">    List&lt;IDatabaseTransaction&gt; transactionListeners = transactionListenersMap.get( transactionId );</span>
+<span class="nc bnc" id="L134" title="All 2 branches missed.">    if ( transactionListeners == null ) {</span>
+<span class="nc" id="L135">      transactionListeners = new ArrayList&lt;IDatabaseTransaction&gt;();</span>
+<span class="nc" id="L136">      transactionListenersMap.put( transactionId, transactionListeners );</span>
+    }
+<span class="nc" id="L138">    return transactionListeners;</span>
+  }
+
+  public void removeTransactionListeners( String transactionId ) {
+<span class="nc" id="L142">    transactionListenersMap.remove( transactionId );</span>
+<span class="nc" id="L143">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

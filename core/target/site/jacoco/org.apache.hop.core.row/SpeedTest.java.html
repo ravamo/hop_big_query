@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SpeedTest.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.row</a> &gt; <span class="el_source">SpeedTest.java</span></div><h1>SpeedTest.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.row;
+
+import org.apache.hop.core.exception.HopValueException;
+import org.apache.hop.core.row.value.ValueMetaBoolean;
+import org.apache.hop.core.row.value.ValueMetaDate;
+import org.apache.hop.core.row.value.ValueMetaInteger;
+import org.apache.hop.core.row.value.ValueMetaNumber;
+import org.apache.hop.core.row.value.ValueMetaString;
+import org.apache.hop.core.util.StringUtil;
+
+import java.util.Date;
+
+public class SpeedTest {
+  private Object[] rowString10;
+  private Object[] rowString100;
+  private Object[] rowString1000;
+
+  private Object[] rowMixed10;
+  private Object[] rowMixed100;
+  private Object[] rowMixed1000;
+
+  private IRowMeta metaString10;
+  private IRowMeta metaMixed10;
+
+  private IRowMeta metaString100;
+  private IRowMeta metaMixed100;
+
+  private IRowMeta metaString1000;
+  private IRowMeta metaMixed1000;
+
+<span class="nc" id="L53">  public SpeedTest() {</span>
+<span class="nc" id="L54">    rowString10 = new Object[ 10 ];</span>
+<span class="nc" id="L55">    rowString100 = new Object[ 100 ];</span>
+<span class="nc" id="L56">    rowString1000 = new Object[ 1000 ];</span>
+
+<span class="nc" id="L58">    rowMixed10 = new Object[ 50 ];</span>
+<span class="nc" id="L59">    rowMixed100 = new Object[ 500 ];</span>
+<span class="nc" id="L60">    rowMixed1000 = new Object[ 5000 ];</span>
+
+<span class="nc" id="L62">    metaString10 = new RowMeta();</span>
+<span class="nc" id="L63">    metaMixed10 = new RowMeta();</span>
+
+<span class="nc" id="L65">    metaString100 = new RowMeta();</span>
+<span class="nc" id="L66">    metaMixed100 = new RowMeta();</span>
+
+<span class="nc" id="L68">    metaString1000 = new RowMeta();</span>
+<span class="nc" id="L69">    metaMixed1000 = new RowMeta();</span>
+
+<span class="nc bnc" id="L71" title="All 2 branches missed.">    for ( int i = 0; i &lt; 10; i++ ) {</span>
+<span class="nc" id="L72">      populateMetaAndData( i, rowString10, metaString10, rowMixed10, metaMixed10 );</span>
+    }
+
+<span class="nc bnc" id="L75" title="All 2 branches missed.">    for ( int i = 0; i &lt; 100; i++ ) {</span>
+<span class="nc" id="L76">      populateMetaAndData( i, rowString100, metaString100, rowMixed100, metaMixed100 );</span>
+    }
+
+<span class="nc bnc" id="L79" title="All 2 branches missed.">    for ( int i = 0; i &lt; 1000; i++ ) {</span>
+<span class="nc" id="L80">      populateMetaAndData( i, rowString1000, metaString1000, rowMixed1000, metaMixed1000 );</span>
+    }
+
+<span class="nc" id="L83">  }</span>
+
+  private static void populateMetaAndData( int i, Object[] rowString10, IRowMeta metaString10,
+                                           Object[] rowMixed10, IRowMeta metaMixed10 ) {
+<span class="nc" id="L87">    rowString10[ i ] = StringUtil.generateRandomString( 20, &quot;&quot;, &quot;&quot;, false );</span>
+<span class="nc" id="L88">    IValueMeta meta = new ValueMetaString( &quot;String&quot; + ( i + 1 ), 20, 0 );</span>
+<span class="nc" id="L89">    metaString10.addValueMeta( meta );</span>
+
+<span class="nc" id="L91">    rowMixed10[ i * 5 + 0 ] = StringUtil.generateRandomString( 20, &quot;&quot;, &quot;&quot;, false );</span>
+<span class="nc" id="L92">    IValueMeta meta0 = new ValueMetaString( &quot;String&quot; + ( i * 5 + 1 ), 20, 0 );</span>
+<span class="nc" id="L93">    metaMixed10.addValueMeta( meta0 );</span>
+
+<span class="nc" id="L95">    rowMixed10[ i * 5 + 1 ] = new Date();</span>
+<span class="nc" id="L96">    IValueMeta meta1 = new ValueMetaDate( &quot;String&quot; + ( i * 5 + 1 ) );</span>
+<span class="nc" id="L97">    metaMixed10.addValueMeta( meta1 );</span>
+
+<span class="nc" id="L99">    rowMixed10[ i * 5 + 2 ] = new Double( Math.random() * 1000000 );</span>
+<span class="nc" id="L100">    IValueMeta meta2 = new ValueMetaNumber( &quot;String&quot; + ( i * 5 + 1 ), 12, 4 );</span>
+<span class="nc" id="L101">    metaMixed10.addValueMeta( meta2 );</span>
+
+<span class="nc" id="L103">    rowMixed10[ i * 5 + 3 ] = new Long( (long) ( Math.random() * 1000000 ) );</span>
+<span class="nc" id="L104">    IValueMeta meta3 = new ValueMetaInteger( &quot;String&quot; + ( i * 5 + 1 ), 8, 0 );</span>
+<span class="nc" id="L105">    metaMixed10.addValueMeta( meta3 );</span>
+
+<span class="nc bnc" id="L107" title="All 2 branches missed.">    rowMixed10[ i * 5 + 4 ] = Boolean.valueOf( Math.random() &gt; 0.5 ? true : false );</span>
+<span class="nc" id="L108">    IValueMeta meta4 = new ValueMetaBoolean( &quot;String&quot; + ( i * 5 + 1 ) );</span>
+<span class="nc" id="L109">    metaMixed10.addValueMeta( meta4 );</span>
+<span class="nc" id="L110">  }</span>
+
+  public long runTestStrings10( int iterations ) throws HopValueException {
+<span class="nc" id="L113">    long startTime = System.currentTimeMillis();</span>
+
+<span class="nc bnc" id="L115" title="All 2 branches missed.">    for ( int i = 0; i &lt; iterations; i++ ) {</span>
+<span class="nc" id="L116">      metaString10.cloneRow( rowString10 );</span>
+    }
+
+<span class="nc" id="L119">    long stopTime = System.currentTimeMillis();</span>
+
+<span class="nc" id="L121">    return stopTime - startTime;</span>
+  }
+
+  public long runTestMixed10( int iterations ) throws HopValueException {
+<span class="nc" id="L125">    long startTime = System.currentTimeMillis();</span>
+
+<span class="nc bnc" id="L127" title="All 2 branches missed.">    for ( int i = 0; i &lt; iterations; i++ ) {</span>
+<span class="nc" id="L128">      metaMixed10.cloneRow( rowMixed10 );</span>
+    }
+
+<span class="nc" id="L131">    long stopTime = System.currentTimeMillis();</span>
+
+<span class="nc" id="L133">    return stopTime - startTime;</span>
+  }
+
+  public long runTestStrings100( int iterations ) throws HopValueException {
+<span class="nc" id="L137">    long startTime = System.currentTimeMillis();</span>
+
+<span class="nc bnc" id="L139" title="All 2 branches missed.">    for ( int i = 0; i &lt; iterations; i++ ) {</span>
+<span class="nc" id="L140">      metaString100.cloneRow( rowString100 );</span>
+    }
+
+<span class="nc" id="L143">    long stopTime = System.currentTimeMillis();</span>
+
+<span class="nc" id="L145">    return stopTime - startTime;</span>
+  }
+
+  public long runTestMixed100( int iterations ) throws HopValueException {
+<span class="nc" id="L149">    long startTime = System.currentTimeMillis();</span>
+
+<span class="nc bnc" id="L151" title="All 2 branches missed.">    for ( int i = 0; i &lt; iterations; i++ ) {</span>
+<span class="nc" id="L152">      metaMixed100.cloneRow( rowMixed100 );</span>
+    }
+
+<span class="nc" id="L155">    long stopTime = System.currentTimeMillis();</span>
+
+<span class="nc" id="L157">    return stopTime - startTime;</span>
+  }
+
+  public long runTestStrings1000( int iterations ) throws HopValueException {
+<span class="nc" id="L161">    long startTime = System.currentTimeMillis();</span>
+
+<span class="nc bnc" id="L163" title="All 2 branches missed.">    for ( int i = 0; i &lt; iterations; i++ ) {</span>
+<span class="nc" id="L164">      metaString1000.cloneRow( rowString1000 );</span>
+    }
+
+<span class="nc" id="L167">    long stopTime = System.currentTimeMillis();</span>
+
+<span class="nc" id="L169">    return stopTime - startTime;</span>
+  }
+
+  public long runTestMixed1000( int iterations ) throws HopValueException {
+<span class="nc" id="L173">    long startTime = System.currentTimeMillis();</span>
+
+<span class="nc bnc" id="L175" title="All 2 branches missed.">    for ( int i = 0; i &lt; iterations; i++ ) {</span>
+<span class="nc" id="L176">      metaMixed1000.cloneRow( rowMixed1000 );</span>
+    }
+
+<span class="nc" id="L179">    long stopTime = System.currentTimeMillis();</span>
+
+<span class="nc" id="L181">    return stopTime - startTime;</span>
+  }
+
+  public static final int ITERATIONS = 1000000;
+
+  public static void main( String[] args ) throws HopValueException {
+<span class="nc" id="L187">    SpeedTest speedTest = new SpeedTest();</span>
+
+<span class="nc" id="L189">    long timeString10 = speedTest.runTestStrings10( ITERATIONS );</span>
+<span class="nc" id="L190">    System.out.println( &quot;Time to run 'String10' test &quot;</span>
+      + ITERATIONS + &quot; times : &quot; + timeString10 + &quot; ms (&quot; + ( 1000 * ITERATIONS / timeString10 ) + &quot; r/s)&quot; );
+<span class="nc" id="L192">    long timeMixed10 = speedTest.runTestMixed10( ITERATIONS );</span>
+<span class="nc" id="L193">    System.out.println( &quot;Time to run 'Mixed10' test &quot;</span>
+      + ITERATIONS + &quot; times : &quot; + timeMixed10 + &quot; ms (&quot; + ( 1000 * ITERATIONS / timeMixed10 ) + &quot; r/s)&quot; );
+<span class="nc" id="L195">    System.out.println();</span>
+
+<span class="nc" id="L197">    long timeString100 = speedTest.runTestStrings100( ITERATIONS );</span>
+<span class="nc" id="L198">    System.out.println( &quot;Time to run 'String100' test &quot;</span>
+      + ITERATIONS + &quot; times : &quot; + timeString100 + &quot; ms (&quot; + ( 1000 * ITERATIONS / timeString100 ) + &quot; r/s)&quot; );
+<span class="nc" id="L200">    long timeMixed100 = speedTest.runTestMixed100( ITERATIONS );</span>
+<span class="nc" id="L201">    System.out.println( &quot;Time to run 'Mixed100' test &quot;</span>
+      + ITERATIONS + &quot; times : &quot; + timeMixed100 + &quot; ms (&quot; + ( 1000 * ITERATIONS / timeMixed100 ) + &quot; r/s)&quot; );
+<span class="nc" id="L203">    System.out.println();</span>
+
+<span class="nc" id="L205">    long timeString1000 = speedTest.runTestStrings1000( ITERATIONS );</span>
+<span class="nc" id="L206">    System.out.println( &quot;Time to run 'String1000' test &quot;</span>
+      + ITERATIONS + &quot; times : &quot; + timeString1000 + &quot; ms (&quot; + ( 1000 * ITERATIONS / timeString1000 ) + &quot; r/s)&quot; );
+<span class="nc" id="L208">    long timeMixed1000 = speedTest.runTestMixed1000( ITERATIONS );</span>
+<span class="nc" id="L209">    System.out.println( &quot;Time to run 'Mixed1000' test &quot;</span>
+      + ITERATIONS + &quot; times : &quot; + timeMixed1000 + &quot; ms (&quot; + ( 1000 * ITERATIONS / timeMixed1000 ) + &quot; r/s)&quot; );
+<span class="nc" id="L211">    System.out.println();</span>
+<span class="nc" id="L212">  }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

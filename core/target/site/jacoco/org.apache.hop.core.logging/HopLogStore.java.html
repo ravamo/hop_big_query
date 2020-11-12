@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HopLogStore.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.logging</a> &gt; <span class="el_source">HopLogStore.java</span></div><h1>HopLogStore.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.logging;
+
+import org.apache.hop.core.Const;
+import org.apache.hop.core.util.EnvUtil;
+
+import java.io.PrintStream;
+import java.util.Date;
+import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+public class HopLogStore {
+
+<span class="fc" id="L37">  public static PrintStream OriginalSystemOut = System.out;</span>
+<span class="fc" id="L38">  public static PrintStream OriginalSystemErr = System.err;</span>
+
+  private static HopLogStore store;
+
+  private LoggingBuffer appender;
+
+  private Timer logCleanerTimer;
+
+<span class="fc" id="L46">  private static AtomicBoolean initialized = new AtomicBoolean( false );</span>
+
+<span class="fc" id="L48">  private static ILogChannelFactory logChannelFactory = new LogChannelFactory();</span>
+
+  public static ILogChannelFactory getLogChannelFactory() {
+<span class="fc" id="L51">    return logChannelFactory;</span>
+  }
+
+  public static void setLogChannelFactory( ILogChannelFactory logChannelFactory ) {
+<span class="fc" id="L55">    HopLogStore.logChannelFactory = logChannelFactory;</span>
+<span class="fc" id="L56">  }</span>
+
+  /**
+   * Create the central log store with optional limitation to the size
+   *
+   * @param maxSize              the maximum size
+   * @param maxLogTimeoutMinutes The maximum time that a log line times out in Minutes.
+   */
+<span class="fc" id="L64">  private HopLogStore( int maxSize, int maxLogTimeoutMinutes, boolean redirectStdOut, boolean redirectStdErr ) {</span>
+<span class="fc" id="L65">    this.appender = new LoggingBuffer( maxSize );</span>
+<span class="fc" id="L66">    replaceLogCleaner( maxLogTimeoutMinutes );</span>
+
+<span class="pc bpc" id="L68" title="1 of 2 branches missed.">    if ( redirectStdOut ) {</span>
+<span class="nc" id="L69">      System.setOut( new LoggingPrintStream( OriginalSystemOut ) );</span>
+    }
+
+<span class="pc bpc" id="L72" title="1 of 2 branches missed.">    if ( redirectStdErr ) {</span>
+<span class="nc" id="L73">      System.setErr( new LoggingPrintStream( OriginalSystemErr ) );</span>
+    }
+<span class="fc" id="L75">  }</span>
+
+  public void replaceLogCleaner( final int maxLogTimeoutMinutes ) {
+<span class="fc bfc" id="L78" title="All 2 branches covered.">    if ( logCleanerTimer != null ) {</span>
+<span class="fc" id="L79">      logCleanerTimer.cancel();</span>
+    }
+<span class="fc" id="L81">    logCleanerTimer = new Timer( true );</span>
+
+<span class="fc" id="L83">    TimerTask timerTask = new TimerTask() {</span>
+      @Override
+      public void run() {
+
+<span class="pc bpc" id="L87" title="1 of 2 branches missed.">        if ( maxLogTimeoutMinutes &gt; 0 ) {</span>
+<span class="fc" id="L88">          long minTimeBoundary = new Date().getTime() - maxLogTimeoutMinutes * 60 * 1000;</span>
+
+          // Remove all the old lines.
+<span class="fc" id="L91">          appender.removeBufferLinesBefore( minTimeBoundary );</span>
+        }
+<span class="fc" id="L93">      }</span>
+    };
+
+    // Clean out the rows every 10 seconds to get a nice steady purge operation...
+    //
+<span class="fc" id="L98">    logCleanerTimer.schedule( timerTask, 10000, 10000 );</span>
+
+<span class="fc" id="L100">  }</span>
+
+  /**
+   * Initialize the central log store with optional limitation to the size and redirect of stdout and stderr
+   *
+   * @param maxSize              the maximum size
+   * @param maxLogTimeoutMinutes the maximum time that a log line times out in hours
+   * @param redirectStdOut       a boolean indicating whether to redirect stdout to the logging framework
+   * @param redirectStdErr       a boolean indicating whether to redirect stderr to the logging framework
+   */
+  public static void init( int maxSize, int maxLogTimeoutMinutes, boolean redirectStdOut, boolean redirectStdErr ) {
+<span class="nc bnc" id="L111" title="All 4 branches missed.">    if ( maxSize &gt; 0 || maxLogTimeoutMinutes &gt; 0 ) {</span>
+<span class="nc" id="L112">      init0( maxSize, maxLogTimeoutMinutes, redirectStdOut, redirectStdErr );</span>
+    } else {
+<span class="nc" id="L114">      init( redirectStdOut, redirectStdErr );</span>
+    }
+<span class="nc" id="L116">  }</span>
+
+  public static void init() {
+<span class="fc" id="L119">    init( EnvUtil.getSystemProperty( Const.HOP_REDIRECT_STDOUT, &quot;N&quot; ).equalsIgnoreCase( &quot;Y&quot; ), EnvUtil</span>
+<span class="fc" id="L120">      .getSystemProperty( Const.HOP_REDIRECT_STDERR, &quot;N&quot; ).equalsIgnoreCase( &quot;Y&quot; ) );</span>
+<span class="fc" id="L121">  }</span>
+
+  /**
+   * Initialize the central log store with arguments specifying whether to redirect of stdout and stderr
+   *
+   * @param redirectStdOut a boolean indicating whether to redirect stdout to the logging framework
+   * @param redirectStdErr a boolean indicating whether to redirect stderr to the logging framework
+   */
+  public static void init( boolean redirectStdOut, boolean redirectStdErr ) {
+<span class="fc" id="L130">    int maxSize = Const.toInt( EnvUtil.getSystemProperty( Const.HOP_MAX_LOG_SIZE_IN_LINES ), Const.MAX_NR_LOG_LINES );</span>
+<span class="fc" id="L131">    int maxLogTimeoutMinutes =</span>
+<span class="fc" id="L132">      Const.toInt( EnvUtil.getSystemProperty( Const.HOP_MAX_LOG_TIMEOUT_IN_MINUTES ), Const.MAX_LOG_LINE_TIMEOUT_MINUTES );</span>
+<span class="fc" id="L133">    init0( maxSize, maxLogTimeoutMinutes, redirectStdOut, redirectStdErr );</span>
+<span class="fc" id="L134">  }</span>
+
+  /**
+   * Initialize the central log store. If it has already been initialized the configuration will be updated.
+   *
+   * @param maxSize              the maximum size of the log buffer
+   * @param maxLogTimeoutMinutes The maximum time that a log line times out in minutes
+   */
+  private static synchronized void init0( int maxSize, int maxLogTimeoutMinutes, boolean redirectStdOut,
+                                          boolean redirectStdErr ) {
+<span class="fc bfc" id="L144" title="All 2 branches covered.">    if ( store != null ) {</span>
+      // CentralLogStore already initialized. Just update the values.
+<span class="fc" id="L146">      store.appender.setMaxNrLines( maxSize );</span>
+<span class="fc" id="L147">      store.replaceLogCleaner( maxLogTimeoutMinutes );</span>
+    } else {
+<span class="fc" id="L149">      store = new HopLogStore( maxSize, maxLogTimeoutMinutes, redirectStdOut, redirectStdErr );</span>
+    }
+<span class="fc" id="L151">    initialized.set( true );</span>
+<span class="fc" id="L152">  }</span>
+
+  public static HopLogStore getInstance() {
+<span class="pc bpc" id="L155" title="1 of 2 branches missed.">    if ( store == null ) {</span>
+<span class="nc" id="L156">      throw new RuntimeException( &quot;Central Log Store is not initialized!!!&quot; );</span>
+    }
+<span class="fc" id="L158">    return store;</span>
+  }
+
+  /**
+   * @return the number (sequence, 1..N) of the last log line. If no records are present in the buffer, 0 is returned.
+   */
+  public static int getLastBufferLineNr() {
+<span class="nc" id="L165">    return getInstance().appender.getLastBufferLineNr();</span>
+  }
+
+  /**
+   * Get all the log lines pertaining to the specified parent log channel id (including all children)
+   *
+   * @param parentLogChannelId the parent log channel ID to grab
+   * @param includeGeneral     include general log lines
+   * @param from
+   * @param to
+   * @return the log lines found
+   */
+  public static List&lt;HopLoggingEvent&gt; getLogBufferFromTo( String parentLogChannelId, boolean includeGeneral,
+                                                          int from, int to ) {
+<span class="nc" id="L179">    return getInstance().appender.getLogBufferFromTo( parentLogChannelId, includeGeneral, from, to );</span>
+  }
+
+  /**
+   * Get all the log lines for the specified parent log channel id (including all children)
+   *
+   * @param channelId      channel IDs to grab
+   * @param includeGeneral include general log lines
+   * @param from
+   * @param to
+   * @return
+   */
+  public static List&lt;HopLoggingEvent&gt; getLogBufferFromTo( List&lt;String&gt; channelId, boolean includeGeneral,
+                                                          int from, int to ) {
+<span class="nc" id="L193">    return getInstance().appender.getLogBufferFromTo( channelId, includeGeneral, from, to );</span>
+  }
+
+  /**
+   * @return The appender that represents the central logging store. It is capable of giving back log rows in an
+   * incremental fashion, etc.
+   */
+  public static LoggingBuffer getAppender() {
+<span class="fc" id="L201">    return getInstance().appender;</span>
+  }
+
+  /**
+   * Discard all the lines for the specified log channel id AND all the children.
+   *
+   * @param parentLogChannelId the parent log channel id to be removed along with all its children.
+   */
+  public static void discardLines( String parentLogChannelId, boolean includeGeneralMessages ) {
+<span class="nc" id="L210">    LoggingRegistry registry = LoggingRegistry.getInstance();</span>
+<span class="nc" id="L211">    MetricsRegistry metricsRegistry = MetricsRegistry.getInstance();</span>
+<span class="nc" id="L212">    List&lt;String&gt; ids = registry.getLogChannelChildren( parentLogChannelId );</span>
+
+    // Remove all the rows for these ids
+    //
+<span class="nc" id="L216">    LoggingBuffer bufferAppender = getInstance().appender;</span>
+    // int beforeSize = bufferAppender.size();
+<span class="nc bnc" id="L218" title="All 2 branches missed.">    for ( String id : ids ) {</span>
+      // Remove it from the central log buffer
+      //
+<span class="nc" id="L221">      bufferAppender.removeChannelFromBuffer( id );</span>
+
+      // Also remove the item from the registry.
+      //
+<span class="nc" id="L225">      registry.getMap().remove( id );</span>
+<span class="nc" id="L226">      metricsRegistry.getSnapshotLists().remove( id );</span>
+<span class="nc" id="L227">      metricsRegistry.getSnapshotMaps().remove( id );</span>
+<span class="nc" id="L228">    }</span>
+
+    // Now discard the general lines if this is required
+    //
+<span class="nc bnc" id="L232" title="All 2 branches missed.">    if ( includeGeneralMessages ) {</span>
+<span class="nc" id="L233">      bufferAppender.removeGeneralMessages();</span>
+    }
+<span class="nc" id="L235">  }</span>
+
+  public static boolean isInitialized() {
+<span class="fc" id="L238">    return initialized.get();</span>
+  }
+
+  public void reset() {
+<span class="pc bpc" id="L242" title="1 of 2 branches missed.">    if ( initialized.compareAndSet( true, false ) ) {</span>
+<span class="fc" id="L243">      appender = null;</span>
+<span class="pc bpc" id="L244" title="1 of 2 branches missed.">      if ( logCleanerTimer != null ) {</span>
+<span class="fc" id="L245">        logCleanerTimer.cancel();</span>
+<span class="fc" id="L246">        logCleanerTimer = null;</span>
+      }
+<span class="fc" id="L248">      store = null;</span>
+    }
+<span class="fc" id="L250">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

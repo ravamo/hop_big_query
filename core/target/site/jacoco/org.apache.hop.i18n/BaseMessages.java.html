@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BaseMessages.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.i18n</a> &gt; <span class="el_source">BaseMessages.java</span></div><h1>BaseMessages.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.i18n;
+
+import org.apache.hop.laf.ILafChangeListener;
+import org.apache.hop.laf.LafFactory;
+
+/**
+ * BaseMessage is called by all Message classes to enable the delegation of message delivery, by key to be delegated to
+ * the appropriately authoritative supplier as registered in the LafFactory enabling both i18n as well as pluggable look
+ * and feel (LAF)
+ *
+ * @author dhushon
+ */
+public class BaseMessages implements ILafChangeListener&lt;IMessageHandler&gt; {
+<span class="fc" id="L36">  static BaseMessages instance = null;</span>
+<span class="fc" id="L37">  protected IMessageHandler handler = null;</span>
+<span class="fc" id="L38">  Class&lt;IMessageHandler&gt; clazz = IMessageHandler.class;</span>
+
+  static {
+<span class="fc" id="L41">    getInstance();</span>
+<span class="fc" id="L42">  }</span>
+
+<span class="fc" id="L44">  private BaseMessages() {</span>
+<span class="fc" id="L45">    init();</span>
+<span class="fc" id="L46">  }</span>
+
+  private void init() {
+    // counting on LafFactory to return a class conforming to @see IMessageHandler
+<span class="fc" id="L50">    handler = LafFactory.getHandler( clazz );</span>
+<span class="fc" id="L51">  }</span>
+
+  public static BaseMessages getInstance() {
+<span class="fc bfc" id="L54" title="All 2 branches covered.">    if ( instance == null ) {</span>
+<span class="fc" id="L55">      instance = new BaseMessages();</span>
+    }
+<span class="fc" id="L57">    return instance;</span>
+  }
+
+  protected IMessageHandler getHandler() {
+<span class="fc" id="L61">    return handler;</span>
+  }
+
+  protected static IMessageHandler getInstanceHandler() {
+<span class="fc" id="L65">    return getInstance().getHandler();</span>
+  }
+
+  public static String getString( String key ) {
+<span class="nc" id="L69">    return getInstanceHandler().getString( key );</span>
+  }
+
+  public static String getString( String packageName, String key ) {
+<span class="nc" id="L73">    return getInstanceHandler().getString( packageName, key, new String[] {} );</span>
+  }
+
+  public static String getString( String packageName, String key, String... parameters ) {
+<span class="nc" id="L77">    return getInstanceHandler().getString( packageName, key, parameters );</span>
+  }
+
+  public static String getString( String packageName, String key, Class&lt;?&gt; resourceClass, String... parameters ) {
+<span class="nc" id="L81">    return getInstanceHandler().getString( packageName, key, resourceClass, parameters );</span>
+  }
+
+  public static String getString( Class&lt;?&gt; packageClass, String key, String... parameters ) {
+<span class="fc" id="L85">    return getInstanceHandler().getString( packageClass.getPackage().getName(), key, packageClass, parameters );</span>
+  }
+
+  public static String getString( Class&lt;?&gt; packageClass, String key, Class&lt;?&gt; resourceClass, String... parameters ) {
+<span class="nc" id="L89">    return getInstanceHandler().getString( packageClass.getPackage().getName(), key, packageClass, parameters );</span>
+  }
+
+  public static String getString( Class&lt;?&gt; packageClass, String key, Object... parameters ) {
+<span class="nc" id="L93">    String[] strings = new String[ parameters.length ];</span>
+<span class="nc bnc" id="L94" title="All 2 branches missed.">    for ( int i = 0; i &lt; strings.length; i++ ) {</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">      strings[ i ] = parameters[ i ] != null ? parameters[ i ].toString() : &quot;&quot;;</span>
+    }
+<span class="nc" id="L97">    return getString( packageClass, key, strings );</span>
+  }
+
+  @Override
+  public void notify( IMessageHandler changedObject ) {
+<span class="nc" id="L102">    handler = changedObject;</span>
+<span class="nc" id="L103">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

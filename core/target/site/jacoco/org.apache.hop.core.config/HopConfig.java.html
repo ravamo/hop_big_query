@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HopConfig.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.config</a> &gt; <span class="el_source">HopConfig.java</span></div><h1>HopConfig.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.config;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.apache.hop.core.Const;
+import org.apache.hop.core.config.plugin.ConfigFile;
+import org.apache.hop.core.util.Utils;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * This class keeps track of storing and retrieving all the configuration options in Hop.
+ * This includes all options of the various plugins in the Hop ecosystem.
+ */
+public class HopConfig extends ConfigFile implements IConfigFile {
+
+  private static final String HOP_GUI_PROPERTIES_KEY = &quot;guiProperties&quot;;
+
+  private String configFilename;
+
+  @JsonIgnore
+  private static HopConfig hopConfig;
+
+<span class="fc" id="L49">  private HopConfig() {</span>
+    try {
+<span class="fc" id="L51">      this.configFilename = Const.HOP_CONFIG_FOLDER + Const.FILE_SEPARATOR + Const.HOP_CONFIG;</span>
+<span class="fc" id="L52">      readFromFile();</span>
+<span class="nc" id="L53">    } catch ( Exception e ) {</span>
+<span class="nc" id="L54">      throw new RuntimeException( &quot;Error reading the hop config file '&quot; + configFilename + &quot;'&quot;, e );</span>
+<span class="fc" id="L55">    }</span>
+<span class="fc" id="L56">  }</span>
+
+  public static HopConfig getInstance() {
+<span class="fc bfc" id="L59" title="All 2 branches covered.">    if ( hopConfig == null ) {</span>
+<span class="fc" id="L60">      hopConfig = new HopConfig();</span>
+    }
+<span class="fc" id="L62">    return hopConfig;</span>
+  }
+
+  public synchronized void saveOption( String optionKey, Object optionValue ) {
+    try {
+<span class="fc" id="L67">      HopConfig hopConfig = getInstance();</span>
+<span class="fc" id="L68">      hopConfig.configMap.put( optionKey, optionValue );</span>
+<span class="fc" id="L69">      saveToFile();</span>
+<span class="nc" id="L70">    } catch ( Exception e ) {</span>
+<span class="nc" id="L71">      throw new RuntimeException( &quot;Error saving configuration option '&quot; + optionKey + &quot;'&quot;, e );</span>
+<span class="fc" id="L72">    }</span>
+<span class="fc" id="L73">  }</span>
+
+  public synchronized static void saveOptions( Map&lt;String, Object&gt; extraOptions ) {
+    try {
+<span class="nc" id="L77">      HopConfig hopConfig = getInstance();</span>
+<span class="nc" id="L78">      hopConfig.configMap.putAll( extraOptions );</span>
+<span class="nc" id="L79">      hopConfig.saveToFile();</span>
+<span class="nc" id="L80">    } catch ( Exception e ) {</span>
+<span class="nc" id="L81">      throw new RuntimeException( &quot;Error saving configuration options&quot;, e );</span>
+<span class="nc" id="L82">    }</span>
+<span class="nc" id="L83">  }</span>
+
+  public static Object readOption( String optionKey ) {
+    try {
+<span class="fc" id="L87">      HopConfig hopConfig = getInstance();</span>
+<span class="fc" id="L88">      return hopConfig.configMap.get( optionKey );</span>
+<span class="nc" id="L89">    } catch ( Exception e ) {</span>
+<span class="nc" id="L90">      throw new RuntimeException( &quot;Error reading option '&quot; + optionKey + &quot;'&quot;, e );</span>
+    }
+  }
+
+  public static String readOptionString( String optionKey, String defaultValue ) {
+    try {
+<span class="fc" id="L96">      Object value = readOption( optionKey );</span>
+<span class="pc bpc" id="L97" title="1 of 2 branches missed.">      if ( value == null ) {</span>
+<span class="fc" id="L98">        return defaultValue;</span>
+      }
+<span class="nc bnc" id="L100" title="All 2 branches missed.">      if ( Utils.isEmpty( value.toString() ) ) {</span>
+<span class="nc" id="L101">        return defaultValue;</span>
+      }
+<span class="nc" id="L103">      return value.toString();</span>
+<span class="nc" id="L104">    } catch ( Exception e ) {</span>
+<span class="nc" id="L105">      throw new RuntimeException( &quot;Error reading option '&quot; + optionKey + &quot;'&quot;, e );</span>
+    }
+  }
+
+  public static int readOptionInteger( String optionKey, int defaultValue ) {
+<span class="nc" id="L110">    Object value = readOption( optionKey );</span>
+<span class="nc bnc" id="L111" title="All 2 branches missed.">    if ( value == null ) {</span>
+<span class="nc" id="L112">      return defaultValue;</span>
+    }
+<span class="nc bnc" id="L114" title="All 2 branches missed.">    if ( Utils.isEmpty( value.toString() ) ) {</span>
+<span class="nc" id="L115">      return defaultValue;</span>
+    }
+<span class="nc" id="L117">    return Integer.valueOf( value.toString() ).intValue();</span>
+  }
+
+  public static boolean readOptionBoolean( String optionKey, boolean defaultValue ) {
+<span class="nc" id="L121">    Object value = readOption( optionKey );</span>
+<span class="nc bnc" id="L122" title="All 2 branches missed.">    if ( value == null ) {</span>
+<span class="nc" id="L123">      return defaultValue;</span>
+    }
+<span class="nc bnc" id="L125" title="All 2 branches missed.">    if ( Utils.isEmpty( value.toString() ) ) {</span>
+<span class="nc" id="L126">      return defaultValue;</span>
+    }
+<span class="nc bnc" id="L128" title="All 2 branches missed.">    if ( value instanceof Boolean ) {</span>
+<span class="nc" id="L129">      return (Boolean) value;</span>
+    }
+<span class="nc bnc" id="L131" title="All 2 branches missed.">    if ( value instanceof Integer ) {</span>
+<span class="nc bnc" id="L132" title="All 2 branches missed.">      return ( (Integer) value ) != 0;</span>
+    }
+<span class="nc" id="L134">    String str = value.toString();</span>
+<span class="nc bnc" id="L135" title="All 4 branches missed.">    return &quot;true&quot;.equalsIgnoreCase( str ) || &quot;y&quot;.equalsIgnoreCase( str );</span>
+  }
+
+  public static List&lt;String&gt; getSortedKeys() {
+    try {
+<span class="nc" id="L140">      List&lt;String&gt; keys = new ArrayList&lt;&gt;( getInstance().configMap.keySet() );</span>
+<span class="nc" id="L141">      Collections.sort( keys );</span>
+<span class="nc" id="L142">      return keys;</span>
+<span class="nc" id="L143">    } catch ( Exception e ) {</span>
+<span class="nc" id="L144">      throw new RuntimeException( &quot;Error getting a list of sorted configuration keys&quot;, e );</span>
+    }
+  }
+
+  public static Map&lt;String, String&gt; readGuiProperties() {
+    try {
+<span class="nc" id="L150">      Object propertiesObject = getInstance().configMap.get( HOP_GUI_PROPERTIES_KEY );</span>
+<span class="nc bnc" id="L151" title="All 2 branches missed.">      if ( propertiesObject == null ) {</span>
+<span class="nc" id="L152">        Map&lt;String, String&gt; map = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L153">        getInstance().configMap.put( HOP_GUI_PROPERTIES_KEY, map );</span>
+<span class="nc" id="L154">        return map;</span>
+      } else {
+<span class="nc" id="L156">        return (Map&lt;String, String&gt;) propertiesObject;</span>
+      }
+<span class="nc" id="L158">    } catch ( Exception e ) {</span>
+<span class="nc" id="L159">      throw new RuntimeException( &quot;Error getting GUI properties from the Hop configuration&quot; );</span>
+    }
+  }
+
+  public static void setGuiProperty( String key, String value ) {
+<span class="nc" id="L164">    readGuiProperties().put( key, value );</span>
+<span class="nc" id="L165">  }</span>
+
+  public static String getGuiProperty(String key) {
+<span class="nc" id="L168">    return readGuiProperties().get(key);</span>
+  }
+
+  public static void setGuiProperties( Map&lt;String, String&gt; map ) {
+<span class="nc" id="L172">    readGuiProperties().putAll( map );</span>
+<span class="nc" id="L173">  }</span>
+
+  /**
+   * Gets configFilename
+   *
+   * @return value of configFilename
+   */
+  @Override public String getConfigFilename() {
+<span class="fc" id="L181">    return configFilename;</span>
+  }
+
+  /**
+   * @param configFilename The configFilename to set
+   */
+  public void setConfigFilename( String configFilename ) {
+<span class="nc" id="L188">    this.configFilename = configFilename;</span>
+<span class="nc" id="L189">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

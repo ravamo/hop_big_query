@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NonAccessibleFileObject.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.fileinput</a> &gt; <span class="el_source">NonAccessibleFileObject.java</span></div><h1>NonAccessibleFileObject.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.fileinput;
+
+import org.apache.commons.lang.NotImplementedException;
+import org.apache.commons.vfs2.FileContent;
+import org.apache.commons.vfs2.FileName;
+import org.apache.commons.vfs2.FileObject;
+import org.apache.commons.vfs2.FileSelector;
+import org.apache.commons.vfs2.FileSystem;
+import org.apache.commons.vfs2.FileSystemException;
+import org.apache.commons.vfs2.FileType;
+import org.apache.commons.vfs2.NameScope;
+import org.apache.commons.vfs2.operations.FileOperations;
+
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.Iterator;
+import java.util.List;
+
+public class NonAccessibleFileObject implements FileObject {
+  private final String fullyQualifiedName;
+
+<span class="nc" id="L44">  public NonAccessibleFileObject( String fullyQualifiedName ) {</span>
+<span class="nc" id="L45">    this.fullyQualifiedName = fullyQualifiedName;</span>
+<span class="nc" id="L46">  }</span>
+
+  @Override
+  public boolean canRenameTo( FileObject arg0 ) {
+<span class="nc" id="L50">    return false;</span>
+  }
+
+  @Override
+  public void close() throws FileSystemException {
+
+<span class="nc" id="L56">  }</span>
+
+  @Override
+  public void copyFrom( FileObject arg0, FileSelector arg1 ) throws FileSystemException {
+<span class="nc" id="L60">    throw new NotImplementedException();</span>
+  }
+
+  @Override
+  public void createFile() throws FileSystemException {
+<span class="nc" id="L65">    throw new NotImplementedException();</span>
+  }
+
+  @Override
+  public void createFolder() throws FileSystemException {
+<span class="nc" id="L70">    throw new NotImplementedException();</span>
+  }
+
+  @Override
+  public boolean delete() throws FileSystemException {
+<span class="nc" id="L75">    return false;</span>
+  }
+
+  @Override
+  public int delete( FileSelector arg0 ) throws FileSystemException {
+<span class="nc" id="L80">    return 0;</span>
+  }
+
+  @Override public int deleteAll() throws FileSystemException {
+<span class="nc" id="L84">    return 0;</span>
+  }
+
+  @Override
+  public boolean exists() throws FileSystemException {
+<span class="nc" id="L89">    return false;</span>
+  }
+
+  @Override
+  public FileObject[] findFiles( FileSelector arg0 ) throws FileSystemException {
+<span class="nc" id="L94">    throw new NotImplementedException();</span>
+  }
+
+  @Override
+  public void findFiles( FileSelector arg0, boolean arg1, @SuppressWarnings( &quot;rawtypes&quot; ) List arg2 ) throws FileSystemException {
+<span class="nc" id="L99">    throw new NotImplementedException();</span>
+  }
+
+  @Override
+  public FileObject getChild( String arg0 ) throws FileSystemException {
+<span class="nc" id="L104">    throw new NotImplementedException();</span>
+  }
+
+  @Override
+  public FileObject[] getChildren() throws FileSystemException {
+<span class="nc" id="L109">    throw new NotImplementedException();</span>
+  }
+
+  @Override
+  public FileContent getContent() throws FileSystemException {
+<span class="nc" id="L114">    throw new NotImplementedException();</span>
+  }
+
+  @Override
+  public FileOperations getFileOperations() throws FileSystemException {
+<span class="nc" id="L119">    throw new NotImplementedException();</span>
+  }
+
+  @Override
+  public FileSystem getFileSystem() {
+<span class="nc" id="L124">    throw new NotImplementedException();</span>
+  }
+
+  @Override
+  public FileName getName() {
+<span class="nc" id="L129">    throw new NotImplementedException();</span>
+  }
+
+  @Override
+  public FileObject getParent() throws FileSystemException {
+<span class="nc" id="L134">    throw new NotImplementedException();</span>
+  }
+
+  @Override public String getPublicURIString() {
+<span class="nc" id="L138">    throw new NotImplementedException();</span>
+  }
+
+  @Override
+  public FileType getType() throws FileSystemException {
+<span class="nc" id="L143">    throw new NotImplementedException();</span>
+  }
+
+  @Override
+  public URL getURL() throws FileSystemException {
+    try {
+<span class="nc" id="L149">      return new URL( fullyQualifiedName );</span>
+<span class="nc" id="L150">    } catch ( MalformedURLException e ) {</span>
+<span class="nc" id="L151">      throw new FileSystemException( e );</span>
+    }
+  }
+
+  @Override
+  public boolean isAttached() {
+<span class="nc" id="L157">    return false;</span>
+  }
+
+  @Override
+  public boolean isContentOpen() {
+<span class="nc" id="L162">    return false;</span>
+  }
+
+  @Override public boolean isExecutable() throws FileSystemException {
+<span class="nc" id="L166">    throw new NotImplementedException();</span>
+  }
+
+  @Override public boolean isFile() throws FileSystemException {
+<span class="nc" id="L170">    throw new NotImplementedException();</span>
+  }
+
+  @Override public boolean isFolder() throws FileSystemException {
+<span class="nc" id="L174">    throw new NotImplementedException();</span>
+  }
+
+  @Override
+  public boolean isHidden() throws FileSystemException {
+<span class="nc" id="L179">    return false;</span>
+  }
+
+  @Override
+  public boolean isReadable() throws FileSystemException {
+<span class="nc" id="L184">    return false;</span>
+  }
+
+  @Override
+  public boolean isWriteable() throws FileSystemException {
+<span class="nc" id="L189">    return false;</span>
+  }
+
+  @Override
+  public void moveTo( FileObject arg0 ) throws FileSystemException {
+<span class="nc" id="L194">    throw new NotImplementedException();</span>
+  }
+
+  @Override
+  public void refresh() throws FileSystemException {
+
+<span class="nc" id="L200">  }</span>
+
+  @Override
+  public FileObject resolveFile( String arg0 ) throws FileSystemException {
+<span class="nc" id="L204">    throw new NotImplementedException();</span>
+  }
+
+  @Override
+  public FileObject resolveFile( String arg0, NameScope arg1 ) throws FileSystemException {
+<span class="nc" id="L209">    throw new NotImplementedException();</span>
+  }
+
+  @Override public boolean setExecutable( boolean b, boolean b1 ) throws FileSystemException {
+<span class="nc" id="L213">    throw new NotImplementedException();</span>
+  }
+
+  @Override public boolean setReadable( boolean b, boolean b1 ) throws FileSystemException {
+<span class="nc" id="L217">    throw new NotImplementedException();</span>
+  }
+
+  @Override public boolean setWritable( boolean b, boolean b1 ) throws FileSystemException {
+<span class="nc" id="L221">    throw new NotImplementedException();</span>
+  }
+
+  @Override public int compareTo( FileObject o ) {
+<span class="nc" id="L225">    throw new NotImplementedException();</span>
+  }
+
+  @Override public Iterator&lt;FileObject&gt; iterator() {
+<span class="nc" id="L229">    throw new NotImplementedException();</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

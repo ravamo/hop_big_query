@@ -1,0 +1,859 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Condition.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core</a> &gt; <span class="el_source">Condition.java</span></div><h1>Condition.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core;
+
+import org.apache.hop.core.exception.HopValueException;
+import org.apache.hop.core.exception.HopXmlException;
+import org.apache.hop.core.row.IRowMeta;
+import org.apache.hop.core.row.IValueMeta;
+import org.apache.hop.core.row.ValueMetaAndData;
+import org.apache.hop.core.util.Utils;
+import org.apache.hop.core.xml.IXml;
+import org.apache.hop.core.xml.XmlHandler;
+import org.w3c.dom.Node;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Enumeration;
+import java.util.Hashtable;
+import java.util.List;
+import java.util.regex.Pattern;
+
+/**
+ * This class describes a condition in a general meaning.
+ * &lt;p&gt;
+ * A condition can either be
+ * &lt;p&gt;
+ * &lt;p&gt;
+ * 1) Atomic (a=10, B='aa')
+ * &lt;p&gt;
+ * 2) Composite ( NOT Condition1 AND Condition2 OR Condition3 )
+ * &lt;p&gt;
+ * &lt;p&gt;
+ * If the nr of atomic conditions is 0, the condition is atomic, otherwise it's Composit.
+ * &lt;p&gt;
+ * Precedence doesn't exist. Conditions are evaluated in the order in which they are found.
+ * &lt;p&gt;
+ * A condition can be negated or not.
+ * &lt;p&gt;
+ * &lt;p&gt;
+ *
+ * @author Matt
+ * @since 8-06-2004
+ */
+
+public class Condition implements Cloneable, IXml {
+  public static final String XML_TAG = &quot;condition&quot;;
+
+<span class="fc" id="L68">  public static final String[] operators = new String[] { &quot;-&quot;, &quot;OR&quot;, &quot;AND&quot;, &quot;NOT&quot;, &quot;OR NOT&quot;, &quot;AND NOT&quot;, &quot;XOR&quot; };</span>
+  public static final int OPERATOR_NONE = 0;
+  public static final int OPERATOR_OR = 1;
+  public static final int OPERATOR_AND = 2;
+  public static final int OPERATOR_NOT = 3;
+  public static final int OPERATOR_OR_NOT = 4;
+  public static final int OPERATOR_AND_NOT = 5;
+  public static final int OPERATOR_XOR = 6;
+
+<span class="fc" id="L77">  public static final String[] functions = new String[] {</span>
+    &quot;=&quot;, &quot;&lt;&gt;&quot;, &quot;&lt;&quot;, &quot;&lt;=&quot;, &quot;&gt;&quot;, &quot;&gt;=&quot;, &quot;REGEXP&quot;, &quot;IS NULL&quot;, &quot;IS NOT NULL&quot;, &quot;IN LIST&quot;, &quot;CONTAINS&quot;, &quot;STARTS WITH&quot;,
+    &quot;ENDS WITH&quot;, &quot;LIKE&quot;, &quot;TRUE&quot; };
+
+  public static final int FUNC_EQUAL = 0;
+  public static final int FUNC_NOT_EQUAL = 1;
+  public static final int FUNC_SMALLER = 2;
+  public static final int FUNC_SMALLER_EQUAL = 3;
+  public static final int FUNC_LARGER = 4;
+  public static final int FUNC_LARGER_EQUAL = 5;
+  public static final int FUNC_REGEXP = 6;
+  public static final int FUNC_NULL = 7;
+  public static final int FUNC_NOT_NULL = 8;
+  public static final int FUNC_IN_LIST = 9;
+  public static final int FUNC_CONTAINS = 10;
+  public static final int FUNC_STARTS_WITH = 11;
+  public static final int FUNC_ENDS_WITH = 12;
+  public static final int FUNC_LIKE = 13;
+  public static final int FUNC_TRUE = 14;
+
+  //
+  // These parameters allow for:
+  // value = othervalue
+  // value = 'A'
+  // NOT value = othervalue
+  //
+
+  private boolean negate;
+  private int operator;
+  private String left_valuename;
+  private int function;
+  private String right_valuename;
+  private ValueMetaAndData right_exact;
+
+  private int left_fieldnr;
+  private int right_fieldnr;
+
+  private List&lt;Condition&gt; list;
+
+  private String right_string;
+
+  /**
+   * Temporary variable, no need to persist this one. Contains the sorted array of strings in an IN LIST condition
+   */
+  private String[] inList;
+
+<span class="fc" id="L123">  public Condition() {</span>
+<span class="fc" id="L124">    list = new ArrayList&lt;Condition&gt;();</span>
+<span class="fc" id="L125">    this.operator = OPERATOR_NONE;</span>
+<span class="fc" id="L126">    this.negate = false;</span>
+
+<span class="fc" id="L128">    left_fieldnr = -2;</span>
+<span class="fc" id="L129">    right_fieldnr = -2;</span>
+<span class="fc" id="L130">  }</span>
+
+  public Condition( String valuename, int function, String valuename2, ValueMetaAndData exact ) {
+<span class="fc" id="L133">    this();</span>
+<span class="fc" id="L134">    this.left_valuename = valuename;</span>
+<span class="fc" id="L135">    this.function = function;</span>
+<span class="fc" id="L136">    this.right_valuename = valuename2;</span>
+<span class="fc" id="L137">    this.right_exact = exact;</span>
+
+<span class="fc" id="L139">    clearFieldPositions();</span>
+<span class="fc" id="L140">  }</span>
+
+  public Condition( int operator, String valuename, int function, String valuename2, ValueMetaAndData exact ) {
+<span class="nc" id="L143">    this();</span>
+<span class="nc" id="L144">    this.operator = operator;</span>
+<span class="nc" id="L145">    this.left_valuename = valuename;</span>
+<span class="nc" id="L146">    this.function = function;</span>
+<span class="nc" id="L147">    this.right_valuename = valuename2;</span>
+<span class="nc" id="L148">    this.right_exact = exact;</span>
+
+<span class="nc" id="L150">    clearFieldPositions();</span>
+<span class="nc" id="L151">  }</span>
+
+  public Condition( boolean negate, String valuename, int function, String valuename2, ValueMetaAndData exact ) {
+<span class="fc" id="L154">    this( valuename, function, valuename2, exact );</span>
+<span class="fc" id="L155">    this.negate = negate;</span>
+<span class="fc" id="L156">  }</span>
+
+  @Override
+  public Object clone() {
+<span class="nc" id="L160">    Condition retval = null;</span>
+
+<span class="nc" id="L162">    retval = new Condition();</span>
+<span class="nc" id="L163">    retval.negate = negate;</span>
+<span class="nc" id="L164">    retval.operator = operator;</span>
+
+<span class="nc bnc" id="L166" title="All 2 branches missed.">    if ( isComposite() ) {</span>
+<span class="nc bnc" id="L167" title="All 2 branches missed.">      for ( int i = 0; i &lt; nrConditions(); i++ ) {</span>
+<span class="nc" id="L168">        Condition c = getCondition( i );</span>
+<span class="nc" id="L169">        Condition cCopy = (Condition) c.clone();</span>
+<span class="nc" id="L170">        retval.addCondition( cCopy );</span>
+      }
+    } else {
+<span class="nc" id="L173">      retval.negate = negate;</span>
+<span class="nc" id="L174">      retval.left_valuename = left_valuename;</span>
+<span class="nc" id="L175">      retval.operator = operator;</span>
+<span class="nc" id="L176">      retval.right_valuename = right_valuename;</span>
+<span class="nc" id="L177">      retval.function = function;</span>
+<span class="nc bnc" id="L178" title="All 2 branches missed.">      if ( right_exact != null ) {</span>
+<span class="nc" id="L179">        retval.right_exact = (ValueMetaAndData) right_exact.clone();</span>
+      } else {
+<span class="nc" id="L181">        retval.right_exact = null;</span>
+      }
+    }
+
+<span class="nc" id="L185">    return retval;</span>
+  }
+
+  public void setOperator( int operator ) {
+<span class="nc" id="L189">    this.operator = operator;</span>
+<span class="nc" id="L190">  }</span>
+
+  public int getOperator() {
+<span class="nc" id="L193">    return operator;</span>
+  }
+
+  public String getOperatorDesc() {
+<span class="nc" id="L197">    return Const.rightPad( operators[ operator ], 7 );</span>
+  }
+
+  public static final int getOperator( String description ) {
+<span class="nc bnc" id="L201" title="All 2 branches missed.">    if ( description == null ) {</span>
+<span class="nc" id="L202">      return OPERATOR_NONE;</span>
+    }
+
+<span class="nc bnc" id="L205" title="All 2 branches missed.">    for ( int i = 1; i &lt; operators.length; i++ ) {</span>
+<span class="nc bnc" id="L206" title="All 2 branches missed.">      if ( operators[ i ].equalsIgnoreCase( Const.trim( description ) ) ) {</span>
+<span class="nc" id="L207">        return i;</span>
+      }
+    }
+<span class="nc" id="L210">    return OPERATOR_NONE;</span>
+  }
+
+  public static final String[] getOperators() {
+<span class="nc" id="L214">    String[] retval = new String[ operators.length - 1 ];</span>
+<span class="nc bnc" id="L215" title="All 2 branches missed.">    for ( int i = 1; i &lt; operators.length; i++ ) {</span>
+<span class="nc" id="L216">      retval[ i - 1 ] = operators[ i ];</span>
+    }
+<span class="nc" id="L218">    return retval;</span>
+  }
+
+  public static final String[] getRealOperators() {
+<span class="nc" id="L222">    return new String[] { &quot;OR&quot;, &quot;AND&quot;, &quot;OR NOT&quot;, &quot;AND NOT&quot;, &quot;XOR&quot; };</span>
+  }
+
+  public void setLeftValuename( String left_valuename ) {
+<span class="nc" id="L226">    this.left_valuename = left_valuename;</span>
+<span class="nc" id="L227">  }</span>
+
+  public String getLeftValuename() {
+<span class="nc" id="L230">    return left_valuename;</span>
+  }
+
+  public int getFunction() {
+<span class="nc" id="L234">    return function;</span>
+  }
+
+  public void setFunction( int function ) {
+<span class="nc" id="L238">    this.function = function;</span>
+<span class="nc" id="L239">  }</span>
+
+  public String getFunctionDesc() {
+<span class="nc" id="L242">    return functions[ function ];</span>
+  }
+
+  public static final int getFunction( String description ) {
+<span class="nc bnc" id="L246" title="All 2 branches missed.">    for ( int i = 1; i &lt; functions.length; i++ ) {</span>
+<span class="nc bnc" id="L247" title="All 2 branches missed.">      if ( functions[ i ].equalsIgnoreCase( Const.trim( description ) ) ) {</span>
+<span class="nc" id="L248">        return i;</span>
+      }
+    }
+<span class="nc" id="L251">    return FUNC_EQUAL;</span>
+  }
+
+  public void setRightValuename( String right_valuename ) {
+<span class="nc" id="L255">    this.right_valuename = right_valuename;</span>
+<span class="nc" id="L256">  }</span>
+
+  public String getRightValuename() {
+<span class="nc" id="L259">    return right_valuename;</span>
+  }
+
+  public void setRightExact( ValueMetaAndData right_exact ) {
+<span class="nc" id="L263">    this.right_exact = right_exact;</span>
+<span class="nc" id="L264">  }</span>
+
+  public ValueMetaAndData getRightExact() {
+<span class="nc" id="L267">    return right_exact;</span>
+  }
+
+  public String getRightExactString() {
+<span class="nc bnc" id="L271" title="All 2 branches missed.">    if ( right_exact == null ) {</span>
+<span class="nc" id="L272">      return null;</span>
+    }
+<span class="nc" id="L274">    return right_exact.toString();</span>
+  }
+
+  public boolean isAtomic() {
+<span class="pc bpc" id="L278" title="1 of 2 branches missed.">    return list.size() == 0;</span>
+  }
+
+  public boolean isComposite() {
+<span class="nc bnc" id="L282" title="All 2 branches missed.">    return list.size() != 0;</span>
+  }
+
+  public boolean isNegated() {
+<span class="fc" id="L286">    return negate;</span>
+  }
+
+  public void setNegated( boolean negate ) {
+<span class="nc" id="L290">    this.negate = negate;</span>
+<span class="nc" id="L291">  }</span>
+
+  public void negate() {
+<span class="nc bnc" id="L294" title="All 2 branches missed.">    setNegated( !isNegated() );</span>
+<span class="nc" id="L295">  }</span>
+
+  /**
+   * A condition is empty when the condition is atomic and no left field is specified.
+   */
+  public boolean isEmpty() {
+<span class="nc bnc" id="L301" title="All 4 branches missed.">    return ( isAtomic() &amp;&amp; left_valuename == null );</span>
+  }
+
+  /**
+   * We cache the position of a value in a row. If ever we want to change the rowtype, we need to clear these cached
+   * field positions...
+   */
+  public void clearFieldPositions() {
+<span class="fc" id="L309">    left_fieldnr = -2;</span>
+<span class="fc" id="L310">    right_fieldnr = -2;</span>
+<span class="fc" id="L311">  }</span>
+
+  /**
+   * Evaluate the condition...
+   *
+   * @param rowMeta the row metadata
+   * @param r       the row data
+   * @return true if the condition evaluates to true.
+   **/
+  public boolean evaluate( IRowMeta rowMeta, Object[] r ) {
+    // Start of evaluate
+<span class="fc" id="L322">    boolean retval = false;</span>
+
+    // If we have 0 items in the list, evaluate the current condition
+    // Otherwise, evaluate all sub-conditions
+    //
+    try {
+<span class="pc bpc" id="L328" title="1 of 2 branches missed.">      if ( isAtomic() ) {</span>
+
+<span class="fc bfc" id="L330" title="All 2 branches covered.">        if ( function == FUNC_TRUE ) {</span>
+<span class="pc bpc" id="L331" title="1 of 2 branches missed.">          return !negate;</span>
+        }
+
+        // Get fieldnrs left value
+        //
+        // Check out the fieldnrs if we don't have them...
+<span class="pc bpc" id="L337" title="2 of 4 branches missed.">        if ( left_valuename != null &amp;&amp; left_valuename.length() &gt; 0 ) {</span>
+<span class="fc" id="L338">          left_fieldnr = rowMeta.indexOfValue( left_valuename );</span>
+        }
+
+        // Get fieldnrs right value
+        //
+<span class="pc bpc" id="L343" title="1 of 4 branches missed.">        if ( right_valuename != null &amp;&amp; right_valuename.length() &gt; 0 ) {</span>
+<span class="fc" id="L344">          right_fieldnr = rowMeta.indexOfValue( right_valuename );</span>
+        }
+
+        // Get fieldnrs left field
+<span class="fc" id="L348">        IValueMeta fieldMeta = null;</span>
+<span class="fc" id="L349">        Object field = null;</span>
+<span class="pc bpc" id="L350" title="1 of 2 branches missed.">        if ( left_fieldnr &gt;= 0 ) {</span>
+<span class="fc" id="L351">          fieldMeta = rowMeta.getValueMeta( left_fieldnr );</span>
+<span class="fc" id="L352">          field = r[ left_fieldnr ];</span>
+          // JIRA PDI-38
+          // if (field==null)
+          // {
+          // throw new
+          // HopException(&quot;Unable to find field [&quot;+left_valuename+&quot;] in the input row!&quot;);
+          // }
+        } else {
+<span class="nc" id="L360">          return false; // no fields to evaluate</span>
+        }
+
+        // Get fieldnrs right exact
+<span class="fc bfc" id="L364" title="All 2 branches covered.">        IValueMeta fieldMeta2 = right_exact != null ? right_exact.getValueMeta() : null;</span>
+<span class="fc bfc" id="L365" title="All 2 branches covered.">        Object field2 = right_exact != null ? right_exact.getValueData() : null;</span>
+<span class="pc bpc" id="L366" title="1 of 4 branches missed.">        if ( field2 == null &amp;&amp; right_fieldnr &gt;= 0 ) {</span>
+<span class="fc" id="L367">          fieldMeta2 = rowMeta.getValueMeta( right_fieldnr );</span>
+<span class="fc" id="L368">          field2 = r[ right_fieldnr ];</span>
+          // JIRA PDI-38
+          // if (field2==null)
+          // {
+          // throw new
+          // HopException(&quot;Unable to find field [&quot;+right_valuename+&quot;] in the input row!&quot;);
+          // }
+        }
+
+        // if (field==null)
+        // {
+        // throw new
+        // HopException(&quot;Unable to find value for field [&quot;+left_valuename+&quot;] in the input row!&quot;);
+        // }
+
+        // This condition goes too as field2 can indeed be null, just not
+        // fieldMeta2
+        // if (field2==null &amp;&amp; function!=FUNC_NULL &amp;&amp; function!=FUNC_NOT_NULL)
+        // {
+        // throw new
+        // HopException(&quot;Unable to find value for field [&quot;+right_valuename+&quot;] in the input row!&quot;);
+        // }
+
+        // Evaluate
+<span class="pc bpc" id="L392" title="12 of 15 branches missed.">        switch ( function ) {</span>
+          case FUNC_EQUAL:
+<span class="pc bpc" id="L394" title="1 of 2 branches missed.">            retval = ( fieldMeta.compare( field, fieldMeta2, field2 ) == 0 );</span>
+<span class="fc" id="L395">            break;</span>
+          case FUNC_NOT_EQUAL:
+<span class="nc bnc" id="L397" title="All 2 branches missed.">            retval = ( fieldMeta.compare( field, fieldMeta2, field2 ) != 0 );</span>
+<span class="nc" id="L398">            break;</span>
+          case FUNC_SMALLER:
+<span class="pc bpc" id="L400" title="1 of 2 branches missed.">            if ( fieldMeta.isNull( field ) ) {</span>
+              // BACKLOG-18831
+<span class="fc" id="L402">              retval = false;</span>
+            } else {
+<span class="nc bnc" id="L404" title="All 2 branches missed.">              retval = ( fieldMeta.compare( field, fieldMeta2, field2 ) &lt; 0 );</span>
+            }
+<span class="nc" id="L406">            break;</span>
+          case FUNC_SMALLER_EQUAL:
+<span class="pc bpc" id="L408" title="1 of 2 branches missed.">            if ( fieldMeta.isNull( field ) ) {</span>
+<span class="fc" id="L409">              retval = false;</span>
+            } else {
+<span class="nc bnc" id="L411" title="All 2 branches missed.">              retval = ( fieldMeta.compare( field, fieldMeta2, field2 ) &lt;= 0 );</span>
+            }
+<span class="nc" id="L413">            break;</span>
+          case FUNC_LARGER:
+<span class="nc bnc" id="L415" title="All 2 branches missed.">            retval = ( fieldMeta.compare( field, fieldMeta2, field2 ) &gt; 0 );</span>
+<span class="nc" id="L416">            break;</span>
+          case FUNC_LARGER_EQUAL:
+<span class="nc bnc" id="L418" title="All 2 branches missed.">            retval = ( fieldMeta.compare( field, fieldMeta2, field2 ) &gt;= 0 );</span>
+<span class="nc" id="L419">            break;</span>
+          case FUNC_REGEXP:
+<span class="nc bnc" id="L421" title="All 4 branches missed.">            if ( fieldMeta.isNull( field ) || field2 == null ) {</span>
+<span class="nc" id="L422">              retval = false;</span>
+            } else {
+<span class="nc" id="L424">              retval =</span>
+                Pattern
+<span class="nc" id="L426">                  .matches( fieldMeta2.getCompatibleString( field2 ), fieldMeta.getCompatibleString( field ) );</span>
+            }
+<span class="nc" id="L428">            break;</span>
+          case FUNC_NULL:
+<span class="nc" id="L430">            retval = ( fieldMeta.isNull( field ) );</span>
+<span class="nc" id="L431">            break;</span>
+          case FUNC_NOT_NULL:
+<span class="nc bnc" id="L433" title="All 2 branches missed.">            retval = ( !fieldMeta.isNull( field ) );</span>
+<span class="nc" id="L434">            break;</span>
+          case FUNC_IN_LIST:
+            // performance reason: create the array first or again when it is against a field and not a constant
+            //
+<span class="nc bnc" id="L438" title="All 4 branches missed.">            if ( inList == null || right_fieldnr &gt;= 0 ) {</span>
+<span class="nc" id="L439">              inList = Const.splitString( fieldMeta2.getString( field2 ), ';', true );</span>
+<span class="nc bnc" id="L440" title="All 2 branches missed.">              for ( int i = 0; i &lt; inList.length; i++ ) {</span>
+<span class="nc bnc" id="L441" title="All 2 branches missed.">                inList[ i ] = inList[ i ] == null ? null : inList[ i ].replace( &quot;\\&quot;, &quot;&quot; );</span>
+              }
+<span class="nc" id="L443">              Arrays.sort( inList );</span>
+            }
+<span class="nc" id="L445">            String searchString = fieldMeta.getCompatibleString( field );</span>
+<span class="nc" id="L446">            int inIndex = -1;</span>
+<span class="nc bnc" id="L447" title="All 2 branches missed.">            if ( searchString != null ) {</span>
+<span class="nc" id="L448">              inIndex = Arrays.binarySearch( inList, searchString );</span>
+            }
+<span class="nc bnc" id="L450" title="All 2 branches missed.">            retval = Boolean.valueOf( inIndex &gt;= 0 );</span>
+<span class="nc" id="L451">            break;</span>
+          case FUNC_CONTAINS:
+<span class="nc" id="L453">            retval =</span>
+<span class="nc bnc" id="L454" title="All 4 branches missed.">              fieldMeta.getCompatibleString( field ) != null ? fieldMeta.getCompatibleString( field ).indexOf(</span>
+<span class="nc" id="L455">                fieldMeta2.getCompatibleString( field2 ) ) &gt;= 0 : false;</span>
+<span class="nc" id="L456">            break;</span>
+          case FUNC_STARTS_WITH:
+<span class="nc" id="L458">            retval =</span>
+<span class="nc bnc" id="L459" title="All 2 branches missed.">              fieldMeta.getCompatibleString( field ) != null ? fieldMeta</span>
+<span class="nc" id="L460">                .getCompatibleString( field ).startsWith( fieldMeta2.getCompatibleString( field2 ) ) : false;</span>
+<span class="nc" id="L461">            break;</span>
+          case FUNC_ENDS_WITH:
+<span class="nc" id="L463">            String string = fieldMeta.getCompatibleString( field );</span>
+<span class="nc bnc" id="L464" title="All 2 branches missed.">            if ( !Utils.isEmpty( string ) ) {</span>
+<span class="nc bnc" id="L465" title="All 4 branches missed.">              if ( right_string == null &amp;&amp; field2 != null ) {</span>
+<span class="nc" id="L466">                right_string = fieldMeta2.getCompatibleString( field2 );</span>
+              }
+<span class="nc bnc" id="L468" title="All 2 branches missed.">              if ( right_string != null ) {</span>
+<span class="nc" id="L469">                retval = string.endsWith( fieldMeta2.getCompatibleString( field2 ) );</span>
+              } else {
+<span class="nc" id="L471">                retval = false;</span>
+              }
+            } else {
+<span class="nc" id="L474">              retval = false;</span>
+            }
+<span class="nc" id="L476">            break;</span>
+          case FUNC_LIKE:
+            // Converts to a regular expression
+            // TODO: optimize the patterns and String replacements
+            //
+<span class="nc bnc" id="L481" title="All 4 branches missed.">            if ( fieldMeta.isNull( field ) || field2 == null ) {</span>
+<span class="nc" id="L482">              retval = false;</span>
+            } else {
+<span class="nc" id="L484">              String regex = fieldMeta2.getCompatibleString( field2 );</span>
+<span class="nc" id="L485">              regex = regex.replace( &quot;%&quot;, &quot;.*&quot; );</span>
+<span class="nc" id="L486">              regex = regex.replace( &quot;?&quot;, &quot;.&quot; );</span>
+<span class="nc" id="L487">              retval = Pattern.matches( regex, fieldMeta.getCompatibleString( field ) );</span>
+            }
+<span class="nc" id="L489">            break;</span>
+          default:
+            break;
+        }
+
+        // Only NOT makes sense, the rest doesn't, so ignore!!!!
+        // Optionally negate
+        //
+<span class="pc bpc" id="L497" title="1 of 2 branches missed.">        if ( isNegated() ) {</span>
+<span class="nc bnc" id="L498" title="All 2 branches missed.">          retval = !retval;</span>
+        }
+<span class="fc" id="L500">      } else {</span>
+        // Composite : get first
+<span class="nc" id="L502">        Condition cb0 = list.get( 0 );</span>
+<span class="nc" id="L503">        retval = cb0.evaluate( rowMeta, r );</span>
+
+        // Loop over the conditions listed below.
+        //
+<span class="nc bnc" id="L507" title="All 2 branches missed.">        for ( int i = 1; i &lt; list.size(); i++ ) {</span>
+          // Composite : #i
+          // Get right hand condition
+<span class="nc" id="L510">          Condition cb = list.get( i );</span>
+
+          // Evaluate the right hand side of the condition cb.evaluate() within
+          // the switch statement
+          // because the condition may be short-circuited due to the left hand
+          // side (retval)
+<span class="nc bnc" id="L516" title="All 6 branches missed.">          switch ( cb.getOperator() ) {</span>
+            case Condition.OPERATOR_OR:
+<span class="nc bnc" id="L518" title="All 4 branches missed.">              retval = retval || cb.evaluate( rowMeta, r );</span>
+<span class="nc" id="L519">              break;</span>
+            case Condition.OPERATOR_AND:
+<span class="nc bnc" id="L521" title="All 4 branches missed.">              retval = retval &amp;&amp; cb.evaluate( rowMeta, r );</span>
+<span class="nc" id="L522">              break;</span>
+            case Condition.OPERATOR_OR_NOT:
+<span class="nc bnc" id="L524" title="All 4 branches missed.">              retval = retval || ( !cb.evaluate( rowMeta, r ) );</span>
+<span class="nc" id="L525">              break;</span>
+            case Condition.OPERATOR_AND_NOT:
+<span class="nc bnc" id="L527" title="All 4 branches missed.">              retval = retval &amp;&amp; ( !cb.evaluate( rowMeta, r ) );</span>
+<span class="nc" id="L528">              break;</span>
+            case Condition.OPERATOR_XOR:
+<span class="nc" id="L530">              retval = retval ^ cb.evaluate( rowMeta, r );</span>
+<span class="nc" id="L531">              break;</span>
+            default:
+              break;
+          }
+        }
+
+        // Composite: optionally negate
+<span class="nc bnc" id="L538" title="All 2 branches missed.">        if ( isNegated() ) {</span>
+<span class="nc bnc" id="L539" title="All 2 branches missed.">          retval = !retval;</span>
+        }
+      }
+<span class="nc" id="L542">    } catch ( Exception e ) {</span>
+<span class="nc" id="L543">      throw new RuntimeException( &quot;Unexpected error evaluation condition [&quot; + toString() + &quot;]&quot;, e );</span>
+<span class="fc" id="L544">    }</span>
+
+<span class="fc" id="L546">    return retval;</span>
+  }
+
+  public void addCondition( Condition cb ) {
+<span class="nc bnc" id="L550" title="All 4 branches missed.">    if ( isAtomic() &amp;&amp; getLeftValuename() != null ) {</span>
+      /*
+       * Copy current atomic setup...
+       */
+<span class="nc" id="L554">      Condition current = new Condition( getLeftValuename(), getFunction(), getRightValuename(), getRightExact() );</span>
+<span class="nc" id="L555">      current.setNegated( isNegated() );</span>
+<span class="nc" id="L556">      setNegated( false );</span>
+<span class="nc" id="L557">      list.add( current );</span>
+<span class="nc" id="L558">    } else {</span>
+      // Set default operator if not on first position...
+<span class="nc bnc" id="L560" title="All 6 branches missed.">      if ( isComposite() &amp;&amp; list.size() &gt; 0 &amp;&amp; cb.getOperator() == OPERATOR_NONE ) {</span>
+<span class="nc" id="L561">        cb.setOperator( OPERATOR_AND );</span>
+      }
+    }
+<span class="nc" id="L564">    list.add( cb );</span>
+<span class="nc" id="L565">  }</span>
+
+  public void addCondition( int idx, Condition cb ) {
+<span class="nc bnc" id="L568" title="All 4 branches missed.">    if ( isAtomic() &amp;&amp; getLeftValuename() != null ) {</span>
+      /*
+       * Copy current atomic setup...
+       */
+<span class="nc" id="L572">      Condition current = new Condition( getLeftValuename(), getFunction(), getRightValuename(), getRightExact() );</span>
+<span class="nc" id="L573">      current.setNegated( isNegated() );</span>
+<span class="nc" id="L574">      setNegated( false );</span>
+<span class="nc" id="L575">      list.add( current );</span>
+<span class="nc" id="L576">    } else {</span>
+      // Set default operator if not on first position...
+<span class="nc bnc" id="L578" title="All 6 branches missed.">      if ( isComposite() &amp;&amp; idx &gt; 0 &amp;&amp; cb.getOperator() == OPERATOR_NONE ) {</span>
+<span class="nc" id="L579">        cb.setOperator( OPERATOR_AND );</span>
+      }
+    }
+<span class="nc" id="L582">    list.add( idx, cb );</span>
+<span class="nc" id="L583">  }</span>
+
+  public void removeCondition( int nr ) {
+<span class="nc bnc" id="L586" title="All 2 branches missed.">    if ( isComposite() ) {</span>
+<span class="nc" id="L587">      Condition c = list.get( nr );</span>
+<span class="nc" id="L588">      list.remove( nr );</span>
+
+      // Nothing left or only one condition left: move it to the parent: make it atomic.
+
+<span class="nc bnc" id="L592" title="All 4 branches missed.">      boolean moveUp = isAtomic() || nrConditions() == 1;</span>
+<span class="nc bnc" id="L593" title="All 2 branches missed.">      if ( nrConditions() == 1 ) {</span>
+<span class="nc" id="L594">        c = getCondition( 0 );</span>
+      }
+
+<span class="nc bnc" id="L597" title="All 2 branches missed.">      if ( moveUp ) {</span>
+<span class="nc" id="L598">        setLeftValuename( c.getLeftValuename() );</span>
+<span class="nc" id="L599">        setFunction( c.getFunction() );</span>
+<span class="nc" id="L600">        setRightValuename( c.getRightValuename() );</span>
+<span class="nc" id="L601">        setRightExact( c.getRightExact() );</span>
+<span class="nc" id="L602">        setNegated( isNegated() ^ c.isNegated() );</span>
+      }
+    }
+<span class="nc" id="L605">  }</span>
+
+  /**
+   * This method moves up atomic conditions if there is only one sub-condition.
+   *
+   * @return true if there was a simplification.
+   */
+  public boolean simplify() {
+
+<span class="nc bnc" id="L614" title="All 2 branches missed.">    if ( nrConditions() == 1 ) {</span>
+<span class="nc" id="L615">      Condition condition = getCondition( 0 );</span>
+<span class="nc bnc" id="L616" title="All 2 branches missed.">      if ( condition.isAtomic() ) {</span>
+<span class="nc" id="L617">        return simplify( condition, this );</span>
+      }
+    }
+
+<span class="nc" id="L621">    boolean changed = false;</span>
+<span class="nc bnc" id="L622" title="All 2 branches missed.">    for ( int i = 0; i &lt; nrConditions(); i++ ) {</span>
+<span class="nc" id="L623">      Condition condition = getCondition( i );</span>
+<span class="nc" id="L624">      changed |= condition.simplify();</span>
+<span class="nc bnc" id="L625" title="All 2 branches missed.">      if ( i == 0 ) {</span>
+<span class="nc" id="L626">        condition.setOperator( OPERATOR_NONE );</span>
+      }
+    }
+<span class="nc" id="L629">    return changed;</span>
+  }
+
+  private boolean simplify( Condition condition, Condition parent ) {
+    // If condition is atomic
+    // AND
+    // if parent only contain a single child: simplify
+    //
+<span class="nc bnc" id="L637" title="All 4 branches missed.">    if ( condition.isAtomic() &amp;&amp; parent.nrConditions() == 1 ) {</span>
+<span class="nc" id="L638">      parent.setLeftValuename( condition.getLeftValuename() );</span>
+<span class="nc" id="L639">      parent.setFunction( condition.getFunction() );</span>
+<span class="nc" id="L640">      parent.setRightValuename( condition.getRightValuename() );</span>
+<span class="nc" id="L641">      parent.setRightExact( condition.getRightExact() );</span>
+<span class="nc" id="L642">      parent.setNegated( condition.isNegated() ^ parent.isNegated() );</span>
+<span class="nc" id="L643">      parent.list.clear();</span>
+<span class="nc" id="L644">      return true;</span>
+    }
+<span class="nc" id="L646">    return false;</span>
+  }
+
+  public int nrConditions() {
+<span class="nc" id="L650">    return list.size();</span>
+  }
+
+  public Condition getCondition( int i ) {
+<span class="nc" id="L654">    return list.get( i );</span>
+  }
+
+  public void setCondition( int i, Condition subCondition ) {
+<span class="nc" id="L658">    list.set( i, subCondition );</span>
+<span class="nc" id="L659">  }</span>
+
+  @Override
+  public String toString() {
+<span class="nc" id="L663">    return toString( 0, true, true );</span>
+  }
+
+  public String toString( int level, boolean show_negate, boolean show_operator ) {
+<span class="nc" id="L667">    String retval = &quot;&quot;;</span>
+
+<span class="nc bnc" id="L669" title="All 2 branches missed.">    if ( isAtomic() ) {</span>
+<span class="nc bnc" id="L670" title="All 2 branches missed.">      for ( int i = 0; i &lt; level; i++ ) {</span>
+<span class="nc" id="L671">        retval += &quot;  &quot;;</span>
+      }
+
+<span class="nc bnc" id="L674" title="All 4 branches missed.">      if ( show_operator &amp;&amp; getOperator() != OPERATOR_NONE ) {</span>
+<span class="nc" id="L675">        retval += getOperatorDesc() + &quot; &quot;;</span>
+      } else {
+<span class="nc" id="L677">        retval += &quot;        &quot;;</span>
+      }
+
+      // Atomic is negated?
+<span class="nc bnc" id="L681" title="All 6 branches missed.">      if ( isNegated() &amp;&amp; ( show_negate || level &gt; 0 ) ) {</span>
+<span class="nc" id="L682">        retval += &quot;NOT ( &quot;;</span>
+      } else {
+<span class="nc" id="L684">        retval += &quot;      &quot;;</span>
+      }
+
+<span class="nc bnc" id="L687" title="All 2 branches missed.">      if ( function == FUNC_TRUE ) {</span>
+<span class="nc" id="L688">        retval += &quot; TRUE&quot;;</span>
+      } else {
+<span class="nc" id="L690">        retval += left_valuename + &quot; &quot; + getFunctionDesc();</span>
+<span class="nc bnc" id="L691" title="All 4 branches missed.">        if ( function != FUNC_NULL &amp;&amp; function != FUNC_NOT_NULL ) {</span>
+<span class="nc bnc" id="L692" title="All 2 branches missed.">          if ( right_valuename != null ) {</span>
+<span class="nc" id="L693">            retval += &quot; &quot; + right_valuename;</span>
+          } else {
+<span class="nc bnc" id="L695" title="All 2 branches missed.">            retval += &quot; [&quot; + ( getRightExactString() == null ? &quot;&quot; : getRightExactString() ) + &quot;]&quot;;</span>
+          }
+        }
+      }
+
+<span class="nc bnc" id="L700" title="All 6 branches missed.">      if ( isNegated() &amp;&amp; ( show_negate || level &gt; 0 ) ) {</span>
+<span class="nc" id="L701">        retval += &quot; )&quot;;</span>
+      }
+
+<span class="nc" id="L704">      retval += Const.CR;</span>
+    } else {
+      // retval+=&quot;&lt;COMP &quot;+level+&quot;, &quot;+show_negate+&quot;, &quot;+show_operator+&quot;&gt;&quot;;
+
+      // Group is negated?
+<span class="nc bnc" id="L709" title="All 6 branches missed.">      if ( isNegated() &amp;&amp; ( show_negate || level &gt; 0 ) ) {</span>
+<span class="nc bnc" id="L710" title="All 2 branches missed.">        for ( int i = 0; i &lt; level; i++ ) {</span>
+<span class="nc" id="L711">          retval += &quot;  &quot;;</span>
+        }
+<span class="nc" id="L713">        retval += &quot;NOT&quot; + Const.CR;</span>
+      }
+      // Group is preceded by an operator:
+<span class="nc bnc" id="L716" title="All 6 branches missed.">      if ( getOperator() != OPERATOR_NONE &amp;&amp; ( show_operator || level &gt; 0 ) ) {</span>
+<span class="nc bnc" id="L717" title="All 2 branches missed.">        for ( int i = 0; i &lt; level; i++ ) {</span>
+<span class="nc" id="L718">          retval += &quot;  &quot;;</span>
+        }
+<span class="nc" id="L720">        retval += getOperatorDesc() + Const.CR;</span>
+      }
+<span class="nc bnc" id="L722" title="All 2 branches missed.">      for ( int i = 0; i &lt; level; i++ ) {</span>
+<span class="nc" id="L723">        retval += &quot;  &quot;;</span>
+      }
+<span class="nc" id="L725">      retval += &quot;(&quot; + Const.CR;</span>
+<span class="nc bnc" id="L726" title="All 2 branches missed.">      for ( int i = 0; i &lt; list.size(); i++ ) {</span>
+<span class="nc" id="L727">        Condition cb = list.get( i );</span>
+<span class="nc bnc" id="L728" title="All 2 branches missed.">        retval += cb.toString( level + 1, true, i &gt; 0 );</span>
+      }
+<span class="nc bnc" id="L730" title="All 2 branches missed.">      for ( int i = 0; i &lt; level; i++ ) {</span>
+<span class="nc" id="L731">        retval += &quot;  &quot;;</span>
+      }
+<span class="nc" id="L733">      retval += &quot;)&quot; + Const.CR;</span>
+    }
+
+<span class="nc" id="L736">    return retval;</span>
+  }
+
+  @Override
+  public String getXml() throws HopValueException {
+<span class="nc" id="L741">    return getXML( 0 );</span>
+  }
+
+  public String getXML( int level ) throws HopValueException {
+<span class="nc" id="L745">    String retval = &quot;&quot;;</span>
+<span class="nc" id="L746">    String indent1 = Const.rightPad( &quot; &quot;, level );</span>
+<span class="nc" id="L747">    String indent2 = Const.rightPad( &quot; &quot;, level + 1 );</span>
+<span class="nc" id="L748">    String indent3 = Const.rightPad( &quot; &quot;, level + 2 );</span>
+
+<span class="nc" id="L750">    retval += indent1 + XmlHandler.openTag( XML_TAG ) + Const.CR;</span>
+
+<span class="nc" id="L752">    retval += indent2 + XmlHandler.addTagValue( &quot;negated&quot;, isNegated() );</span>
+
+<span class="nc bnc" id="L754" title="All 2 branches missed.">    if ( getOperator() != OPERATOR_NONE ) {</span>
+<span class="nc" id="L755">      retval += indent2 + XmlHandler.addTagValue( &quot;operator&quot;, Const.rtrim( getOperatorDesc() ) );</span>
+    }
+
+<span class="nc bnc" id="L758" title="All 2 branches missed.">    if ( isAtomic() ) {</span>
+<span class="nc" id="L759">      retval += indent2 + XmlHandler.addTagValue( &quot;leftvalue&quot;, getLeftValuename() );</span>
+<span class="nc" id="L760">      retval += indent2 + XmlHandler.addTagValue( &quot;function&quot;, getFunctionDesc() );</span>
+<span class="nc" id="L761">      retval += indent2 + XmlHandler.addTagValue( &quot;rightvalue&quot;, getRightValuename() );</span>
+<span class="nc bnc" id="L762" title="All 2 branches missed.">      if ( getRightExact() != null ) {</span>
+<span class="nc" id="L763">        retval += indent2 + getRightExact().getXml();</span>
+      }
+    } else {
+<span class="nc" id="L766">      retval += indent2 + &quot;&lt;conditions&gt;&quot; + Const.CR;</span>
+<span class="nc bnc" id="L767" title="All 2 branches missed.">      for ( int i = 0; i &lt; nrConditions(); i++ ) {</span>
+<span class="nc" id="L768">        Condition c = getCondition( i );</span>
+<span class="nc" id="L769">        retval += c.getXML( level + 2 );</span>
+      }
+<span class="nc" id="L771">      retval += indent3 + &quot;&lt;/conditions&gt;&quot; + Const.CR;</span>
+    }
+
+<span class="nc" id="L774">    retval += indent2 + XmlHandler.closeTag( XML_TAG ) + Const.CR;</span>
+
+<span class="nc" id="L776">    return retval;</span>
+  }
+
+  public Condition( String xml ) throws HopXmlException {
+<span class="nc" id="L780">    this( XmlHandler.loadXmlString( xml, Condition.XML_TAG ) );</span>
+<span class="nc" id="L781">  }</span>
+
+  /**
+   * Build a new condition using an XML Document Node
+   *
+   * @param condnode
+   * @throws HopXmlException
+   */
+  public Condition( Node condnode ) throws HopXmlException {
+<span class="nc" id="L790">    this();</span>
+
+<span class="nc" id="L792">    list = new ArrayList&lt;Condition&gt;();</span>
+    try {
+<span class="nc" id="L794">      String str_negated = XmlHandler.getTagValue( condnode, &quot;negated&quot; );</span>
+<span class="nc" id="L795">      setNegated( &quot;Y&quot;.equalsIgnoreCase( str_negated ) );</span>
+
+<span class="nc" id="L797">      String str_operator = XmlHandler.getTagValue( condnode, &quot;operator&quot; );</span>
+<span class="nc" id="L798">      setOperator( getOperator( str_operator ) );</span>
+
+<span class="nc" id="L800">      Node conditions = XmlHandler.getSubNode( condnode, &quot;conditions&quot; );</span>
+<span class="nc" id="L801">      int nrconditions = XmlHandler.countNodes( conditions, &quot;condition&quot; );</span>
+<span class="nc bnc" id="L802" title="All 2 branches missed.">      if ( nrconditions == 0 ) {</span>
+        // ATOMIC!
+<span class="nc" id="L804">        setLeftValuename( XmlHandler.getTagValue( condnode, &quot;leftvalue&quot; ) );</span>
+<span class="nc" id="L805">        setFunction( getFunction( XmlHandler.getTagValue( condnode, &quot;function&quot; ) ) );</span>
+<span class="nc" id="L806">        setRightValuename( XmlHandler.getTagValue( condnode, &quot;rightvalue&quot; ) );</span>
+<span class="nc" id="L807">        Node exactnode = XmlHandler.getSubNode( condnode, ValueMetaAndData.XML_TAG );</span>
+<span class="nc bnc" id="L808" title="All 2 branches missed.">        if ( exactnode != null ) {</span>
+<span class="nc" id="L809">          ValueMetaAndData exact = new ValueMetaAndData( exactnode );</span>
+<span class="nc" id="L810">          setRightExact( exact );</span>
+        }
+<span class="nc" id="L812">      } else {</span>
+<span class="nc bnc" id="L813" title="All 2 branches missed.">        for ( int i = 0; i &lt; nrconditions; i++ ) {</span>
+<span class="nc" id="L814">          Node subcondnode = XmlHandler.getSubNodeByNr( conditions, &quot;condition&quot;, i );</span>
+<span class="nc" id="L815">          Condition c = new Condition( subcondnode );</span>
+<span class="nc" id="L816">          addCondition( c );</span>
+        }
+      }
+<span class="nc" id="L819">    } catch ( Exception e ) {</span>
+<span class="nc" id="L820">      throw new HopXmlException( &quot;Unable to create condition using xml: &quot; + Const.CR + condnode, e );</span>
+<span class="nc" id="L821">    }</span>
+<span class="nc" id="L822">  }</span>
+
+  public String[] getUsedFields() {
+<span class="nc" id="L825">    Hashtable&lt;String, String&gt; fields = new Hashtable&lt;String, String&gt;();</span>
+<span class="nc" id="L826">    getUsedFields( fields );</span>
+
+<span class="nc" id="L828">    String[] retval = new String[ fields.size() ];</span>
+<span class="nc" id="L829">    Enumeration&lt;String&gt; keys = fields.keys();</span>
+<span class="nc" id="L830">    int i = 0;</span>
+<span class="nc bnc" id="L831" title="All 2 branches missed.">    while ( keys.hasMoreElements() ) {</span>
+<span class="nc" id="L832">      retval[ i ] = keys.nextElement();</span>
+<span class="nc" id="L833">      i++;</span>
+    }
+
+<span class="nc" id="L836">    return retval;</span>
+  }
+
+  public void getUsedFields( Hashtable&lt;String, String&gt; fields ) {
+<span class="nc bnc" id="L840" title="All 2 branches missed.">    if ( isAtomic() ) {</span>
+<span class="nc bnc" id="L841" title="All 2 branches missed.">      if ( getLeftValuename() != null ) {</span>
+<span class="nc" id="L842">        fields.put( getLeftValuename(), &quot;-&quot; );</span>
+      }
+<span class="nc bnc" id="L844" title="All 2 branches missed.">      if ( getRightValuename() != null ) {</span>
+<span class="nc" id="L845">        fields.put( getRightValuename(), &quot;-&quot; );</span>
+      }
+    } else {
+<span class="nc bnc" id="L848" title="All 2 branches missed.">      for ( int i = 0; i &lt; nrConditions(); i++ ) {</span>
+<span class="nc" id="L849">        Condition subc = getCondition( i );</span>
+<span class="nc" id="L850">        subc.getUsedFields( fields );</span>
+      }
+    }
+<span class="nc" id="L853">  }</span>
+
+  public List&lt;Condition&gt; getChildren() {
+<span class="nc" id="L856">    return list;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: org.apache.hop.core.row.value.ValueMetaBaseSetPreparedStmntValueTest
+-------------------------------------------------------------------------------
+Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.047 s - in org.apache.hop.core.row.value.ValueMetaBaseSetPreparedStmntValueTest

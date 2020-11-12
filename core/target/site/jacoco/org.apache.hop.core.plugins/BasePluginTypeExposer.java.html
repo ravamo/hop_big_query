@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BasePluginTypeExposer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.plugins</a> &gt; <span class="el_source">BasePluginTypeExposer.java</span></div><h1>BasePluginTypeExposer.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.plugins;
+
+import java.lang.annotation.Annotation;
+
+/**
+ * This Class serves only one purpose, defeat the package protection modifiers on the BasePluginType. We normally would
+ * simply move classes needing access to the same package, split between jars. However, in OSGI, split packages are
+ * not encouraged and not possible unless the packages are being supplied by bundles with special notation denoting the
+ * package split. Hop is currently imported into OSGI as part of the System Bundle [0], which we cannot modify in
+ * such a way.
+ * &lt;p&gt;
+ * Unless you're running within OSGI, you should never use this class.
+ * &lt;p&gt;
+ * Created by nbaker on 2/11/15.
+ */
+public class BasePluginTypeExposer {
+  private BasePluginType pluginType;
+  private Object target;
+  private String packageName;
+  private final String altPackageName;
+
+<span class="nc" id="L44">  public BasePluginTypeExposer( BasePluginType pluginType, Object target ) {</span>
+<span class="nc" id="L45">    this.target = target;</span>
+<span class="nc" id="L46">    this.pluginType = pluginType;</span>
+
+<span class="nc" id="L48">    altPackageName = target.getClass().getPackage().getName();</span>
+<span class="nc" id="L49">  }</span>
+
+  public String extractID( Annotation annotation ) {
+<span class="nc" id="L52">    return pluginType.extractID( annotation );</span>
+  }
+
+  public String extractName( Annotation annotation ) {
+<span class="nc" id="L56">    String name = pluginType.extractName( annotation );</span>
+<span class="nc" id="L57">    packageName = extractI18nPackageName( annotation );</span>
+<span class="nc" id="L58">    return BasePluginType.getTranslation( name, packageName, altPackageName, target.getClass() );</span>
+
+  }
+
+  public String extractDesc( Annotation annotation ) {
+<span class="nc" id="L63">    String desc = pluginType.extractDesc( annotation );</span>
+<span class="nc" id="L64">    packageName = extractI18nPackageName( annotation );</span>
+<span class="nc" id="L65">    return BasePluginType.getTranslation( desc, packageName, altPackageName, target.getClass() );</span>
+  }
+
+  public String extractCategory( Annotation annotation ) {
+<span class="nc" id="L69">    String category = pluginType.extractCategory( annotation );</span>
+<span class="nc" id="L70">    packageName = extractI18nPackageName( annotation );</span>
+<span class="nc" id="L71">    return BasePluginType.getTranslation( category, packageName, altPackageName, target.getClass() );</span>
+  }
+
+  public String extractImageFile( Annotation annotation ) {
+<span class="nc" id="L75">    return pluginType.extractImageFile( annotation );</span>
+  }
+
+  public boolean extractSeparateClassLoader( Annotation annotation ) {
+<span class="nc" id="L79">    return pluginType.extractSeparateClassLoader( annotation );</span>
+  }
+
+  public String extractI18nPackageName( Annotation annotation ) {
+<span class="nc" id="L83">    return pluginType.extractI18nPackageName( annotation );</span>
+  }
+
+  public String extractDocumentationUrl( Annotation annotation ) {
+<span class="nc" id="L87">    return pluginType.extractDocumentationUrl( annotation );</span>
+  }
+
+  public String extractCasesUrl( Annotation annotation ) {
+<span class="nc" id="L91">    return pluginType.extractCasesUrl( annotation );</span>
+  }
+
+  public String extractForumUrl( Annotation annotation ) {
+<span class="nc" id="L95">    return pluginType.extractForumUrl( annotation );</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

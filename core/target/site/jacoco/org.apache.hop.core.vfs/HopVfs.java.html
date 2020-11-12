@@ -1,0 +1,507 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HopVfs.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.vfs</a> &gt; <span class="el_source">HopVfs.java</span></div><h1>HopVfs.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.vfs;
+
+import org.apache.commons.vfs2.CacheStrategy;
+import org.apache.commons.vfs2.FileContent;
+import org.apache.commons.vfs2.FileName;
+import org.apache.commons.vfs2.FileObject;
+import org.apache.commons.vfs2.FileSystemException;
+import org.apache.commons.vfs2.cache.SoftRefFilesCache;
+import org.apache.commons.vfs2.impl.DefaultFileReplicator;
+import org.apache.commons.vfs2.impl.DefaultFileSystemManager;
+import org.apache.commons.vfs2.impl.FileContentInfoFilenameFactory;
+import org.apache.commons.vfs2.impl.StandardFileSystemManager;
+import org.apache.commons.vfs2.provider.local.LocalFile;
+import org.apache.hop.core.Const;
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.exception.HopFileException;
+import org.apache.hop.core.plugins.IPlugin;
+import org.apache.hop.core.plugins.PluginRegistry;
+import org.apache.hop.core.util.UuidUtil;
+import org.apache.hop.core.vfs.plugin.IVfs;
+import org.apache.hop.core.vfs.plugin.VfsPluginType;
+import org.apache.hop.i18n.BaseMessages;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.util.Comparator;
+import java.util.List;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+<span class="nc" id="L57">public class HopVfs {</span>
+<span class="fc" id="L58">  private static Class&lt;?&gt; PKG = HopVfs.class; // for i18n purposes, needed by Translator!!</span>
+
+<span class="fc" id="L60">  public static final String TEMP_DIR = System.getProperty( &quot;java.io.tmpdir&quot; );</span>
+
+  private static final int TIMEOUT_LIMIT = 9000;
+  private static final int TIME_TO_SLEEP_TRANSFORM = 50;
+
+  private static DefaultFileSystemManager fsm;
+
+<span class="fc" id="L67">  private static final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();</span>
+
+  public static DefaultFileSystemManager getFileSystemManager() {
+<span class="fc" id="L70">    lock.readLock().lock();</span>
+    try {
+<span class="fc bfc" id="L72" title="All 2 branches covered.">      if ( fsm == null ) {</span>
+        try {
+<span class="fc" id="L74">          fsm = createFileSystemManager();</span>
+<span class="nc" id="L75">        } catch ( Exception e ) {</span>
+<span class="nc" id="L76">          throw new RuntimeException( &quot;Error initializing file system manager : &quot;, e );</span>
+<span class="fc" id="L77">        }</span>
+      }
+<span class="fc" id="L79">      return fsm;</span>
+    } finally {
+<span class="fc" id="L81">      lock.readLock().unlock();</span>
+    }
+  }
+
+  /**
+   * Make sure to close when done using!
+   *
+   * @return A new standard file system manager
+   * @throws HopException
+   */
+  private static DefaultFileSystemManager createFileSystemManager() throws HopException {
+    try {
+<span class="fc" id="L93">      DefaultFileSystemManager fsm = new DefaultFileSystemManager();</span>
+<span class="fc" id="L94">      fsm.addProvider( &quot;ram&quot;, new org.apache.commons.vfs2.provider.ram.RamFileProvider() );</span>
+<span class="fc" id="L95">      fsm.addProvider( &quot;file&quot;, new org.apache.commons.vfs2.provider.local.DefaultLocalFileProvider() );</span>
+<span class="fc" id="L96">      fsm.addProvider( &quot;res&quot;, new org.apache.commons.vfs2.provider.res.ResourceFileProvider() );</span>
+<span class="fc" id="L97">      fsm.addProvider( &quot;zip&quot;, new org.apache.commons.vfs2.provider.zip.ZipFileProvider() );</span>
+<span class="fc" id="L98">      fsm.addProvider( &quot;gz&quot;, new org.apache.commons.vfs2.provider.gzip.GzipFileProvider() );</span>
+<span class="fc" id="L99">      fsm.addProvider( &quot;jar&quot;, new org.apache.commons.vfs2.provider.jar.JarFileProvider() );</span>
+<span class="fc" id="L100">      fsm.addProvider( &quot;http&quot;, new org.apache.commons.vfs2.provider.http.HttpFileProvider() );</span>
+<span class="fc" id="L101">      fsm.addProvider( &quot;https&quot;, new org.apache.commons.vfs2.provider.https.HttpsFileProvider() );</span>
+<span class="fc" id="L102">      fsm.addProvider( &quot;ftp&quot;, new org.apache.commons.vfs2.provider.ftp.FtpFileProvider() );</span>
+<span class="fc" id="L103">      fsm.addProvider( &quot;ftps&quot;, new org.apache.commons.vfs2.provider.ftps.FtpsFileProvider() );</span>
+<span class="fc" id="L104">      fsm.addProvider( &quot;war&quot;, new org.apache.commons.vfs2.provider.jar.JarFileProvider() );</span>
+<span class="fc" id="L105">      fsm.addProvider( &quot;par&quot;, new org.apache.commons.vfs2.provider.jar.JarFileProvider() );</span>
+<span class="fc" id="L106">      fsm.addProvider( &quot;ear&quot;, new org.apache.commons.vfs2.provider.jar.JarFileProvider() );</span>
+<span class="fc" id="L107">      fsm.addProvider( &quot;sar&quot;, new org.apache.commons.vfs2.provider.jar.JarFileProvider() );</span>
+<span class="fc" id="L108">      fsm.addProvider( &quot;ejb3&quot;, new org.apache.commons.vfs2.provider.jar.JarFileProvider() );</span>
+<span class="fc" id="L109">      fsm.addProvider( &quot;tmp&quot;, new org.apache.commons.vfs2.provider.temp.TemporaryFileProvider() );</span>
+<span class="fc" id="L110">      fsm.addProvider( &quot;tar&quot;, new org.apache.commons.vfs2.provider.tar.TarFileProvider() );</span>
+<span class="fc" id="L111">      fsm.addProvider( &quot;tbz2&quot;, new org.apache.commons.vfs2.provider.tar.TarFileProvider() );</span>
+<span class="fc" id="L112">      fsm.addProvider( &quot;tgz&quot;, new org.apache.commons.vfs2.provider.tar.TarFileProvider() );</span>
+<span class="fc" id="L113">      fsm.addProvider( &quot;bz2&quot;, new org.apache.commons.vfs2.provider.bzip2.Bzip2FileProvider() );</span>
+<span class="fc" id="L114">      fsm.addProvider( &quot;files-cache&quot;, new org.apache.commons.vfs2.provider.temp.TemporaryFileProvider());</span>
+<span class="fc" id="L115">      fsm.addExtensionMap( &quot;jar&quot;, &quot;jar&quot; );</span>
+<span class="fc" id="L116">      fsm.addExtensionMap( &quot;zip&quot;, &quot;zip&quot; );</span>
+<span class="fc" id="L117">      fsm.addExtensionMap(&quot;gz&quot;, &quot;gz&quot;);</span>
+<span class="fc" id="L118">      fsm.addExtensionMap(&quot;tar&quot;, &quot;tar&quot;);</span>
+<span class="fc" id="L119">      fsm.addExtensionMap(&quot;tbz2&quot;, &quot;tar&quot;);</span>
+<span class="fc" id="L120">      fsm.addExtensionMap(&quot;tgz&quot;, &quot;tar&quot;);</span>
+<span class="fc" id="L121">      fsm.addExtensionMap(&quot;bz2&quot;, &quot;bz2&quot;);</span>
+<span class="fc" id="L122">      fsm.addMimeTypeMap(&quot;application/x-tar&quot;, &quot;tar&quot;);</span>
+<span class="fc" id="L123">      fsm.addMimeTypeMap(&quot;application/x-gzip&quot;, &quot;gz&quot;);</span>
+<span class="fc" id="L124">      fsm.addMimeTypeMap(&quot;application/zip&quot;, &quot;zip&quot;);</span>
+<span class="fc" id="L125">      fsm.setFileContentInfoFactory(new FileContentInfoFilenameFactory());</span>
+<span class="fc" id="L126">      fsm.setReplicator( new DefaultFileReplicator() );</span>
+
+<span class="fc" id="L128">      fsm.setFilesCache( new SoftRefFilesCache() );</span>
+<span class="fc" id="L129">      fsm.setCacheStrategy( CacheStrategy.ON_RESOLVE);</span>
+
+      // Here are extra VFS plugins to register
+      //
+<span class="fc" id="L133">      PluginRegistry registry = PluginRegistry.getInstance();</span>
+<span class="fc" id="L134">      List&lt;IPlugin&gt; plugins = registry.getPlugins( VfsPluginType.class );</span>
+<span class="pc bpc" id="L135" title="1 of 2 branches missed.">      for ( IPlugin plugin : plugins ) {</span>
+<span class="nc" id="L136">        IVfs iVfs = registry.loadClass( plugin, IVfs.class );</span>
+        try {
+<span class="nc" id="L138">          fsm.addProvider( iVfs.getUrlSchemes(), iVfs.getProvider() );</span>
+<span class="nc" id="L139">        } catch ( Exception e ) {</span>
+<span class="nc" id="L140">          throw new HopException( &quot;Error registering provider for VFS plugin &quot; + plugin.getIds()[ 0 ] + &quot; : &quot; + plugin.getName() + &quot; : &quot;, e );</span>
+<span class="nc" id="L141">        }</span>
+<span class="nc" id="L142">      }</span>
+
+<span class="fc" id="L144">      fsm.init();</span>
+
+<span class="fc" id="L146">      return fsm;</span>
+<span class="nc" id="L147">    } catch ( Exception e ) {</span>
+<span class="nc" id="L148">      throw new HopException( &quot;Error creating file system manager&quot;, e );</span>
+    }
+  }
+
+  public synchronized static FileObject getFileObject( String vfsFilename ) throws HopFileException {
+<span class="fc" id="L153">    lock.readLock().lock();</span>
+    try {
+<span class="fc" id="L155">      DefaultFileSystemManager fsManager = getFileSystemManager();</span>
+
+      try {
+        // We have one problem with VFS: if the file is in a subdirectory of the current one: somedir/somefile
+        // In that case, VFS doesn't parse the file correctly.
+        // We need to put file: in front of it to make it work.
+        // However, how are we going to verify this?
+        //
+        // We are going to see if the filename starts with one of the known protocols like file: zip: ram: smb: jar: etc.
+        // If not, we are going to assume it's a file.
+        //
+<span class="fc" id="L166">        boolean relativeFilename = true;</span>
+<span class="fc" id="L167">        String[] initialSchemes = fsManager.getSchemes();</span>
+
+<span class="fc" id="L169">        relativeFilename = checkForScheme( initialSchemes, relativeFilename, vfsFilename );</span>
+
+<span class="fc" id="L171">        int timeOut = TIMEOUT_LIMIT;</span>
+
+<span class="pc bpc" id="L173" title="2 of 4 branches missed.">        boolean hasScheme = vfsFilename != null &amp;&amp; vfsFilename.contains( &quot;://&quot; ); // check for bigData providers</span>
+        //we have to check for hasScheme even if it is marked as a relative path because that scheme could not
+        //be available by getSchemes at the time we validate our relativeFilename flag.
+        //So we check if even it is marked as relative path if it contains a possible scheme format
+        //if it does, then give it some time to be loaded, until we get it our timeout is up.
+
+<span class="pc bpc" id="L179" title="5 of 6 branches missed.">        while ( relativeFilename &amp;&amp; hasScheme &amp;&amp; timeOut &gt; 0 ) {</span>
+<span class="nc" id="L180">          String[] schemes = fsManager.getSchemes();</span>
+          try {
+<span class="nc" id="L182">            Thread.sleep( TIME_TO_SLEEP_TRANSFORM );</span>
+<span class="nc" id="L183">            timeOut -= TIME_TO_SLEEP_TRANSFORM;</span>
+<span class="nc" id="L184">            relativeFilename = checkForScheme( schemes, relativeFilename, vfsFilename );</span>
+<span class="nc" id="L185">          } catch ( InterruptedException e ) {</span>
+<span class="nc" id="L186">            relativeFilename = false;</span>
+<span class="nc" id="L187">            Thread.currentThread().interrupt();</span>
+<span class="nc" id="L188">            break;</span>
+<span class="nc" id="L189">          }</span>
+<span class="nc" id="L190">        }</span>
+
+        String filename;
+<span class="pc bpc" id="L193" title="1 of 2 branches missed.">        if ( vfsFilename.startsWith( &quot;\\\\&quot; ) ) {</span>
+<span class="nc" id="L194">          File file = new File( vfsFilename );</span>
+<span class="nc" id="L195">          filename = file.toURI().toString();</span>
+<span class="nc" id="L196">        } else {</span>
+<span class="pc bpc" id="L197" title="1 of 2 branches missed.">          if ( relativeFilename ) {</span>
+<span class="nc" id="L198">            File file = new File( vfsFilename );</span>
+<span class="nc" id="L199">            filename = file.getAbsolutePath();</span>
+<span class="nc" id="L200">          } else {</span>
+<span class="fc" id="L201">            filename = vfsFilename;</span>
+          }
+        }
+
+<span class="fc" id="L205">        return fsManager.resolveFile( filename );</span>
+<span class="nc" id="L206">      } catch ( Exception e ) {</span>
+<span class="nc" id="L207">        throw new HopFileException( &quot;Unable to get VFS File object for filename '&quot; + cleanseFilename( vfsFilename ) + &quot;' : &quot; + e.getMessage(), e );</span>
+      }
+    } finally {
+<span class="fc" id="L210">      lock.readLock().unlock();</span>
+    }
+  }
+
+  protected static boolean checkForScheme( String[] initialSchemes, boolean relativeFilename, String vfsFilename ) {
+<span class="pc bpc" id="L215" title="1 of 2 branches missed.">    if ( vfsFilename == null ) {</span>
+<span class="nc" id="L216">      return false;</span>
+    }
+<span class="fc bfc" id="L218" title="All 4 branches covered.">    for ( int i = 0; i &lt; initialSchemes.length &amp;&amp; relativeFilename; i++ ) {</span>
+<span class="fc bfc" id="L219" title="All 2 branches covered.">      if ( vfsFilename.startsWith( initialSchemes[ i ] + &quot;:&quot; ) ) {</span>
+<span class="fc" id="L220">        relativeFilename = false;</span>
+      }
+    }
+<span class="fc" id="L223">    return relativeFilename;</span>
+  }
+
+  /**
+   * Private method for stripping password from filename when a FileObject
+   * can not be obtained.
+   * getFriendlyURI(FileObject) or getFriendlyURI(String) are the public
+   * methods.
+   */
+  private static String cleanseFilename( String vfsFilename ) {
+<span class="nc" id="L233">    return vfsFilename.replaceAll( &quot;:[^:@/]+@&quot;, &quot;:&lt;password&gt;@&quot; );</span>
+  }
+
+  /**
+   * Read a text file (like an XML document). WARNING DO NOT USE FOR DATA FILES.
+   *
+   * @param vfsFilename the filename or URL to read from
+   * @param charSetName the character set of the string (UTF-8, ISO8859-1, etc)
+   * @return The content of the file as a String
+   * @throws IOException
+   */
+  public static String getTextFileContent( String vfsFilename, String charSetName ) throws HopFileException {
+    try {
+<span class="nc" id="L246">      InputStream inputStream = getInputStream( vfsFilename );</span>
+
+<span class="nc" id="L248">      InputStreamReader reader = new InputStreamReader( inputStream, charSetName );</span>
+      int c;
+<span class="nc" id="L250">      StringBuilder aBuffer = new StringBuilder();</span>
+<span class="nc bnc" id="L251" title="All 2 branches missed.">      while ( ( c = reader.read() ) != -1 ) {</span>
+<span class="nc" id="L252">        aBuffer.append( (char) c );</span>
+      }
+<span class="nc" id="L254">      reader.close();</span>
+<span class="nc" id="L255">      inputStream.close();</span>
+
+<span class="nc" id="L257">      return aBuffer.toString();</span>
+<span class="nc" id="L258">    } catch ( IOException e ) {</span>
+<span class="nc" id="L259">      throw new HopFileException( e );</span>
+    }
+  }
+
+  public static boolean fileExists( String vfsFilename ) throws HopFileException {
+<span class="nc" id="L264">    FileObject fileObject = null;</span>
+    try {
+<span class="nc" id="L266">      fileObject = getFileObject( vfsFilename );</span>
+<span class="nc" id="L267">      return fileObject.exists();</span>
+<span class="nc" id="L268">    } catch ( IOException e ) {</span>
+<span class="nc" id="L269">      throw new HopFileException( e );</span>
+    } finally {
+<span class="nc bnc" id="L271" title="All 2 branches missed.">      if ( fileObject != null ) {</span>
+        try {
+<span class="nc" id="L273">          fileObject.close();</span>
+<span class="nc" id="L274">        } catch ( Exception e ) { /* Ignore */</span>
+<span class="nc" id="L275">        }</span>
+      }
+    }
+  }
+
+  public static InputStream getInputStream( FileObject fileObject ) throws FileSystemException {
+<span class="nc" id="L281">    FileContent content = fileObject.getContent();</span>
+<span class="nc" id="L282">    return content.getInputStream();</span>
+  }
+
+  public static InputStream getInputStream( String vfsFilename ) throws HopFileException {
+    try {
+<span class="nc" id="L287">      FileObject fileObject = getFileObject( vfsFilename );</span>
+
+<span class="nc" id="L289">      return getInputStream( fileObject );</span>
+<span class="nc" id="L290">    } catch ( IOException e ) {</span>
+<span class="nc" id="L291">      throw new HopFileException( e );</span>
+    }
+  }
+
+  public static OutputStream getOutputStream( FileObject fileObject, boolean append ) throws IOException {
+<span class="nc" id="L296">    FileObject parent = fileObject.getParent();</span>
+<span class="nc bnc" id="L297" title="All 2 branches missed.">    if ( parent != null ) {</span>
+<span class="nc bnc" id="L298" title="All 2 branches missed.">      if ( !parent.exists() ) {</span>
+<span class="nc" id="L299">        throw new IOException( BaseMessages.getString(</span>
+<span class="nc" id="L300">          PKG, &quot;HopVFS.Exception.ParentDirectoryDoesNotExist&quot;, getFriendlyURI( parent ) ) );</span>
+      }
+    }
+    try {
+<span class="nc" id="L304">      fileObject.createFile();</span>
+<span class="nc" id="L305">      FileContent content = fileObject.getContent();</span>
+<span class="nc" id="L306">      return content.getOutputStream( append );</span>
+<span class="nc" id="L307">    } catch ( FileSystemException e ) {</span>
+      // Perhaps if it's a local file, we can retry using the standard
+      // File object. This is because on Windows there is a bug in VFS.
+      //
+<span class="nc bnc" id="L311" title="All 2 branches missed.">      if ( fileObject instanceof LocalFile ) {</span>
+        try {
+<span class="nc" id="L313">          String filename = getFilename( fileObject );</span>
+<span class="nc" id="L314">          return new FileOutputStream( new File( filename ), append );</span>
+<span class="nc" id="L315">        } catch ( Exception e2 ) {</span>
+<span class="nc" id="L316">          throw e; // throw the original exception: hide the retry.</span>
+        }
+      } else {
+<span class="nc" id="L319">        throw e;</span>
+      }
+    }
+  }
+
+  public static OutputStream getOutputStream( String vfsFilename, boolean append ) throws HopFileException {
+    try {
+<span class="nc" id="L326">      FileObject fileObject = getFileObject( vfsFilename );</span>
+<span class="nc" id="L327">      return getOutputStream( fileObject, append );</span>
+<span class="nc" id="L328">    } catch ( IOException e ) {</span>
+<span class="nc" id="L329">      throw new HopFileException( e );</span>
+    }
+  }
+
+  public static String getFilename( FileObject fileObject ) {
+<span class="nc" id="L334">    FileName fileName = fileObject.getName();</span>
+<span class="nc" id="L335">    String root = fileName.getRootURI();</span>
+<span class="nc bnc" id="L336" title="All 2 branches missed.">    if ( !root.startsWith( &quot;file:&quot; ) ) {</span>
+<span class="nc" id="L337">      return fileName.getURI(); // nothing we can do about non-normal files.</span>
+    }
+<span class="nc bnc" id="L339" title="All 2 branches missed.">    if ( root.startsWith( &quot;file:////&quot; ) ) {</span>
+<span class="nc" id="L340">      return fileName.getURI(); // we'll see 4 forward slashes for a windows/smb network share</span>
+    }
+<span class="nc bnc" id="L342" title="All 2 branches missed.">    if ( root.endsWith( &quot;:/&quot; ) ) { // Windows</span>
+<span class="nc" id="L343">      root = root.substring( 8, 10 );</span>
+    } else { // *nix &amp; OSX
+<span class="nc" id="L345">      root = &quot;&quot;;</span>
+    }
+<span class="nc" id="L347">    String fileString = root + fileName.getPath();</span>
+<span class="nc bnc" id="L348" title="All 2 branches missed.">    if ( !&quot;/&quot;.equals( Const.FILE_SEPARATOR ) ) {</span>
+<span class="nc" id="L349">      fileString = Const.replace( fileString, &quot;/&quot;, Const.FILE_SEPARATOR );</span>
+    }
+<span class="nc" id="L351">    return fileString;</span>
+  }
+
+  public static String getFriendlyURI( String filename ) {
+<span class="nc bnc" id="L355" title="All 2 branches missed.">    if ( filename == null ) {</span>
+<span class="nc" id="L356">      return null;</span>
+    }
+    String friendlyName;
+    try {
+<span class="nc" id="L360">      friendlyName = getFriendlyURI( HopVfs.getFileObject( filename ) );</span>
+<span class="nc" id="L361">    } catch ( Exception e ) {</span>
+      // unable to get a friendly name from VFS object.
+      // Cleanse name of pwd before returning
+<span class="nc" id="L364">      friendlyName = cleanseFilename( filename );</span>
+<span class="nc" id="L365">    }</span>
+<span class="nc" id="L366">    return friendlyName;</span>
+  }
+
+  public static String getFriendlyURI( FileObject fileObject ) {
+<span class="nc" id="L370">    return fileObject.getName().getFriendlyURI();</span>
+  }
+
+  /**
+   * Creates a file using &quot;java.io.tmpdir&quot; directory
+   *
+   * @param prefix - file name
+   * @param prefix - file extension
+   * @return FileObject
+   * @throws HopFileException
+   */
+  public static FileObject createTempFile( String prefix, Suffix suffix ) throws HopFileException {
+<span class="nc" id="L382">    return createTempFile( prefix, suffix.ext, TEMP_DIR );</span>
+  }
+
+  /**
+   * @param prefix    - file name
+   * @param suffix    - file extension
+   * @param directory - directory where file will be created
+   * @return FileObject
+   * @throws HopFileException
+   */
+  public synchronized static FileObject createTempFile( String prefix, String suffix, String directory ) throws HopFileException {
+    try {
+      FileObject fileObject;
+      do {
+        // Temporary files are always stored locally.
+        // No other schemes besides file:// make sense
+        //
+        String baseUrl;
+<span class="pc bpc" id="L400" title="1 of 2 branches missed.">        if ( directory.contains( &quot;://&quot; ) ) {</span>
+<span class="nc" id="L401">          baseUrl = directory;</span>
+        } else {
+<span class="fc" id="L403">          File directoryFile = new File( directory );</span>
+<span class="fc" id="L404">          baseUrl = &quot;file://&quot; + directoryFile.getAbsolutePath();</span>
+        }
+
+
+        // Build temporary file name using UUID to ensure uniqueness. Old mechanism would fail using Sort Rows (for example)
+        // when there multiple nodes with multiple JVMs on each node. In this case, the temp file names would end up being
+        // duplicated which would cause the sort to fail.
+        //
+<span class="fc" id="L412">        String filename = baseUrl + &quot;/&quot; + prefix + &quot;_&quot; + UuidUtil.getUUIDAsString() + suffix;</span>
+
+<span class="fc" id="L414">        fileObject = getFileObject( filename );</span>
+<span class="pc bpc" id="L415" title="1 of 2 branches missed.">      } while ( fileObject.exists() );</span>
+<span class="fc" id="L416">      return fileObject;</span>
+<span class="nc" id="L417">    } catch ( IOException e ) {</span>
+<span class="nc" id="L418">      throw new HopFileException( e );</span>
+    }
+  }
+
+  public static Comparator&lt;FileObject&gt; getComparator() {
+<span class="nc" id="L423">    return ( o1, o2 ) -&gt; {</span>
+<span class="nc" id="L424">      String filename1 = getFilename( o1 );</span>
+<span class="nc" id="L425">      String filename2 = getFilename( o2 );</span>
+<span class="nc" id="L426">      return filename1.compareTo( filename2 );</span>
+    };
+  }
+
+  /**
+   * Get a FileInputStream for a local file. Local files can be read with NIO.
+   *
+   * @param fileObject
+   * @return a FileInputStream
+   * @throws IOException
+   * @deprecated because of API change in Apache VFS. As a workaround use FileObject.getName().getPathDecoded(); Then
+   * use a regular File() object to create a File Input stream.
+   */
+  @Deprecated
+  public static FileInputStream getFileInputStream( FileObject fileObject ) throws IOException {
+
+<span class="nc bnc" id="L442" title="All 2 branches missed.">    if ( !( fileObject instanceof LocalFile ) ) {</span>
+      // We can only use NIO on local files at the moment, so that's what we limit ourselves to.
+      //
+<span class="nc" id="L445">      throw new IOException( BaseMessages.getString( PKG, &quot;FixedInput.Log.OnlyLocalFilesAreSupported&quot; ) );</span>
+    }
+
+<span class="nc" id="L448">    return new FileInputStream( fileObject.getName().getPathDecoded() );</span>
+  }
+
+  /**
+   * Check if filename starts with one of the known protocols like file: zip: ram: smb: jar: etc.
+   * If yes, return true otherwise return false
+   *
+   * @param vfsFileName
+   * @return boolean
+   */
+  public static boolean startsWithScheme( String vfsFileName ) {
+<span class="fc" id="L459">    lock.readLock().lock();</span>
+    try {
+
+<span class="fc" id="L462">      DefaultFileSystemManager fsManager = getFileSystemManager();</span>
+
+<span class="fc" id="L464">      boolean found = false;</span>
+<span class="fc" id="L465">      String[] schemes = fsManager.getSchemes();</span>
+<span class="fc bfc" id="L466" title="All 2 branches covered.">      for ( int i = 0; i &lt; schemes.length; i++ ) {</span>
+<span class="fc bfc" id="L467" title="All 2 branches covered.">        if ( vfsFileName.startsWith( schemes[ i ] + &quot;:&quot; ) ) {</span>
+<span class="fc" id="L468">          found = true;</span>
+<span class="fc" id="L469">          break;</span>
+        }
+      }
+
+<span class="fc" id="L473">      return found;</span>
+    } finally {
+<span class="fc" id="L475">      lock.readLock().unlock();</span>
+    }
+  }
+
+  /**
+   * @see StandardFileSystemManager#freeUnusedResources()
+   */
+  public static void freeUnusedResources() {
+<span class="nc bnc" id="L483" title="All 2 branches missed.">    if (fsm!=null) {</span>
+<span class="nc" id="L484">      fsm.freeUnusedResources();</span>
+    }
+<span class="nc" id="L486">  }</span>
+
+  public static void reset() {
+<span class="fc bfc" id="L489" title="All 2 branches covered.">    if (fsm!=null) {</span>
+<span class="fc" id="L490">      fsm.freeUnusedResources();</span>
+<span class="fc" id="L491">      fsm.close();</span>
+<span class="fc" id="L492">      fsm = null;</span>
+    }
+<span class="fc" id="L494">  }</span>
+
+<span class="nc" id="L496">  public enum Suffix {</span>
+<span class="nc" id="L497">    ZIP( &quot;.zip&quot; ), TMP( &quot;.tmp&quot; ), JAR( &quot;.jar&quot; );</span>
+
+    private String ext;
+
+<span class="nc" id="L501">    Suffix( String ext ) {</span>
+<span class="nc" id="L502">      this.ext = ext;</span>
+<span class="nc" id="L503">    }</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

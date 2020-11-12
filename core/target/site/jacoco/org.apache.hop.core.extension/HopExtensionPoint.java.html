@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HopExtensionPoint.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.extension</a> &gt; <span class="el_source">HopExtensionPoint.java</span></div><h1>HopExtensionPoint.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.extension;
+
+<span class="fc" id="L25">public enum HopExtensionPoint {</span>
+
+<span class="fc" id="L27">  HopGuiInit( &quot;HopGui before the shell is created&quot; ),</span>
+<span class="fc" id="L28">  HopGuiStart( &quot;HopGui has started&quot; ),</span>
+<span class="fc" id="L29">  HopGuiEnd( &quot;HopGui is about to shut down&quot; ),</span>
+<span class="fc" id="L30">  OpenRecent( &quot;A recent file is opened&quot; ),</span>
+
+<span class="fc" id="L32">  PipelinePrepareExecution( &quot;A Pipeline begins to prepare execution&quot; ),</span>
+<span class="fc" id="L33">  PipelineStartThreads( &quot;A Pipeline begins to start&quot; ),</span>
+<span class="fc" id="L34">  PipelineStart( &quot;A Pipeline has started&quot; ),</span>
+<span class="fc" id="L35">  PipelineHeartbeat( &quot;A signal sent at regular intervals to indicate that the Pipeline is still active&quot; ),</span>
+<span class="fc" id="L36">  PipelineFinish( &quot;A Pipeline finishes&quot; ),</span>
+<span class="fc" id="L37">  PipelineMetaLoaded( &quot;Pipeline metadata was loaded&quot; ),</span>
+
+<span class="fc" id="L39">  PipelinePainterStart( &quot;Draw Pipeline or plugin metadata at the start (below the rest)&quot; ),</span>
+<span class="fc" id="L40">  PipelinePainterTransform( &quot;Draw additional information on top of a Pipeline transform icon&quot; ),</span>
+<span class="fc" id="L41">  PipelinePainterArrow( &quot;Draw additional information on top of a Pipeline hop (arrow)&quot; ),</span>
+<span class="fc" id="L42">  PipelinePainterEnd( &quot;Draw Pipeline or plugin metadata at the end (on top of all the rest)&quot; ),</span>
+
+<span class="fc" id="L44">  PipelineGraphMouseDown( &quot;A mouse down event occurred on the canvas&quot; ),</span>
+<span class="fc" id="L45">  PipelineGraphMouseUp( &quot;A mouse up event occurred on the canvas&quot; ),</span>
+<span class="fc" id="L46">  PipelineAfterOpen( &quot;A Pipeline file was opened (PipelineMeta)&quot; ),</span>
+<span class="fc" id="L47">  PipelineBeforeSave( &quot;A Pipeline file is about to be saved (PipelineMeta)&quot; ),</span>
+<span class="fc" id="L48">  PipelineAfterSave( &quot;A Pipeline file was saved (PipelineMeta)&quot; ),</span>
+<span class="fc" id="L49">  PipelineBeforeClose( &quot;A Pipeline file is about to be closed&quot; ),</span>
+<span class="fc" id="L50">  PipelineAfterClose( &quot;A Pipeline file was closed&quot; ),</span>
+<span class="fc" id="L51">  PipelineChanged( &quot;A Pipeline has been changed&quot; ),</span>
+<span class="fc" id="L52">  PipelineTransformRightClick( &quot;A right button was clicked on a transform&quot; ),</span>
+<span class="fc" id="L53">  PipelineGraphMouseMoved( &quot;The mouse was moved on the canvas&quot; ),</span>
+<span class="fc" id="L54">  PipelineGraphMouseDoubleClick( &quot;A left or right button was double-clicked in a Pipeline&quot; ),</span>
+<span class="fc" id="L55">  PipelineBeforeDeleteTransforms( &quot;Pipeline transforms about to be deleted&quot; ),</span>
+
+<span class="fc" id="L57">  HopGuiPipelineMetaExecutionStart( &quot;Hop GUI initiates the execution of a pipeline (PipelineMeta)&quot; ),</span>
+<span class="fc" id="L58">  HopUiPipelineExecutionConfiguration( &quot;Right before Hop UI configuration of Pipeline to be executed takes place&quot; ),</span>
+<span class="fc" id="L59">  HopUiPipelineBeforeStart( &quot;Right before the Pipeline is started&quot; ),</span>
+
+<span class="fc" id="L61">  HopUiWorkflowBeforeStart( &quot;Right before the workflow is started&quot; ),</span>
+<span class="fc" id="L62">  RunConfigurationSelection( &quot;Check when run configuration is selected&quot; ),</span>
+<span class="fc" id="L63">  RunConfigurationIsRemote( &quot;Check when run configuration is pointing to a remote server&quot; ),</span>
+<span class="fc" id="L64">  HopUiRunConfiguration( &quot;Send the run configuration&quot; ),</span>
+
+<span class="fc" id="L66">  WorkflowStart( &quot;A workflow starts&quot; ),</span>
+<span class="fc" id="L67">  WorkflowFinish( &quot;A workflow finishes&quot; ),</span>
+<span class="fc" id="L68">  WorkflowBeforeActionExecution( &quot;Before a action executes&quot; ),</span>
+<span class="fc" id="L69">  WorkflowAfterActionExecution( &quot;After a action executes&quot; ),</span>
+<span class="fc" id="L70">  WorkflowBeginProcessing( &quot;Start of a workflow at the end of the log table handling&quot; ),</span>
+
+<span class="fc" id="L72">  WorkflowPainterStart( &quot;Draw workflow or plugin metadata at the start (below the rest)&quot; ),</span>
+<span class="fc" id="L73">  WorkflowPainterAction( &quot;Draw additional information on top of a action copy icon&quot; ),</span>
+<span class="fc" id="L74">  WorkflowPainterArrow( &quot;Draw additional information on top of a workflow hop (arrow)&quot; ),</span>
+<span class="fc" id="L75">  WorkflowPainterEnd( &quot;Draw workflow or plugin metadata at the end (on top of all the rest)&quot; ),</span>
+
+<span class="fc" id="L77">  WorkflowGraphMouseDown( &quot;A left or right button was clicked in a workflow&quot; ),</span>
+<span class="fc" id="L78">  WorkflowBeforeOpen( &quot;A workflow file is about to be opened&quot; ),</span>
+<span class="fc" id="L79">  WorkflowAfterOpen( &quot;A workflow file was opened&quot; ),</span>
+<span class="fc" id="L80">  WorkflowBeforeSave( &quot;A workflow file is about to be saved&quot; ),</span>
+<span class="fc" id="L81">  WorkflowAfterSave( &quot;A workflow file was saved&quot; ),</span>
+<span class="fc" id="L82">  WorkflowBeforeClose( &quot;A workflow file is about to be closed&quot; ),</span>
+<span class="fc" id="L83">  WorkflowAfterClose( &quot;A workflow file was closed&quot; ),</span>
+<span class="fc" id="L84">  WorkflowChanged( &quot;A workflow has been changed&quot; ),</span>
+<span class="fc" id="L85">  WorkflowGraphMouseDoubleClick( &quot;A left or right button was double-clicked in a workflow&quot; ),</span>
+<span class="fc" id="L86">  WorkflowDialogShowRetrieveLogTableFields( &quot;Show or retrieve the contents of the fields of a log channel on the log channel composite&quot; ),</span>
+
+<span class="fc" id="L88">  WorkflowMetaLoaded( &quot;Job metadata was loaded&quot; ),</span>
+<span class="fc" id="L89">  HopUiWorkflowMetaExecutionStart( &quot;Hop UI initiates the execution of a workflow (WorkflowMeta)&quot; ),</span>
+<span class="fc" id="L90">  HopUiJobExecutionConfiguration( &quot;Right before Hop UI configuration of workflow to be executed takes place&quot; ),</span>
+
+<span class="fc" id="L92">  DatabaseConnected( &quot;A connection to a database was made&quot; ),</span>
+<span class="fc" id="L93">  DatabaseDisconnected( &quot;A connection to a database was terminated&quot; ),</span>
+
+<span class="fc" id="L95">  TransformBeforeInitialize( &quot;Right before a transform is about to be initialized&quot; ),</span>
+<span class="fc" id="L96">  TransformAfterInitialize( &quot;After a transform is initialized&quot; ),</span>
+
+<span class="fc" id="L98">  TransformBeforeStart( &quot;Right before a transform is about to be started&quot; ),</span>
+<span class="fc" id="L99">  TransformFinished( &quot;After a transform has finished&quot; ),</span>
+
+<span class="fc" id="L101">  BeforeCheckTransforms( &quot;Right before a set of transforms is about to be verified.&quot; ),</span>
+<span class="fc" id="L102">  AfterCheckTransforms( &quot;After a set of transforms has been checked for warnings/errors.&quot; ),</span>
+<span class="fc" id="L103">  BeforeCheckTransform( &quot;Right before a transform is about to be verified.&quot; ),</span>
+<span class="fc" id="L104">  AfterCheckTransform( &quot;After a transform has been checked for warnings/errors.&quot; ),</span>
+
+<span class="fc" id="L106">  HopServerStartup( &quot;Right after the Hop webserver has started and is fully functional&quot; ),</span>
+<span class="fc" id="L107">  HopServerShutdown( &quot;Right before the Hop webserver will shut down&quot; ),</span>
+
+<span class="fc" id="L109">  HopGuiFileOpenDialog( &quot;Allows you to modify the file dialog before it's shown. If you want to show your own, set doIt to false (&quot; ),</span>
+<span class="fc" id="L110">  HopGuiNewPipelineTab( &quot;Determine the tab name of a Pipeline (HopGuiPipelineGraph)&quot; ),</span>
+<span class="fc" id="L111">  HopGuiNewJobTab( &quot;Determine the tab name of a workflow (HopGuiJobGraph)&quot; ),</span>
+
+<span class="fc" id="L113">  HopGuiMetadataObjectCreateBeforeDialog(&quot;A new metadata object is created. Before showing the dialog&quot;),</span>
+<span class="fc" id="L114">  HopGuiMetadataObjectCreated(&quot;A new metadata object is created&quot;),</span>
+<span class="fc" id="L115">  HopGuiMetadataObjectUpdated(&quot;A metadata object is updated&quot;),</span>
+<span class="fc" id="L116">  HopGuiMetadataObjectDeleted(&quot;A metadata object is deleted&quot;),</span>
+
+<span class="fc" id="L118">  HopGuiGetSearchablesLocations(&quot;Get a list of searchables locations (List&lt;ISearchablesLocation&gt;)&quot;),</span>
+
+<span class="fc" id="L120">  HopGuiPipelineGraphAreaHover(&quot;Mouse is hovering over a drawn area in a pipeline graph (HopGuiTooltipExtension)&quot;),</span>
+<span class="fc" id="L121">  HopGuiWorkflowGraphAreaHover(&quot;Mouse is hovering over a drawn area in a workflow graph (HopGuiTooltipExtension)&quot;),</span>
+
+<span class="fc" id="L123">  HopRunInit( &quot;At the start of the HopRun command line, before initialization&quot; ),</span>
+<span class="fc" id="L124">  HopRunCalculateFilename( &quot;Right after the filename is determined, before it is used in any way&quot; ),</span>
+<span class="fc" id="L125">  HopRunStart( &quot;At the start of the HopRun command line, before loading metadata execution&quot; ),</span>
+<span class="fc" id="L126">  HopRunEnd( &quot;At the end of the HopRun command line execution&quot; ),</span>
+
+<span class="fc" id="L128">  HopGuiPipelineAfterClose(&quot;Called after a pipeline is closed in the Hop GUI (PipelineMeta)&quot;),</span>
+<span class="fc" id="L129">  HopGuiWorkflowAfterClose(&quot;Called after a workflow is closed in the Hop GUI (WorkflowMeta)&quot;),</span>
+
+<span class="fc" id="L131">  GetFieldsExtension( &quot;Get Fields dialog&quot; ),</span>
+
+<span class="fc" id="L133">  HopEnvironmentAfterInit(&quot;Called after HopEnvironment.init() was called.  It allows you to add your own plugins and so on at this time.&quot;),</span>
+
+  ;
+
+  public String id;
+
+  public String description;
+
+  public Class&lt;?&gt; providedClass;
+
+<span class="fc" id="L143">  private HopExtensionPoint( String description ) {</span>
+<span class="fc" id="L144">    this.id = name();</span>
+<span class="fc" id="L145">    this.description = description;</span>
+<span class="fc" id="L146">    this.providedClass = Object.class;</span>
+<span class="fc" id="L147">  }</span>
+
+<span class="nc" id="L149">  private HopExtensionPoint( String id, String description, Class&lt;?&gt; providedClass ) {</span>
+<span class="nc" id="L150">    this.id = id;</span>
+<span class="nc" id="L151">    this.description = description;</span>
+<span class="nc" id="L152">    this.providedClass = providedClass;</span>
+<span class="nc" id="L153">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

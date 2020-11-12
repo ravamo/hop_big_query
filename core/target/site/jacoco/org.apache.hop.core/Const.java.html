@@ -1,0 +1,3031 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Const.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core</a> &gt; <span class="el_source">Const.java</span></div><h1>Const.java</h1><pre class="source lang-java linenums">// CHECKSTYLE:FileLength:OFF
+/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core;
+
+import org.apache.commons.lang.StringEscapeUtils;
+import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.exception.ExceptionUtils;
+import org.apache.commons.lang.text.StrBuilder;
+import org.apache.hop.core.row.IValueMeta;
+import org.apache.hop.core.util.EnvUtil;
+import org.apache.hop.core.util.Utils;
+import org.apache.hop.i18n.BaseMessages;
+
+import java.awt.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.math.BigDecimal;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.text.NumberFormat;
+import java.text.ParseException;
+import java.text.ParsePosition;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.Date;
+import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.TimeZone;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+
+/**
+ * This class is used to define a number of default values for various settings throughout Hop. It also contains a
+ * number of static final methods to make your life easier.
+ *
+ * @author Matt
+ * @since 07-05-2003
+ */
+<span class="nc" id="L73">public class Const {</span>
+<span class="fc" id="L74">  private static Class&lt;?&gt; PKG = Const.class; // for i18n purposes, needed by Translator!!</span>
+
+  /**
+   * Release Type
+   */
+<span class="fc" id="L79">  public enum ReleaseType {</span>
+<span class="fc" id="L80">    RELEASE_CANDIDATE {</span>
+      public String getMessage() {
+<span class="fc" id="L82">        return BaseMessages.getString( PKG, &quot;Const.PreviewRelease.HelpAboutText&quot; );</span>
+      }
+    },
+<span class="fc" id="L85">    MILESTONE {</span>
+      public String getMessage() {
+<span class="fc" id="L87">        return BaseMessages.getString( PKG, &quot;Const.Candidate.HelpAboutText&quot; );</span>
+      }
+    },
+<span class="fc" id="L90">    PREVIEW {</span>
+      public String getMessage() {
+<span class="fc" id="L92">        return BaseMessages.getString( PKG, &quot;Const.Milestone.HelpAboutText&quot; );</span>
+      }
+    },
+<span class="fc" id="L95">    GA {</span>
+      public String getMessage() {
+<span class="fc" id="L97">        return BaseMessages.getString( PKG, &quot;Const.GA.HelpAboutText&quot; );</span>
+      }
+    };
+
+    public abstract String getMessage();
+  }
+
+  /**
+   * Sleep time waiting when buffer is empty (the default)
+   */
+  public static final int TIMEOUT_GET_MILLIS = 50;
+
+  /**
+   * Sleep time waiting when buffer is full (the default)
+   */
+  public static final int TIMEOUT_PUT_MILLIS = 50;
+
+  /**
+   * print update every ... lines
+   */
+  public static final int ROWS_UPDATE = 50000;
+
+  /**
+   * Size of rowset: bigger = faster for large amounts of data
+   */
+  public static final int ROWS_IN_ROWSET = 10000;
+
+  /**
+   * Fetch size in rows when querying a database
+   */
+  public static final int FETCH_SIZE = 10000;
+
+  /**
+   * What's the file systems file separator on this operating system?
+   */
+<span class="fc" id="L132">  public static final String FILE_SEPARATOR = System.getProperty( &quot;file.separator&quot; );</span>
+
+  /**
+   * What's the path separator on this operating system?
+   */
+<span class="fc" id="L137">  public static final String PATH_SEPARATOR = System.getProperty( &quot;path.separator&quot; );</span>
+
+  /**
+   * CR: operating systems specific Carriage Return
+   */
+<span class="fc" id="L142">  public static final String CR = System.getProperty( &quot;line.separator&quot; );</span>
+
+  /*
+    The name of the history folder in which the Hop local audit manager saves data
+   */
+<span class="fc" id="L147">  public static final String HOP_AUDIT_FOLDER =  NVL( System.getProperty( &quot;HOP_AUDIT_FOLDER&quot; ),</span>
+<span class="fc" id="L148">    System.getProperty( &quot;user.dir&quot; ) + File.separator + &quot;audit&quot; );</span>
+
+  /*
+   The name of the history folder in which the Hop local audit manager saves data
+  */
+<span class="fc" id="L153">  public static final String HOP_CONFIG_FOLDER =  NVL( System.getProperty( &quot;HOP_CONFIG_FOLDER&quot; ),</span>
+<span class="fc" id="L154">    System.getProperty( &quot;user.dir&quot; ) + File.separator + &quot;config&quot; );</span>
+
+  /**
+   * The variable which points to a shared folder with JDBC drivers in them.
+   */
+  public static final String HOP_SHARED_JDBC_FOLDER = &quot;HOP_SHARED_JDBC_FOLDER&quot;;
+
+  /**
+   * The operating system the hop platform runs on
+   */
+  public static final String HOP_PLATFORM_OS = &quot;HOP_PLATFORM_OS&quot;;
+
+  /**
+   * The runtime that is being used
+   */
+  public static final String HOP_PLATFORM_RUNTIME = &quot;HOP_PLATFORM_RUNTIME&quot;;
+
+  /**
+   * An empty (&quot;&quot;) String.
+   */
+  public static final String EMPTY_STRING = &quot;&quot;;
+
+  /**
+   * the default comma separated list of base plugin folders.
+   */
+  public static final String DEFAULT_PLUGIN_BASE_FOLDERS = &quot;plugins&quot;;
+
+  /**
+   * Default minimum date range...
+   */
+<span class="fc" id="L184">  public static final Date MIN_DATE = new Date( -2208992400000L ); // 1900/01/01 00:00:00.000</span>
+
+  /**
+   * Default maximum date range...
+   */
+<span class="fc" id="L189">  public static final Date MAX_DATE = new Date( 7258114799468L ); // 2199/12/31 23:59:59.999</span>
+
+  /**
+   * The default minimum year in a dimension date range
+   */
+  public static final int MIN_YEAR = 1900;
+
+  /**
+   * The default maximum year in a dimension date range
+   */
+  public static final int MAX_YEAR = 2199;
+
+  /**
+   * Specifies the number of pixels to the right we have to go in dialog boxes.
+   */
+  public static final int RIGHT = 400;
+
+  /**
+   * Specifies the length (width) of fields in a number of pixels in dialog boxes.
+   */
+  public static final int LENGTH = 350;
+
+  /**
+   * The margin between the different dialog components &amp; widgets
+   */
+  public static final int MARGIN = 4;
+
+  /**
+   * The default percentage of the width of screen where we consider the middle of a dialog.
+   */
+  public static final int MIDDLE_PCT = 35;
+
+  /**
+   * The horizontal and vertical margin of a dialog box.
+   */
+  public static final int FORM_MARGIN = 5;
+
+  /**
+   * The default locale for the hop environment (system defined)
+   */
+<span class="fc" id="L229">  public static final Locale DEFAULT_LOCALE = Locale.getDefault();</span>
+
+  /**
+   * The default decimal separator . or ,
+   */
+<span class="fc" id="L234">  public static final char DEFAULT_DECIMAL_SEPARATOR = ( new DecimalFormatSymbols( DEFAULT_LOCALE ) )</span>
+<span class="fc" id="L235">    .getDecimalSeparator();</span>
+
+  /**
+   * The default grouping separator , or .
+   */
+<span class="fc" id="L240">  public static final char DEFAULT_GROUPING_SEPARATOR = ( new DecimalFormatSymbols( DEFAULT_LOCALE ) )</span>
+<span class="fc" id="L241">    .getGroupingSeparator();</span>
+
+  /**
+   * The default currency symbol
+   */
+<span class="fc" id="L246">  public static final String DEFAULT_CURRENCY_SYMBOL = ( new DecimalFormatSymbols( DEFAULT_LOCALE ) )</span>
+<span class="fc" id="L247">    .getCurrencySymbol();</span>
+
+  /**
+   * The default number format
+   */
+<span class="fc" id="L252">  public static final String DEFAULT_NUMBER_FORMAT = ( (DecimalFormat) ( NumberFormat.getInstance() ) )</span>
+<span class="fc" id="L253">    .toPattern();</span>
+
+  /**
+   * Default string representing Null String values (empty)
+   */
+  public static final String NULL_STRING = &quot;&quot;;
+
+  /**
+   * Default string representing Null Number values (empty)
+   */
+  public static final String NULL_NUMBER = &quot;&quot;;
+
+  /**
+   * Default string representing Null Date values (empty)
+   */
+  public static final String NULL_DATE = &quot;&quot;;
+
+  /**
+   * Default string representing Null BigNumber values (empty)
+   */
+  public static final String NULL_BIGNUMBER = &quot;&quot;;
+
+  /**
+   * Default string representing Null Boolean values (empty)
+   */
+  public static final String NULL_BOOLEAN = &quot;&quot;;
+
+  /**
+   * Default string representing Null Integer values (empty)
+   */
+  public static final String NULL_INTEGER = &quot;&quot;;
+
+  /**
+   * Default string representing Null Binary values (empty)
+   */
+  public static final String NULL_BINARY = &quot;&quot;;
+
+  /**
+   * Default string representing Null Undefined values (empty)
+   */
+  public static final String NULL_NONE = &quot;&quot;;
+
+  /**
+   * Rounding mode, not implemented in {@code BigDecimal}. Method java.lang.Math.round(double) processes this way. &lt;br/&gt;
+   * Rounding mode to round towards {@literal &quot;nearest neighbor&quot;} unless both neighbors are equidistant, in which case
+   * round ceiling. &lt;br/&gt;
+   * Behaves as for {@code ROUND_CEILING} if the discarded fraction is &amp;ge; 0.5; otherwise, behaves as for
+   * {@code ROUND_FLOOR}. Note that this is the most common arithmetical rounding mode.
+   */
+  public static final int ROUND_HALF_CEILING = -1;
+
+  /**
+   * An array of date conversion formats
+   */
+  private static String[] dateFormats;
+
+  /**
+   * An array of number conversion formats
+   */
+  private static String[] numberFormats;
+
+  /**
+   * Generalized date/time format: Wherever dates are used, date and time values are organized from the most to the
+   * least significant. see also method StringUtil.getFormattedDateTime()
+   */
+  public static final String GENERALIZED_DATE_TIME_FORMAT = &quot;yyyyddMM_hhmmss&quot;;
+  public static final String GENERALIZED_DATE_TIME_FORMAT_MILLIS = &quot;yyyyddMM_hhmmssSSS&quot;;
+
+  /**
+   * Default we store our information in Unicode UTF-8 character set.
+   */
+  public static final String XML_ENCODING = &quot;UTF-8&quot;;
+
+  /**
+   * Name of the hop configuration file
+   */
+  public static final String HOP_CONFIG = &quot;hop-config.json&quot;;
+
+  /**
+   * The prefix that all internal hop variables should have
+   */
+  public static final String INTERNAL_VARIABLE_PREFIX = &quot;Internal&quot;;
+
+  /**
+   * The workflow filename directory
+   */
+  public static final String INTERNAL_VARIABLE_WORKFLOW_FILENAME_FOLDER = INTERNAL_VARIABLE_PREFIX + &quot;.Workflow.Filename.Folder&quot;;
+
+  /**
+   * The workflow filename name
+   */
+  public static final String INTERNAL_VARIABLE_WORKFLOW_FILENAME_NAME = INTERNAL_VARIABLE_PREFIX + &quot;.Workflow.Filename.Name&quot;;
+
+  /**
+   * The workflow name
+   */
+  public static final String INTERNAL_VARIABLE_WORKFLOW_NAME = INTERNAL_VARIABLE_PREFIX + &quot;.Workflow.Name&quot;;
+
+  /**
+   * The current pipeline directory
+   */
+  public static final String INTERNAL_VARIABLE_ENTRY_CURRENT_FOLDER = INTERNAL_VARIABLE_PREFIX + &quot;.Entry.Current.Folder&quot;;
+
+  /**
+   * All the internal pipeline variables
+   */
+<span class="fc" id="L359">  public static final String[] INTERNAL_PIPELINE_VARIABLES = new String[] {</span>
+    Const.INTERNAL_VARIABLE_ENTRY_CURRENT_FOLDER,
+    Const.INTERNAL_VARIABLE_PIPELINE_FILENAME_DIRECTORY,
+    Const.INTERNAL_VARIABLE_PIPELINE_FILENAME_NAME, Const.INTERNAL_VARIABLE_PIPELINE_NAME,
+  };
+
+  /**
+   * All the internal workflow variables
+   */
+<span class="fc" id="L368">  public static final String[] INTERNAL_WORKFLOW_VARIABLES = new String[] {</span>
+    Const.INTERNAL_VARIABLE_ENTRY_CURRENT_FOLDER,
+    Const.INTERNAL_VARIABLE_WORKFLOW_FILENAME_FOLDER, Const.INTERNAL_VARIABLE_WORKFLOW_FILENAME_NAME,
+    Const.INTERNAL_VARIABLE_WORKFLOW_NAME,
+  };
+
+  /*
+   * Deprecated variables array.
+   * Variables in this array will display with the prefix (deprecated) and will be moved
+   * at the bottom of the variables dropdown when pressing ctrl+space
+   * */
+<span class="fc" id="L379">  public static final String[] DEPRECATED_VARIABLES = new String[] {</span>
+    Const.INTERNAL_VARIABLE_PIPELINE_FILENAME_DIRECTORY,
+    Const.INTERNAL_VARIABLE_PIPELINE_FILENAME_NAME, Const.INTERNAL_VARIABLE_PIPELINE_NAME,
+  };
+
+  /**
+   * The pipeline filename directory
+   */
+  public static final String INTERNAL_VARIABLE_PIPELINE_FILENAME_DIRECTORY = INTERNAL_VARIABLE_PREFIX
+    + &quot;.Pipeline.Filename.Directory&quot;;
+
+  /**
+   * The pipeline filename name
+   */
+  public static final String INTERNAL_VARIABLE_PIPELINE_FILENAME_NAME = INTERNAL_VARIABLE_PREFIX
+    + &quot;.Pipeline.Filename.Name&quot;;
+
+  /**
+   * The pipeline name
+   */
+  public static final String INTERNAL_VARIABLE_PIPELINE_NAME = INTERNAL_VARIABLE_PREFIX
+    + &quot;.Pipeline.Name&quot;;
+
+  /**
+   * The transform partition ID
+   */
+  public static final String INTERNAL_VARIABLE_TRANSFORM_PARTITION_ID = INTERNAL_VARIABLE_PREFIX + &quot;.Transform.Partition.ID&quot;;
+
+  /**
+   * The transform partition number
+   */
+  public static final String INTERNAL_VARIABLE_TRANSFORM_PARTITION_NR = INTERNAL_VARIABLE_PREFIX + &quot;.Transform.Partition.Number&quot;;
+
+  /**
+   * The transform name
+   */
+  public static final String INTERNAL_VARIABLE_TRANSFORM_NAME = INTERNAL_VARIABLE_PREFIX + &quot;.Transform.Name&quot;;
+
+  /**
+   * The transform copy nr
+   */
+  public static final String INTERNAL_VARIABLE_TRANSFORM_COPYNR = INTERNAL_VARIABLE_PREFIX + &quot;.Transform.CopyNr&quot;;
+
+  /**
+   * The default maximum for the nr of lines in the GUI logs
+   */
+  public static final int MAX_NR_LOG_LINES = 5000;
+
+  /**
+   * The default maximum for the nr of lines in the history views
+   */
+  public static final int MAX_NR_HISTORY_LINES = 50;
+
+  /**
+   * The default fetch size for lines of history.
+   */
+  public static final int HISTORY_LINES_FETCH_SIZE = 10;
+
+  /**
+   * The default log line timeout in minutes : 12 hours
+   */
+  public static final int MAX_LOG_LINE_TIMEOUT_MINUTES = 12 * 60;
+
+  /**
+   * UI-agnostic flag for warnings
+   */
+  public static final int WARNING = 1;
+
+  /**
+   * UI-agnostic flag for warnings
+   */
+  public static final int ERROR = 2;
+
+  /**
+   * UI-agnostic flag for warnings
+   */
+  public static final int INFO = 3;
+
+  public static final int SHOW_MESSAGE_DIALOG_DB_TEST_DEFAULT = 0;
+
+  public static final int SHOW_MESSAGE_DIALOG_DB_TEST_SUCCESS = 1;
+
+  /**
+   * The margin between the text of a note and its border.
+   */
+  public static final int NOTE_MARGIN = 5;
+
+  /**
+   * The default undo level for Hop
+   */
+  public static final int MAX_UNDO = 100;
+
+  /**
+   * The file that documents these variables.
+   */
+  public static final String HOP_VARIABLES_FILE = &quot;hop-variables.xml&quot;;
+
+  /**
+   * If you set this environment variable you can limit the log size of all pipelines and workflows that don't have the
+   * &quot;log size limit&quot; property set in their respective properties.
+   */
+  public static final String HOP_LOG_SIZE_LIMIT = &quot;HOP_LOG_SIZE_LIMIT&quot;;
+
+  /**
+   * The name of the variable that defines the timer used for detecting server nodes.
+   */
+  public static final String HOP_SERVER_DETECTION_TIMER = &quot;HOP_SERVER_DETECTION_TIMER&quot;;
+
+  /**
+   * System wide flag to drive the evaluation of null in ValueMeta. If this setting is set to &quot;Y&quot;, an empty string and
+   * null are different. Otherwise they are not.
+   */
+  public static final String HOP_EMPTY_STRING_DIFFERS_FROM_NULL = &quot;HOP_EMPTY_STRING_DIFFERS_FROM_NULL&quot;;
+
+  /**
+   * System wide flag to allow non-strict string to number conversion for backward compatibility. If this setting is set
+   * to &quot;Y&quot;, an string starting with digits will be converted successfully into a number. (example: 192.168.1.1 will be
+   * converted into 192 or 192.168 depending on the decimal symbol). The default (N) will be to throw an error if
+   * non-numeric symbols are found in the string.
+   */
+  public static final String HOP_LENIENT_STRING_TO_NUMBER_CONVERSION = &quot;HOP_LENIENT_STRING_TO_NUMBER_CONVERSION&quot;;
+
+  /**
+   * System wide flag to ignore timezone while writing date/timestamp value to the database. See PDI-10749 for details.
+   */
+  public static final String HOP_COMPATIBILITY_DB_IGNORE_TIMEZONE = &quot;HOP_COMPATIBILITY_DB_IGNORE_TIMEZONE&quot;;
+
+  /**
+   * System wide flag to set or not append and header options dependency on Text file output transform. See PDI-5252 for
+   * details.
+   */
+  public static final String HOP_COMPATIBILITY_TEXT_FILE_OUTPUT_APPEND_NO_HEADER = &quot;HOP_COMPATIBILITY_TEXT_FILE_OUTPUT_APPEND_NO_HEADER&quot;;
+
+  /**
+   * System wide flag to control behavior of the merge rows (diff) transform in case of &quot;identical&quot; comparison. (PDI-736)
+   * 'Y' preserves the old behavior and takes the fields from the reference stream
+   * 'N' enables the documented behavior and takes the fields from the comparison stream (correct behavior)
+   */
+  public static final String HOP_COMPATIBILITY_MERGE_ROWS_USE_REFERENCE_STREAM_WHEN_IDENTICAL = &quot;HOP_COMPATIBILITY_MERGE_ROWS_USE_REFERENCE_STREAM_WHEN_IDENTICAL&quot;;
+
+  /**
+   * System wide flag to control behavior of the Memory Group By transform in case of SUM and AVERAGE aggregation. (PDI-5537)
+   * 'Y' preserves the old behavior and always returns a Number type for SUM and Average aggregations
+   * 'N' enables the documented behavior of returning the same type as the input fields use (correct behavior).
+   */
+  public static final String HOP_COMPATIBILITY_MEMORY_GROUP_BY_SUM_AVERAGE_RETURN_NUMBER_TYPE = &quot;HOP_COMPATIBILITY_MEMORY_GROUP_BY_SUM_AVERAGE_RETURN_NUMBER_TYPE&quot;;
+
+  /**
+   * You can use this variable to speed up hostname lookup.
+   * Hostname lookup is performed by Hop so that it is capable of logging the server on which a workflow or pipeline is executed.
+   */
+  public static final String HOP_SYSTEM_HOSTNAME = &quot;HOP_SYSTEM_HOSTNAME&quot;;
+
+  /**
+   * System wide flag to set the maximum number of log lines that are kept internally by Hop. Set to 0 to keep all
+   * rows (default)
+   */
+  public static final String HOP_MAX_LOG_SIZE_IN_LINES = &quot;HOP_MAX_LOG_SIZE_IN_LINES&quot;;
+
+  /**
+   * System wide flag to set the maximum age (in minutes) of a log line while being kept internally by Hop. Set to 0
+   * to keep all rows indefinitely (default)
+   */
+  public static final String HOP_MAX_LOG_TIMEOUT_IN_MINUTES = &quot;HOP_MAX_LOG_TIMEOUT_IN_MINUTES&quot;;
+
+  /**
+   * System wide flag to determine whether standard error will be redirected to Hop logging facilities. Will redirect
+   * if the value is equal ignoring case to the string &quot;Y&quot;
+   */
+  public static final String HOP_REDIRECT_STDERR = &quot;HOP_REDIRECT_STDERR&quot;;
+
+  /**
+   * System wide flag to determine whether standard out will be redirected to Hop logging facilities. Will redirect
+   * if the value is equal ignoring case to the string &quot;Y&quot;
+   */
+  public static final String HOP_REDIRECT_STDOUT = &quot;HOP_REDIRECT_STDOUT&quot;;
+
+  /**
+   * System wide flag to log stack traces in a simpler, more human readable format
+   */
+  public static final String HOP_SIMPLE_STACK_TRACES = &quot;HOP_SIMPLE_STACK_TRACES&quot;;
+
+  public static final boolean isUsingSimpleStackTraces() {
+<span class="fc" id="L562">    String property = System.getProperty( Const.HOP_SIMPLE_STACK_TRACES );</span>
+<span class="pc bpc" id="L563" title="2 of 4 branches missed.">    return &quot;y&quot;.equalsIgnoreCase(property) || &quot;true&quot;.equalsIgnoreCase(property);</span>
+  }
+
+  /**
+   * This environment variable will set a time-out after which waiting, completed or stopped pipelines and workflows
+   * will be automatically cleaned up. The default value is 1440 (one day).
+   */
+  public static final String HOP_SERVER_OBJECT_TIMEOUT_MINUTES = &quot;HOP_SERVER_OBJECT_TIMEOUT_MINUTES&quot;;
+
+  /**
+   * System wide parameter: the maximum number of transform performance snapshots to keep in memory. Set to 0 to keep all
+   * snapshots indefinitely (default)
+   */
+  public static final String HOP_TRANSFORM_PERFORMANCE_SNAPSHOT_LIMIT = &quot;HOP_TRANSFORM_PERFORMANCE_SNAPSHOT_LIMIT&quot;;
+
+  /**
+   * A variable to configure the maximum number of workflow trackers kept in memory.
+   */
+  public static final String HOP_MAX_WORKFLOW_TRACKER_SIZE = &quot;HOP_MAX_WORKFLOW_TRACKER_SIZE&quot;;
+
+  /**
+   * A variable to configure the maximum number of action results kept in memory for logging purposes.
+   */
+  public static final String HOP_MAX_ACTIONS_LOGGED = &quot;HOP_MAX_ACTIONS_LOGGED&quot;;
+
+  /**
+   * A variable to configure the maximum number of logging registry entries kept in memory for logging purposes.
+   */
+  public static final String HOP_MAX_LOGGING_REGISTRY_SIZE = &quot;HOP_MAX_LOGGING_REGISTRY_SIZE&quot;;
+
+  /**
+   * A variable to configure the hop log tab refresh delay.
+   */
+  public static final String HOP_LOG_TAB_REFRESH_DELAY = &quot;HOP_LOG_TAB_REFRESH_DELAY&quot;;
+
+  /**
+   * A variable to configure the hop log tab refresh period.
+   */
+  public static final String HOP_LOG_TAB_REFRESH_PERIOD = &quot;HOP_LOG_TAB_REFRESH_PERIOD&quot;;
+
+  /**
+   * The name of the system wide variable that can contain the name of the SAP Connection factory for the test button in
+   * the DB dialog. This defaults to
+   */
+  public static final String HOP_SAP_CONNECTION_FACTORY = &quot;HOP_SAP_CONNECTION_FACTORY&quot;;
+
+  /**
+   * The default SAP ERP connection factory
+   */
+  public static final String HOP_SAP_CONNECTION_FACTORY_DEFAULT_NAME =
+    &quot;org.apache.hop.pipeline.transforms.sapinput.sap.SAPConnectionFactory&quot;;
+
+  /**
+   * Name of the environment variable to specify additional classes to scan for plugin annotations
+   */
+  public static final String HOP_PLUGIN_CLASSES = &quot;HOP_PLUGIN_CLASSES&quot;;
+
+  /**
+   * Name of the environment variable to specify additional packaged to scan for plugin annotations (warning: slow!)
+   */
+  public static final String HOP_PLUGIN_PACKAGES = &quot;HOP_PLUGIN_PACKAGES&quot;;
+
+  /**
+   * Name of the environment variable that contains the size of the pipeline rowset size. This overwrites values
+   * that you set pipeline settings.
+   */
+  public static final String HOP_PIPELINE_ROWSET_SIZE = &quot;HOP_PIPELINE_ROWSET_SIZE&quot;;
+
+  /**
+   * A general initial version comment
+   */
+  public static final String VERSION_COMMENT_INITIAL_VERSION = &quot;Creation of initial version&quot;;
+
+  /**
+   * A general edit version comment
+   */
+  public static final String VERSION_COMMENT_EDIT_VERSION = &quot;Modification by user&quot;;
+
+  /**
+   * The XML file that contains the list of native Hop transforms
+   */
+  public static final String XML_FILE_HOP_TRANSFORMS = &quot;hop-transforms.xml&quot;;
+
+  /**
+   * The name of the environment variable that will contain the alternative location of the hop-transforms.xml file
+   */
+  public static final String HOP_CORE_TRANSFORMS_FILE = &quot;HOP_CORE_TRANSFORMS_FILE&quot;;
+
+  /**
+   * The XML file that contains the list of native partition plugins
+   */
+  public static final String XML_FILE_HOP_PARTITION_PLUGINS = &quot;hop-partition-plugins.xml&quot;;
+
+  /**
+   * The name of the environment variable that will contain the alternative location of the hop-workflow-actions.xml file
+   */
+  public static final String HOP_CORE_WORKFLOW_ACTIONS_FILE = &quot;HOP_CORE_WORKFLOW_ACTIONS_FILE&quot;;
+
+  /**
+   * The XML file that contains the list of native Hop Carte Servlets
+   */
+  public static final String XML_FILE_HOP_SERVLETS = &quot;hop-servlets.xml&quot;;
+
+  /**
+   * The XML file that contains the list of native Hop value metadata plugins
+   */
+  public static final String XML_FILE_HOP_VALUEMETA_PLUGINS = &quot;hop-valuemeta-plugins.xml&quot;;
+
+  /**
+   * The XML file that contains the list of native Hop two-way password encoder plugins
+   */
+  public static final String XML_FILE_HOP_PASSWORD_ENCODER_PLUGINS = &quot;hop-password-encoder-plugins.xml&quot;;
+
+  /**
+   * The name of the environment variable that will contain the alternative location of the hop-valuemeta-plugins.xml
+   * file
+   */
+  public static final String HOP_VALUEMETA_PLUGINS_FILE = &quot;HOP_VALUEMETA_PLUGINS_FILE&quot;;
+
+  /**
+   * Specifies the password encoding plugin to use by ID (Hop is the default).
+   */
+  public static final String HOP_PASSWORD_ENCODER_PLUGIN = &quot;HOP_PASSWORD_ENCODER_PLUGIN&quot;;
+
+  /**
+   * The name of the environment variable that will contain the alternative location of the hop-password-encoder-plugins.xml
+   * file
+   */
+  public static final String HOP_PASSWORD_ENCODER_PLUGINS_FILE = &quot;HOP_PASSWORD_ENCODER_PLUGINS_FILE&quot;;
+
+  /**
+   * The name of the Hop encryption seed environment variable for the HopTwoWayPasswordEncoder class
+   */
+  public static final String HOP_TWO_WAY_PASSWORD_ENCODER_SEED = &quot;HOP_TWO_WAY_PASSWORD_ENCODER_SEED&quot;;
+
+  /**
+   * The XML file that contains the list of native Hop logging plugins
+   */
+  public static final String XML_FILE_HOP_LOGGING_PLUGINS = &quot;hop-logging-plugins.xml&quot;;
+
+  /**
+   * The name of the environment variable that will contain the alternative location of the hop-logging-plugins.xml
+   * file
+   */
+  public static final String HOP_LOGGING_PLUGINS_FILE = &quot;HOP_LOGGING_PLUGINS_FILE&quot;;
+
+  /**
+   * The name of the environment variable that will contain the alternative location of the hop-servlets.xml file
+   */
+  public static final String HOP_CORE_SERVLETS_FILE = &quot;HOP_CORE_SERVLETS_FILE&quot;;
+
+  /**
+   * The name of the variable that optionally contains an alternative rowset get timeout (in ms). This only makes a
+   * difference for extremely short lived pipelines.
+   */
+  public static final String HOP_ROWSET_GET_TIMEOUT = &quot;HOP_ROWSET_GET_TIMEOUT&quot;;
+
+  /**
+   * The name of the variable that optionally contains an alternative rowset put timeout (in ms). This only makes a
+   * difference for extremely short lived pipelines.
+   */
+  public static final String HOP_ROWSET_PUT_TIMEOUT = &quot;HOP_ROWSET_PUT_TIMEOUT&quot;;
+
+  /**
+   * Set this variable to Y if you want to test a more efficient batching row set. (default = N)
+   */
+  public static final String HOP_BATCHING_ROWSET = &quot;HOP_BATCHING_ROWSET&quot;;
+
+  /**
+   * Set this variable to limit max number of files the Text File Output transform can have open at one time.
+   */
+  public static final String HOP_FILE_OUTPUT_MAX_STREAM_COUNT = &quot;HOP_FILE_OUTPUT_MAX_STREAM_COUNT&quot;;
+
+  /**
+   * This variable contains the number of milliseconds between flushes of all open files in the Text File Output transform.
+   */
+  public static final String HOP_FILE_OUTPUT_MAX_STREAM_LIFE = &quot;HOP_FILE_OUTPUT_MAX_STREAM_LIFE&quot;;
+
+  /**
+   * Set this variable to Y to disable standard Hop logging to the console. (stdout)
+   */
+  public static final String HOP_DISABLE_CONSOLE_LOGGING = &quot;HOP_DISABLE_CONSOLE_LOGGING&quot;;
+
+  /**
+   * The XML file that contains the list of native Hop actions
+   */
+  public static final String XML_FILE_HOP_WORKFLOW_ACTIONS = &quot;hop-workflow-actions.xml&quot;;
+
+  /**
+   * The XML file that contains the list of native Hop database types (MySQL, Oracle, etc)
+   */
+  public static final String XML_FILE_HOP_DATABASE_TYPES = &quot;hop-database-types.xml&quot;;
+
+  /**
+   * The XML file that contains the list of native Hop database types (MySQL, Oracle, etc)
+   */
+  public static final String XML_FILE_HOP_SEARCH_ANALYSER_PLUGINS = &quot;hop-search-analyser-plugins.xml&quot;;
+
+  /**
+   * The XML file that contains the list of native Hop database types (MySQL, Oracle, etc)
+   */
+  public static final String XML_FILE_HOP_VFS_PLUGINS = &quot;hop-vfs-plugins.xml&quot;;
+
+  /**
+   * The XML file that contains the list of native Hop metadata plugins (DatabaseMeta, HopServer, ...)
+   */
+  public static final String XML_FILE_HOP_METADATA_PLUGINS = &quot;hop-metadata-plugins.xml&quot;;
+
+  /**
+   * The XML file that contains the list of native config plugins
+   */
+  public static final String XML_FILE_HOP_CONFIG_PLUGINS = &quot;hop-config-plugins.xml&quot;;
+
+  /**
+   * The XML file that contains the list of native Hop database types (MySQL, Oracle, etc)
+   */
+  public static final String XML_FILE_HOP_GUI_PLUGINS = &quot;hop-gui-plugins.xml&quot;;
+
+  /**
+   * The XML file that contains the list of native Hop database types (MySQL, Oracle, etc)
+   */
+  public static final String XML_FILE_HOP_PERSPECTIVE_PLUGINS = &quot;hop-perspective-plugins.xml&quot;;
+
+  /**
+   * The XML file that contains the list of native Hop database types (MySQL, Oracle, etc)
+   */
+  public static final String XML_FILE_HOP_FILE_TYPES = &quot;hop-file-types.xml&quot;;
+
+  /**
+   * The XML file that contains the list of native Hop compression providers (None, ZIP, GZip, etc.)
+   */
+  public static final String XML_FILE_HOP_COMPRESSION_PROVIDERS = &quot;hop-compression-providers.xml&quot;;
+
+  /**
+   * The XML file that contains the list of native Hop compression providers (None, ZIP, GZip, etc.)
+   */
+  public static final String XML_FILE_HOP_AUTHENTICATION_PROVIDERS = &quot;hop-authentication-providers.xml&quot;;
+
+  /**
+   * The XML file that contains the list of native extension points (None by default, this is mostly for OEM purposes)
+   */
+  public static final String XML_FILE_HOP_EXTENSION_POINTS = &quot;hop-extension-points.xml&quot;;
+
+  /**
+   * The XML file that contains the list of lifecycle listeners
+   */
+  public static final String XML_FILE_HOP_LIFECYCLE_LISTENERS = &quot;hop-lifecycle-listeners.xml&quot;;
+
+  /**
+   * The XML file that contains the list of native pipeline engines
+   */
+  public static final String XML_FILE_HOP_PIPELINE_ENGINES = &quot;hop-pipeline-engines.xml&quot;;
+
+  /**
+   * The XML file that contains the list of native workflow engines
+   */
+  public static final String XML_FILE_HOP_WORKFLOW_ENGINES = &quot;hop-workflow-engines.xml&quot;;
+
+  /**
+   * the value the Pan JVM should return on exit.
+   */
+  public static final String HOP_PIPELINE_PAN_JVM_EXIT_CODE = &quot;HOP_PIPELINE_PAN_JVM_EXIT_CODE&quot;;
+
+  /**
+   * The name of the variable containing an alternative default number format
+   */
+  public static final String HOP_DEFAULT_NUMBER_FORMAT = &quot;HOP_DEFAULT_NUMBER_FORMAT&quot;;
+
+  /**
+   * The name of the variable containing an alternative default bignumber format
+   */
+  public static final String HOP_DEFAULT_BIGNUMBER_FORMAT = &quot;HOP_DEFAULT_BIGNUMBER_FORMAT&quot;;
+
+  /**
+   * The name of the variable containing an alternative default integer format
+   */
+  public static final String HOP_DEFAULT_INTEGER_FORMAT = &quot;HOP_DEFAULT_INTEGER_FORMAT&quot;;
+
+  /**
+   * The name of the variable containing an alternative default date format
+   */
+  public static final String HOP_DEFAULT_DATE_FORMAT = &quot;HOP_DEFAULT_DATE_FORMAT&quot;;
+
+  // Null values tweaks
+  public static final String HOP_AGGREGATION_MIN_NULL_IS_VALUED = &quot;HOP_AGGREGATION_MIN_NULL_IS_VALUED&quot;;
+  public static final String HOP_AGGREGATION_ALL_NULLS_ARE_ZERO = &quot;HOP_AGGREGATION_ALL_NULLS_ARE_ZERO&quot;;
+
+  /**
+   * The name of the variable containing an alternative default timestamp format
+   */
+  public static final String HOP_DEFAULT_TIMESTAMP_FORMAT = &quot;HOP_DEFAULT_TIMESTAMP_FORMAT&quot;;
+
+  /**
+   * Variable that is responsible for removing enclosure symbol after splitting the string
+   */
+  public static final String HOP_SPLIT_FIELDS_REMOVE_ENCLOSURE = &quot;HOP_SPLIT_FIELDS_REMOVE_ENCLOSURE&quot;;
+
+  /**
+   * Variable that is responsible for checking empty field names and types.
+   */
+  public static final String HOP_ALLOW_EMPTY_FIELD_NAMES_AND_TYPES = &quot;HOP_ALLOW_EMPTY_FIELD_NAMES_AND_TYPES&quot;;
+
+  /**
+   * Set this variable to false to preserve global log variables defined in pipeline / workflow Properties -&gt; Log panel.
+   * Changing it to true will clear all global log variables when export pipeline / workflow
+   */
+  public static final String HOP_GLOBAL_LOG_VARIABLES_CLEAR_ON_EXPORT = &quot;HOP_GLOBAL_LOG_VARIABLES_CLEAR_ON_EXPORT&quot;;
+
+  /**
+   * Compatibility settings for {@link org.apache.hop.core.row.ValueDataUtil#hourOfDay(IValueMeta, Object)}.
+   * &lt;p&gt;
+   * Switches off the fix for calculation of timezone decomposition.
+   */
+  public static final String HOP_COMPATIBILITY_CALCULATION_TIMEZONE_DECOMPOSITION =
+    &quot;HOP_COMPATIBILITY_CALCULATION_TIMEZONE_DECOMPOSITION&quot;;
+
+  /**
+   * Compatibility settings for setNrErrors
+   */
+  // see PDI-10270 for details.
+  public static final String HOP_COMPATIBILITY_SET_ERROR_ON_SPECIFIC_WORKFLOW_ACTIONS = &quot;HOP_COMPATIBILITY_SET_ERROR_ON_SPECIFIC_WORKFLOW_ACTIONS&quot;;
+
+  // See PDI-15781 for details
+  public static final String HOP_COMPATIBILITY_SEND_RESULT_XML_WITH_FULL_STATUS = &quot;HOP_COMPATIBILITY_SEND_RESULT_XML_WITH_FULL_STATUS&quot;;
+
+  // See PDI-16388 for details
+  public static final String HOP_COMPATIBILITY_SELECT_VALUES_TYPE_CHANGE_USES_TYPE_DEFAULTS = &quot;HOP_COMPATIBILITY_SELECT_VALUES_TYPE_CHANGE_USES_TYPE_DEFAULTS&quot;;
+
+  // See PDI-17203 for details
+  public static final String HOP_COMPATIBILITY_XML_OUTPUT_NULL_VALUES = &quot;HOP_COMPATIBILITY_XML_OUTPUT_NULL_VALUES&quot;;
+
+  // See PDI-17980 for details
+  public static final String HOP_COMPATIBILITY_USE_JDBC_METADATA = &quot;HOP_COMPATIBILITY_USE_JDBC_METADATA&quot;;
+
+
+  private static String[] emptyPaddedSpacesStrings;
+
+  /**
+   * The release type of this compilation
+   */
+<span class="fc" id="L903">  public static final ReleaseType RELEASE = ReleaseType.GA;</span>
+
+  /**
+   * The system environment variable pointing to the alternative location for the Hop metadata folder
+   */
+  public static final String HOP_METADATA_FOLDER = &quot;HOP_METADATA_FOLDER&quot;;
+
+  /**
+   * A variable to configure turning on/off detailed subjects in log.
+   */
+  public static final String HOP_LOG_MARK_MAPPINGS = &quot;HOP_LOG_MARK_MAPPINGS&quot;;
+
+  /**
+   * A variable to configure jetty option: acceptors for Carte
+   */
+  public static final String HOP_SERVER_JETTY_ACCEPTORS = &quot;HOP_SERVER_JETTY_ACCEPTORS&quot;;
+
+  /**
+   * A variable to configure jetty option: acceptQueueSize for Carte
+   */
+  public static final String HOP_SERVER_JETTY_ACCEPT_QUEUE_SIZE = &quot;HOP_SERVER_JETTY_ACCEPT_QUEUE_SIZE&quot;;
+
+  /**
+   * A variable to configure jetty option: lowResourcesMaxIdleTime for Carte
+   */
+  public static final String HOP_SERVER_JETTY_RES_MAX_IDLE_TIME = &quot;HOP_SERVER_JETTY_RES_MAX_IDLE_TIME&quot;;
+
+  /**
+   * A variable to configure refresh for carte workflow/pipeline status page
+   */
+  public static final String HOP_SERVER_REFRESH_STATUS = &quot;HOP_SERVER_REFRESH_STATUS&quot;;
+
+  /**
+   * A variable to configure s3vfs to use a temporary file on upload data to S3 Amazon.&quot;
+   */
+  public static final String S3VFS_USE_TEMPORARY_FILE_ON_UPLOAD_DATA = &quot;s3.vfs.useTempFileOnUploadData&quot;;
+
+  /**
+   * A variable to configure Tab size&quot;
+   */
+  public static final String HOP_MAX_TAB_LENGTH = &quot;HOP_MAX_TAB_LENGTH&quot;;
+
+  /**
+   * A variable to configure VFS USER_DIR_IS_ROOT option: should be &quot;true&quot; or &quot;false&quot;
+   * {@linkplain org.apache.commons.vfs2.provider.sftp.SftpFileSystemConfigBuilder}
+   */
+  public static final String VFS_USER_DIR_IS_ROOT = &quot;vfs.sftp.userDirIsRoot&quot;;
+
+  /**
+   * &lt;p&gt;A variable to configure the minimum allowed ratio between de- and inflated bytes to detect a zipbomb.&lt;/p&gt;
+   * &lt;p&gt;If not set or if the configured value is invalid, it defaults to {@value
+   * #HOP_ZIP_MIN_INFLATE_RATIO_DEFAULT}&lt;/p&gt;
+   * &lt;p&gt;Check PDI-17586 for more details.&lt;/p&gt;
+   *
+   * @see #HOP_ZIP_MIN_INFLATE_RATIO_DEFAULT
+   * @see #HOP_ZIP_MIN_INFLATE_RATIO_DEFAULT_STRING
+   */
+  public static final String HOP_ZIP_MIN_INFLATE_RATIO = &quot;HOP_ZIP_MIN_INFLATE_RATIO&quot;;
+
+  /**
+   * &lt;p&gt;The default value for the {@link #HOP_ZIP_MIN_INFLATE_RATIO} as a Double.&lt;/p&gt;
+   * &lt;p&gt;Check PDI-17586 for more details.&lt;/p&gt;
+   *
+   * @see #HOP_ZIP_MIN_INFLATE_RATIO
+   * @see #HOP_ZIP_MIN_INFLATE_RATIO_DEFAULT_STRING
+   */
+<span class="fc" id="L969">  public static final Double HOP_ZIP_MIN_INFLATE_RATIO_DEFAULT = 0.01d;</span>
+
+  /**
+   * &lt;p&gt;The default value for the {@link #HOP_ZIP_MIN_INFLATE_RATIO} as a String.&lt;/p&gt;
+   * &lt;p&gt;Check PDI-17586 for more details.&lt;/p&gt;
+   *
+   * @see #HOP_ZIP_MIN_INFLATE_RATIO
+   * @see #HOP_ZIP_MIN_INFLATE_RATIO_DEFAULT
+   */
+<span class="fc" id="L978">  public static final String HOP_ZIP_MIN_INFLATE_RATIO_DEFAULT_STRING =</span>
+<span class="fc" id="L979">    String.valueOf( HOP_ZIP_MIN_INFLATE_RATIO_DEFAULT );</span>
+
+  /**
+   * &lt;p&gt;A variable to configure the maximum file size of a single zip entry.&lt;/p&gt;
+   * &lt;p&gt;If not set or if the configured value is invalid, it defaults to {@value #HOP_ZIP_MAX_ENTRY_SIZE_DEFAULT}&lt;/p&gt;
+   * &lt;p&gt;Check PDI-17586 for more details.&lt;/p&gt;
+   *
+   * @see #HOP_ZIP_MAX_ENTRY_SIZE_DEFAULT
+   * @see #HOP_ZIP_MAX_ENTRY_SIZE_DEFAULT_STRING
+   */
+  public static final String HOP_ZIP_MAX_ENTRY_SIZE = &quot;HOP_ZIP_MAX_ENTRY_SIZE&quot;;
+
+  /**
+   * &lt;p&gt;The default value for the {@link #HOP_ZIP_MAX_ENTRY_SIZE} as a Long.&lt;/p&gt;
+   * &lt;p&gt;Check PDI-17586 for more details.&lt;/p&gt;
+   *
+   * @see #HOP_ZIP_MAX_ENTRY_SIZE
+   * @see #HOP_ZIP_MAX_ENTRY_SIZE_DEFAULT_STRING
+   */
+<span class="fc" id="L998">  public static final Long HOP_ZIP_MAX_ENTRY_SIZE_DEFAULT = 0xFFFFFFFFL;</span>
+
+  /**
+   * &lt;p&gt;The default value for the {@link #HOP_ZIP_MAX_ENTRY_SIZE} as a String.&lt;/p&gt;
+   * &lt;p&gt;Check PDI-17586 for more details.&lt;/p&gt;
+   *
+   * @see #HOP_ZIP_MAX_ENTRY_SIZE
+   * @see #HOP_ZIP_MAX_ENTRY_SIZE_DEFAULT
+   */
+<span class="fc" id="L1007">  public static final String HOP_ZIP_MAX_ENTRY_SIZE_DEFAULT_STRING =</span>
+<span class="fc" id="L1008">    String.valueOf( HOP_ZIP_MAX_ENTRY_SIZE_DEFAULT );</span>
+
+  /**
+   * &lt;p&gt;A variable to configure the maximum number of characters of text that are extracted before an exception is
+   * thrown during extracting text from documents.&lt;/p&gt;
+   * &lt;p&gt;If not set or if the configured value is invalid, it defaults to {@value #HOP_ZIP_MAX_TEXT_SIZE_DEFAULT}&lt;/p&gt;
+   * &lt;p&gt;Check PDI-17586 for more details.&lt;/p&gt;
+   *
+   * @see #HOP_ZIP_MAX_TEXT_SIZE_DEFAULT
+   * @see #HOP_ZIP_MAX_TEXT_SIZE_DEFAULT_STRING
+   */
+  public static final String HOP_ZIP_MAX_TEXT_SIZE = &quot;HOP_ZIP_MAX_TEXT_SIZE&quot;;
+
+  /**
+   * &lt;p&gt;The default value for the {@link #HOP_ZIP_MAX_TEXT_SIZE} as a Long.&lt;/p&gt;
+   * &lt;p&gt;Check PDI-17586 for more details.&lt;/p&gt;
+   *
+   * @see #HOP_ZIP_MAX_TEXT_SIZE
+   * @see #HOP_ZIP_MAX_TEXT_SIZE_DEFAULT_STRING
+   */
+<span class="fc" id="L1028">  public static final Long HOP_ZIP_MAX_TEXT_SIZE_DEFAULT = 10 * 1024 * 1024L;</span>
+
+  /**
+   * &lt;p&gt;The default value for the {@link #HOP_ZIP_MAX_TEXT_SIZE} as a Long.&lt;/p&gt;
+   * &lt;p&gt;Check PDI-17586 for more details.&lt;/p&gt;
+   *
+   * @see #HOP_ZIP_MAX_TEXT_SIZE
+   * @see #HOP_ZIP_MAX_TEXT_SIZE_DEFAULT
+   */
+<span class="fc" id="L1037">  public static final String HOP_ZIP_MAX_TEXT_SIZE_DEFAULT_STRING =</span>
+<span class="fc" id="L1038">    String.valueOf( HOP_ZIP_MAX_TEXT_SIZE_DEFAULT );</span>
+
+  /**
+   * &lt;p&gt;A variable to configure if the S3 input / output transforms should use the Amazon Default Credentials Provider Chain
+   * even if access credentials are specified within the pipeline.&lt;/p&gt;
+   */
+  public static final String HOP_USE_AWS_DEFAULT_CREDENTIALS = &quot;HOP_USE_AWS_DEFAULT_CREDENTIALS&quot;;
+
+  /**
+   * rounds double f to any number of places after decimal point Does arithmetic using BigDecimal class to avoid integer
+   * overflow while rounding
+   *
+   * @param f      The value to round
+   * @param places The number of decimal places
+   * @return The rounded floating point value
+   */
+
+  public static double round( double f, int places ) {
+<span class="nc" id="L1056">    return round( f, places, java.math.BigDecimal.ROUND_HALF_EVEN );</span>
+  }
+
+  /**
+   * rounds double f to any number of places after decimal point Does arithmetic using BigDecimal class to avoid integer
+   * overflow while rounding
+   *
+   * @param f            The value to round
+   * @param places       The number of decimal places
+   * @param roundingMode The mode for rounding, e.g. java.math.BigDecimal.ROUND_HALF_EVEN
+   * @return The rounded floating point value
+   */
+  public static double round( double f, int places, int roundingMode ) {
+    // We can't round non-numbers or infinite values
+    //
+<span class="fc bfc" id="L1071" title="All 6 branches covered.">    if ( Double.isNaN( f ) || f == Double.NEGATIVE_INFINITY || f == Double.POSITIVE_INFINITY ) {</span>
+<span class="fc" id="L1072">      return f;</span>
+    }
+
+    // Do the rounding...
+    //
+<span class="fc" id="L1077">    java.math.BigDecimal bdtemp = round( java.math.BigDecimal.valueOf( f ), places, roundingMode );</span>
+<span class="fc" id="L1078">    return bdtemp.doubleValue();</span>
+  }
+
+  /**
+   * rounds BigDecimal f to any number of places after decimal point Does arithmetic using BigDecimal class to avoid
+   * integer overflow while rounding
+   *
+   * @param f            The value to round
+   * @param places       The number of decimal places
+   * @param roundingMode The mode for rounding, e.g. java.math.BigDecimal.ROUND_HALF_EVEN
+   * @return The rounded floating point value
+   */
+  public static BigDecimal round( BigDecimal f, int places, int roundingMode ) {
+<span class="fc bfc" id="L1091" title="All 2 branches covered.">    if ( roundingMode == ROUND_HALF_CEILING ) {</span>
+<span class="fc bfc" id="L1092" title="All 2 branches covered.">      if ( f.signum() &gt;= 0 ) {</span>
+<span class="fc" id="L1093">        return round( f, places, BigDecimal.ROUND_HALF_UP );</span>
+      } else {
+<span class="fc" id="L1095">        return round( f, places, BigDecimal.ROUND_HALF_DOWN );</span>
+      }
+    } else {
+<span class="fc" id="L1098">      return f.setScale( places, roundingMode );</span>
+    }
+  }
+
+  /**
+   * rounds long f to any number of places after decimal point Does arithmetic using BigDecimal class to avoid integer
+   * overflow while rounding
+   *
+   * @param f            The value to round
+   * @param places       The number of decimal places
+   * @param roundingMode The mode for rounding, e.g. java.math.BigDecimal.ROUND_HALF_EVEN
+   * @return The rounded floating point value
+   */
+  public static long round( long f, int places, int roundingMode ) {
+<span class="fc bfc" id="L1112" title="All 2 branches covered.">    if ( places &gt;= 0 ) {</span>
+<span class="fc" id="L1113">      return f;</span>
+    }
+<span class="fc" id="L1115">    BigDecimal bdtemp = round( BigDecimal.valueOf( f ), places, roundingMode );</span>
+<span class="fc" id="L1116">    return bdtemp.longValue();</span>
+  }
+
+  /*
+   * OLD code: caused a lot of problems with very small and very large numbers. It's a miracle it worked at all. Go
+   * ahead, have a laugh... public static float round(double f, int places) { float temp = (float) (f *
+   * (Math.pow(10, places)));
+   *
+   * temp = (Math.round(temp));
+   *
+   * temp = temp / (int) (Math.pow(10, places));
+   *
+   * return temp;
+   *
+   * }
+   */
+
+  /**
+   * Convert a String into an integer. If the conversion fails, assign a default value.
+   *
+   * @param str The String to convert to an integer
+   * @param def The default value
+   * @return The converted value or the default.
+   */
+  public static int toInt( String str, int def ) {
+<span class="fc bfc" id="L1141" title="All 2 branches covered.">    if ( str == null ) {</span>
+<span class="fc" id="L1142">      return def;</span>
+    }
+    int retval;
+    try {
+<span class="fc" id="L1146">      retval = Integer.parseInt( str );</span>
+<span class="fc" id="L1147">    } catch ( Exception e ) {</span>
+<span class="fc" id="L1148">      retval = def;</span>
+<span class="fc" id="L1149">    }</span>
+<span class="fc" id="L1150">    return retval;</span>
+  }
+
+  /**
+   * Convert a String into a long integer. If the conversion fails, assign a default value.
+   *
+   * @param str The String to convert to a long integer
+   * @param def The default value
+   * @return The converted value or the default.
+   */
+  public static long toLong( String str, long def ) {
+<span class="pc bpc" id="L1161" title="1 of 2 branches missed.">    if ( str == null ) {</span>
+<span class="nc" id="L1162">      return def;</span>
+    }
+    long retval;
+    try {
+<span class="fc" id="L1166">      retval = Long.parseLong( str );</span>
+<span class="fc" id="L1167">    } catch ( Exception e ) {</span>
+<span class="fc" id="L1168">      retval = def;</span>
+<span class="fc" id="L1169">    }</span>
+<span class="fc" id="L1170">    return retval;</span>
+  }
+
+  /**
+   * Convert a String into a double. If the conversion fails, assign a default value.
+   *
+   * @param str The String to convert to a double
+   * @param def The default value
+   * @return The converted value or the default.
+   */
+  public static double toDouble( String str, double def ) {
+<span class="pc bpc" id="L1181" title="1 of 2 branches missed.">    if ( str == null ) {</span>
+<span class="nc" id="L1182">      return def;</span>
+    }
+    double retval;
+    try {
+<span class="fc" id="L1186">      retval = Double.parseDouble( str );</span>
+<span class="fc" id="L1187">    } catch ( Exception e ) {</span>
+<span class="fc" id="L1188">      retval = def;</span>
+<span class="fc" id="L1189">    }</span>
+<span class="fc" id="L1190">    return retval;</span>
+  }
+
+  /**
+   * Convert a String into a date. The date format is &lt;code&gt;yyyy/MM/dd HH:mm:ss.SSS&lt;/code&gt;. If the conversion fails,
+   * assign a default value.
+   *
+   * @param str The String to convert into a Date
+   * @param def The default value
+   * @return The converted value or the default.
+   */
+  public static Date toDate( String str, Date def ) {
+<span class="nc bnc" id="L1202" title="All 2 branches missed.">    if ( str == null ) {</span>
+<span class="nc" id="L1203">      return def;</span>
+    }
+<span class="nc" id="L1205">    SimpleDateFormat df = new SimpleDateFormat( &quot;yyyy/MM/dd HH:mm:ss.SSS&quot;, Locale.US );</span>
+    try {
+<span class="nc" id="L1207">      return df.parse( str );</span>
+<span class="nc" id="L1208">    } catch ( ParseException e ) {</span>
+<span class="nc" id="L1209">      return def;</span>
+    }
+  }
+
+  /**
+   * Determines whether or not a character is considered a space. A character is considered a space in Hop if it is a
+   * space, a tab, a newline or a cariage return.
+   *
+   * @param c The character to verify if it is a space.
+   * @return true if the character is a space. false otherwise.
+   */
+  public static boolean isSpace( char c ) {
+<span class="pc bpc" id="L1221" title="4 of 10 branches missed.">    return c == ' ' || c == '\t' || c == '\r' || c == '\n' || Character.isWhitespace( c );</span>
+  }
+
+  /**
+   * Left trim: remove spaces to the left of a String.
+   *
+   * @param source The String to left trim
+   * @return The left trimmed String
+   */
+  public static String ltrim( String source ) {
+<span class="fc bfc" id="L1231" title="All 2 branches covered.">    if ( source == null ) {</span>
+<span class="fc" id="L1232">      return null;</span>
+    }
+<span class="fc" id="L1234">    int from = 0;</span>
+<span class="fc bfc" id="L1235" title="All 4 branches covered.">    while ( from &lt; source.length() &amp;&amp; isSpace( source.charAt( from ) ) ) {</span>
+<span class="fc" id="L1236">      from++;</span>
+    }
+
+<span class="fc" id="L1239">    return source.substring( from );</span>
+  }
+
+  /**
+   * Right trim: remove spaces to the right of a string
+   *
+   * @param source The string to right trim
+   * @return The trimmed string.
+   */
+  public static String rtrim( String source ) {
+<span class="fc bfc" id="L1249" title="All 2 branches covered.">    if ( source == null ) {</span>
+<span class="fc" id="L1250">      return null;</span>
+    }
+
+<span class="fc" id="L1253">    int max = source.length();</span>
+<span class="fc bfc" id="L1254" title="All 4 branches covered.">    while ( max &gt; 0 &amp;&amp; isSpace( source.charAt( max - 1 ) ) ) {</span>
+<span class="fc" id="L1255">      max--;</span>
+    }
+
+<span class="fc" id="L1258">    return source.substring( 0, max );</span>
+  }
+
+  /**
+   * Trims a string: removes the leading and trailing spaces of a String.
+   *
+   * @param str The string to trim
+   * @return The trimmed string.
+   */
+  public static String trim( String str ) {
+<span class="fc bfc" id="L1268" title="All 2 branches covered.">    if ( str == null ) {</span>
+<span class="fc" id="L1269">      return null;</span>
+    }
+
+<span class="fc" id="L1272">    int max = str.length() - 1;</span>
+<span class="fc" id="L1273">    int min = 0;</span>
+
+<span class="fc bfc" id="L1275" title="All 4 branches covered.">    while ( min &lt;= max &amp;&amp; isSpace( str.charAt( min ) ) ) {</span>
+<span class="fc" id="L1276">      min++;</span>
+    }
+<span class="fc bfc" id="L1278" title="All 4 branches covered.">    while ( max &gt;= 0 &amp;&amp; isSpace( str.charAt( max ) ) ) {</span>
+<span class="fc" id="L1279">      max--;</span>
+    }
+
+<span class="fc bfc" id="L1282" title="All 2 branches covered.">    if ( max &lt; min ) {</span>
+<span class="fc" id="L1283">      return &quot;&quot;;</span>
+    }
+
+<span class="fc" id="L1286">    return str.substring( min, max + 1 );</span>
+  }
+
+  /**
+   * Right pad a string: adds spaces to a string until a certain length. If the length is smaller then the limit
+   * specified, the String is truncated.
+   *
+   * @param ret   The string to pad
+   * @param limit The desired length of the padded string.
+   * @return The padded String.
+   */
+  public static String rightPad( String ret, int limit ) {
+<span class="fc bfc" id="L1298" title="All 2 branches covered.">    if ( ret == null ) {</span>
+<span class="fc" id="L1299">      return rightPad( new StringBuilder(), limit );</span>
+    } else {
+<span class="fc" id="L1301">      return rightPad( new StringBuilder( ret ), limit );</span>
+    }
+  }
+
+  /**
+   * Right pad a StringBuffer: adds spaces to a string until a certain length. If the length is smaller then the limit
+   * specified, the String is truncated.
+   * &lt;p&gt;
+   * MB - New version is nearly 25% faster
+   *
+   * @param ret   The StringBuffer to pad
+   * @param limit The desired length of the padded string.
+   * @return The padded String.
+   */
+  public static String rightPad( StringBuffer ret, int limit ) {
+<span class="pc bpc" id="L1316" title="1 of 2 branches missed.">    if ( ret != null ) {</span>
+<span class="fc bfc" id="L1317" title="All 2 branches covered.">      while ( ret.length() &lt; limit ) {</span>
+<span class="fc" id="L1318">        ret.append( &quot;                    &quot; );</span>
+      }
+<span class="fc" id="L1320">      ret.setLength( limit );</span>
+<span class="fc" id="L1321">      return ret.toString();</span>
+    } else {
+<span class="nc" id="L1323">      return null;</span>
+    }
+  }
+
+  /**
+   * Right pad a StringBuilder: adds spaces to a string until a certain length. If the length is smaller then the limit
+   * specified, the String is truncated.
+   * &lt;p&gt;
+   * MB - New version is nearly 25% faster
+   *
+   * @param ret   The StringBuilder to pad
+   * @param limit The desired length of the padded string.
+   * @return The padded String.
+   */
+  public static String rightPad( StringBuilder ret, int limit ) {
+<span class="pc bpc" id="L1338" title="1 of 2 branches missed.">    if ( ret != null ) {</span>
+<span class="fc bfc" id="L1339" title="All 2 branches covered.">      while ( ret.length() &lt; limit ) {</span>
+<span class="fc" id="L1340">        ret.append( &quot;                    &quot; );</span>
+      }
+<span class="fc" id="L1342">      ret.setLength( limit );</span>
+<span class="fc" id="L1343">      return ret.toString();</span>
+    } else {
+<span class="nc" id="L1345">      return null;</span>
+    }
+  }
+
+  /**
+   * Replace values in a String with another.
+   * &lt;p&gt;
+   * 33% Faster using replaceAll this way than original method
+   *
+   * @param string The original String.
+   * @param repl   The text to replace
+   * @param with   The new text bit
+   * @return The resulting string with the text pieces replaced.
+   */
+  public static String replace( String string, String repl, String with ) {
+<span class="fc bfc" id="L1360" title="All 6 branches covered.">    if ( string != null &amp;&amp; repl != null &amp;&amp; with != null ) {</span>
+<span class="fc" id="L1361">      return string.replaceAll( Pattern.quote( repl ), Matcher.quoteReplacement( with ) );</span>
+    } else {
+<span class="fc" id="L1363">      return null;</span>
+    }
+  }
+
+  /**
+   * Alternate faster version of string replace using a stringbuffer as input.
+   * &lt;p&gt;
+   * 33% Faster using replaceAll this way than original method
+   *
+   * @param str  The string where we want to replace in
+   * @param code The code to search for
+   * @param repl The replacement string for code
+   */
+  public static void repl( StringBuffer str, String code, String repl ) {
+<span class="pc bpc" id="L1377" title="5 of 12 branches missed.">    if ( ( code == null ) || ( repl == null ) || ( code.length() == 0 ) || ( repl.length() == 0 ) || ( str == null ) || ( str.length() == 0 ) ) {</span>
+<span class="fc" id="L1378">      return; // do nothing</span>
+    }
+<span class="fc" id="L1380">    String aString = str.toString();</span>
+<span class="fc" id="L1381">    str.setLength( 0 );</span>
+<span class="fc" id="L1382">    str.append( aString.replaceAll( Pattern.quote( code ), Matcher.quoteReplacement( repl ) ) );</span>
+<span class="fc" id="L1383">  }</span>
+
+  /**
+   * Alternate faster version of string replace using a stringbuilder as input (non-synchronized).
+   * &lt;p&gt;
+   * 33% Faster using replaceAll this way than original method
+   *
+   * @param str  The string where we want to replace in
+   * @param code The code to search for
+   * @param repl The replacement string for code
+   */
+  public static void repl( StringBuilder str, String code, String repl ) {
+<span class="pc bpc" id="L1395" title="1 of 6 branches missed.">    if ( ( code == null ) || ( repl == null ) || ( str == null ) ) {</span>
+<span class="fc" id="L1396">      return; // do nothing</span>
+    }
+<span class="fc" id="L1398">    String aString = str.toString();</span>
+<span class="fc" id="L1399">    str.setLength( 0 );</span>
+<span class="fc" id="L1400">    str.append( aString.replaceAll( Pattern.quote( code ), Matcher.quoteReplacement( repl ) ) );</span>
+<span class="fc" id="L1401">  }</span>
+
+  /**
+   * Count the number of spaces to the left of a text. (leading)
+   *
+   * @param field The text to examine
+   * @return The number of leading spaces found.
+   */
+  public static int nrSpacesBefore( String field ) {
+<span class="fc" id="L1410">    int nr = 0;</span>
+<span class="fc" id="L1411">    int len = field.length();</span>
+<span class="fc bfc" id="L1412" title="All 4 branches covered.">    while ( nr &lt; len &amp;&amp; field.charAt( nr ) == ' ' ) {</span>
+<span class="fc" id="L1413">      nr++;</span>
+    }
+<span class="fc" id="L1415">    return nr;</span>
+  }
+
+  /**
+   * Count the number of spaces to the right of a text. (trailing)
+   *
+   * @param field The text to examine
+   * @return The number of trailing spaces found.
+   */
+  public static int nrSpacesAfter( String field ) {
+<span class="fc" id="L1425">    int nr = 0;</span>
+<span class="fc" id="L1426">    int len = field.length();</span>
+<span class="fc bfc" id="L1427" title="All 4 branches covered.">    while ( nr &lt; len &amp;&amp; field.charAt( field.length() - 1 - nr ) == ' ' ) {</span>
+<span class="fc" id="L1428">      nr++;</span>
+    }
+<span class="fc" id="L1430">    return nr;</span>
+  }
+
+  /**
+   * Checks whether or not a String consists only of spaces.
+   *
+   * @param str The string to check
+   * @return true if the string has nothing but spaces.
+   */
+  public static boolean onlySpaces( String str ) {
+<span class="fc bfc" id="L1440" title="All 2 branches covered.">    for ( int i = 0; i &lt; str.length(); i++ ) {</span>
+<span class="fc bfc" id="L1441" title="All 2 branches covered.">      if ( !isSpace( str.charAt( i ) ) ) {</span>
+<span class="fc" id="L1442">        return false;</span>
+      }
+    }
+<span class="fc" id="L1445">    return true;</span>
+  }
+
+  /**
+   * @return the operating system hop runs on
+   */
+  public static String getSystemOs() {
+<span class="fc" id="L1452">    return System.getProperty( &quot;os.name&quot; );</span>
+  }
+
+  /**
+   * This is determined by the HOP_PLATFORM_OS variable set by the Hop execution script(s)
+   *
+   * @return The name of the Hop tool running right now
+   */
+  public static String getHopPlatformOs() {
+<span class="fc" id="L1461">    return System.getProperty( HOP_PLATFORM_OS, &quot;&quot; );</span>
+  }
+
+  /**
+   * This is determined by the HOP_PLATFORM_RUNTIME variable set by the Hop execution script(s)
+   *
+   * @return The name of the Hop tool running right now
+   */
+  public static String getHopPlatformRuntime() {
+<span class="nc" id="L1470">    return System.getProperty( HOP_PLATFORM_RUNTIME );</span>
+  }
+
+  /**
+   * Determine the quoting character depending on the OS. Often used for shell calls, gives back &quot; for Windows systems
+   * otherwise '
+   *
+   * @return quoting character
+   */
+  public static String getQuoteCharByOS() {
+<span class="pc bpc" id="L1480" title="1 of 2 branches missed.">    if ( isWindows() ) {</span>
+<span class="nc" id="L1481">      return &quot;\&quot;&quot;;</span>
+    } else {
+<span class="fc" id="L1483">      return &quot;'&quot;;</span>
+    }
+  }
+
+  /**
+   * Quote a string depending on the OS. Often used for shell calls.
+   *
+   * @return quoted string
+   */
+  public static String optionallyQuoteStringByOS( String string ) {
+<span class="fc" id="L1493">    String quote = getQuoteCharByOS();</span>
+<span class="pc bpc" id="L1494" title="1 of 2 branches missed.">    if ( Utils.isEmpty( string ) ) {</span>
+<span class="nc" id="L1495">      return quote;</span>
+    }
+
+    // If the field already contains quotes, we don't touch it anymore, just
+    // return the same string...
+    // also return it if no spaces are found
+<span class="fc bfc" id="L1501" title="All 6 branches covered.">    if ( string.indexOf( quote ) &gt;= 0 || ( string.indexOf( ' ' ) &lt; 0 &amp;&amp; string.indexOf( '=' ) &lt; 0 ) ) {</span>
+<span class="fc" id="L1502">      return string;</span>
+    } else {
+<span class="fc" id="L1504">      return quote + string + quote;</span>
+    }
+  }
+
+  /**
+   * @return True if the OS is a Windows derivate.
+   */
+  public static boolean isWindows() {
+<span class="pc bpc" id="L1512" title="2 of 4 branches missed.">    return getHopPlatformOs().startsWith( &quot;Windows&quot; ) || getSystemOs().startsWith( &quot;Windows&quot; );</span>
+  }
+
+  /**
+   * @return True if the OS is a Linux derivate.
+   */
+  public static boolean isLinux() {
+<span class="pc bpc" id="L1519" title="2 of 4 branches missed.">    return getHopPlatformOs().startsWith( &quot;Linux&quot; ) || getSystemOs().startsWith( &quot;Linux&quot; );</span>
+  }
+
+  /**
+   * @return True if the OS is an OSX derivate.
+   */
+  public static boolean isOSX() {
+<span class="pc bpc" id="L1526" title="2 of 4 branches missed.">    return getHopPlatformOs().startsWith( &quot;Darwin&quot; ) || getSystemOs().toUpperCase().contains( &quot;OS X&quot; );</span>
+  }
+
+  /**
+   * @return True if KDE is in use.
+   */
+  public static boolean isKDE() {
+<span class="fc" id="L1533">    return StringUtils.isNotBlank( System.getenv( &quot;KDE_SESSION_VERSION&quot; ) );</span>
+  }
+
+  private static String cachedHostname;
+
+  /**
+   * Determine the hostname of the machine Hop is running on
+   *
+   * @return The hostname
+   */
+  public static String getHostname() {
+
+<span class="pc bpc" id="L1545" title="1 of 2 branches missed.">    if ( cachedHostname != null ) {</span>
+<span class="nc" id="L1546">      return cachedHostname;</span>
+    }
+
+    // In case we don't want to leave anything to doubt...
+    //
+<span class="fc" id="L1551">    String systemHostname = EnvUtil.getSystemProperty( HOP_SYSTEM_HOSTNAME );</span>
+<span class="pc bpc" id="L1552" title="1 of 2 branches missed.">    if ( !Utils.isEmpty( systemHostname ) ) {</span>
+<span class="nc" id="L1553">      cachedHostname = systemHostname;</span>
+<span class="nc" id="L1554">      return systemHostname;</span>
+    }
+
+<span class="fc" id="L1557">    String lastHostname = &quot;localhost&quot;;</span>
+    try {
+<span class="fc" id="L1559">      Enumeration&lt;NetworkInterface&gt; en = NetworkInterface.getNetworkInterfaces();</span>
+<span class="fc bfc" id="L1560" title="All 2 branches covered.">      while ( en.hasMoreElements() ) {</span>
+<span class="fc" id="L1561">        NetworkInterface nwi = en.nextElement();</span>
+<span class="fc" id="L1562">        Enumeration&lt;InetAddress&gt; ip = nwi.getInetAddresses();</span>
+
+<span class="pc bpc" id="L1564" title="1 of 2 branches missed.">        while ( ip.hasMoreElements() ) {</span>
+<span class="fc" id="L1565">          InetAddress in = ip.nextElement();</span>
+<span class="fc" id="L1566">          lastHostname = in.getHostName();</span>
+<span class="pc bpc" id="L1567" title="2 of 4 branches missed.">          if ( !lastHostname.equalsIgnoreCase( &quot;localhost&quot; ) &amp;&amp; !( lastHostname.indexOf( ':' ) &gt;= 0 ) ) {</span>
+<span class="fc" id="L1568">            break;</span>
+          }
+<span class="nc" id="L1570">        }</span>
+<span class="fc" id="L1571">      }</span>
+<span class="nc" id="L1572">    } catch ( SocketException e ) {</span>
+      // Eat exception, just return what you have
+<span class="fc" id="L1574">    }</span>
+
+<span class="fc" id="L1576">    cachedHostname = lastHostname;</span>
+
+<span class="fc" id="L1578">    return lastHostname;</span>
+  }
+
+  /**
+   * Determine the hostname of the machine Hop is running on
+   *
+   * @return The hostname
+   */
+  public static String getHostnameReal() {
+
+    // In case we don't want to leave anything to doubt...
+    //
+<span class="fc" id="L1590">    String systemHostname = EnvUtil.getSystemProperty( HOP_SYSTEM_HOSTNAME );</span>
+<span class="pc bpc" id="L1591" title="1 of 2 branches missed.">    if ( !Utils.isEmpty( systemHostname ) ) {</span>
+<span class="fc" id="L1592">      return systemHostname;</span>
+    }
+
+<span class="nc bnc" id="L1595" title="All 2 branches missed.">    if ( isWindows() ) {</span>
+      // Windows will always set the 'COMPUTERNAME' variable
+<span class="nc" id="L1597">      return System.getenv( &quot;COMPUTERNAME&quot; );</span>
+    } else {
+      // If it is not Windows then it is most likely a Unix-like operating system
+      // such as Solaris, AIX, HP-UX, Linux or MacOS.
+      // Most modern shells (such as Bash or derivatives) sets the
+      // HOSTNAME variable so lets try that first.
+<span class="nc" id="L1603">      String hostname = System.getenv( &quot;HOSTNAME&quot; );</span>
+<span class="nc bnc" id="L1604" title="All 2 branches missed.">      if ( hostname != null ) {</span>
+<span class="nc" id="L1605">        return hostname;</span>
+      } else {
+        BufferedReader br;
+        try {
+<span class="nc" id="L1609">          Process pr = Runtime.getRuntime().exec( &quot;hostname&quot; );</span>
+<span class="nc" id="L1610">          br = new BufferedReader( new InputStreamReader( pr.getInputStream() ) );</span>
+          String line;
+<span class="nc bnc" id="L1612" title="All 2 branches missed.">          if ( ( line = br.readLine() ) != null ) {</span>
+<span class="nc" id="L1613">            return line;</span>
+          }
+<span class="nc" id="L1615">          pr.waitFor();</span>
+<span class="nc" id="L1616">          br.close();</span>
+<span class="nc" id="L1617">        } catch ( IOException e ) {</span>
+<span class="nc" id="L1618">          return getHostname();</span>
+<span class="nc" id="L1619">        } catch ( InterruptedException e ) {</span>
+<span class="nc" id="L1620">          return getHostname();</span>
+<span class="nc" id="L1621">        }</span>
+      }
+    }
+<span class="nc" id="L1624">    return getHostname();</span>
+  }
+
+  /**
+   * Determins the IP address of the machine Hop is running on.
+   *
+   * @return The IP address
+   */
+  public static String getIPAddress() throws Exception {
+<span class="nc" id="L1633">    Enumeration&lt;NetworkInterface&gt; enumInterfaces = NetworkInterface.getNetworkInterfaces();</span>
+<span class="nc bnc" id="L1634" title="All 2 branches missed.">    while ( enumInterfaces.hasMoreElements() ) {</span>
+<span class="nc" id="L1635">      NetworkInterface nwi = enumInterfaces.nextElement();</span>
+<span class="nc" id="L1636">      Enumeration&lt;InetAddress&gt; ip = nwi.getInetAddresses();</span>
+<span class="nc bnc" id="L1637" title="All 2 branches missed.">      while ( ip.hasMoreElements() ) {</span>
+<span class="nc" id="L1638">        InetAddress in = ip.nextElement();</span>
+<span class="nc bnc" id="L1639" title="All 4 branches missed.">        if ( !in.isLoopbackAddress() &amp;&amp; in.toString().indexOf( ':' ) &lt; 0 ) {</span>
+<span class="nc" id="L1640">          return in.getHostAddress();</span>
+        }
+<span class="nc" id="L1642">      }</span>
+<span class="nc" id="L1643">    }</span>
+<span class="nc" id="L1644">    return &quot;127.0.0.1&quot;;</span>
+  }
+
+  /**
+   * Get the primary IP address tied to a network interface (excluding loop-back etc)
+   *
+   * @param networkInterfaceName the name of the network interface to interrogate
+   * @return null if the network interface or address wasn't found.
+   * @throws SocketException in case of a security or network error
+   */
+  public static String getIPAddress( String networkInterfaceName ) throws SocketException {
+<span class="nc" id="L1655">    NetworkInterface networkInterface = NetworkInterface.getByName( networkInterfaceName );</span>
+<span class="nc" id="L1656">    Enumeration&lt;InetAddress&gt; ipAddresses = networkInterface.getInetAddresses();</span>
+<span class="nc bnc" id="L1657" title="All 2 branches missed.">    while ( ipAddresses.hasMoreElements() ) {</span>
+<span class="nc" id="L1658">      InetAddress inetAddress = ipAddresses.nextElement();</span>
+<span class="nc bnc" id="L1659" title="All 4 branches missed.">      if ( !inetAddress.isLoopbackAddress() &amp;&amp; inetAddress.toString().indexOf( ':' ) &lt; 0 ) {</span>
+<span class="nc" id="L1660">        String hostname = inetAddress.getHostAddress();</span>
+<span class="nc" id="L1661">        return hostname;</span>
+      }
+<span class="nc" id="L1663">    }</span>
+<span class="nc" id="L1664">    return null;</span>
+  }
+
+  /**
+   * Tries to determine the MAC address of the machine Hop is running on.
+   *
+   * @return The MAC address.
+   */
+  public static String getMACAddress() throws Exception {
+<span class="nc" id="L1673">    String ip = getIPAddress();</span>
+<span class="nc" id="L1674">    String mac = &quot;none&quot;;</span>
+<span class="nc" id="L1675">    String os = getSystemOs();</span>
+<span class="nc" id="L1676">    String s = &quot;&quot;;</span>
+    @SuppressWarnings( &quot;unused&quot; )
+<span class="nc" id="L1678">    Boolean errorOccured = false;</span>
+<span class="nc bnc" id="L1679" title="All 2 branches missed.">    if ( os.equalsIgnoreCase( &quot;Windows NT&quot; )</span>
+<span class="nc bnc" id="L1680" title="All 4 branches missed.">      || os.equalsIgnoreCase( &quot;Windows 2000&quot; ) || os.equalsIgnoreCase( &quot;Windows XP&quot; )</span>
+<span class="nc bnc" id="L1681" title="All 4 branches missed.">      || os.equalsIgnoreCase( &quot;Windows 95&quot; ) || os.equalsIgnoreCase( &quot;Windows 98&quot; )</span>
+<span class="nc bnc" id="L1682" title="All 4 branches missed.">      || os.equalsIgnoreCase( &quot;Windows Me&quot; ) || os.startsWith( &quot;Windows&quot; ) ) {</span>
+      try {
+<span class="nc" id="L1684">        Process p = Runtime.getRuntime().exec( &quot;nbtstat -a &quot; + ip );</span>
+
+        // read the standard output of the command
+<span class="nc" id="L1687">        BufferedReader stdInput = new BufferedReader( new InputStreamReader( p.getInputStream() ) );</span>
+
+<span class="nc bnc" id="L1689" title="All 2 branches missed.">        while ( !procDone( p ) ) {</span>
+<span class="nc bnc" id="L1690" title="All 2 branches missed.">          while ( ( s = stdInput.readLine() ) != null ) {</span>
+<span class="nc bnc" id="L1691" title="All 2 branches missed.">            if ( s.indexOf( &quot;MAC&quot; ) &gt;= 0 ) {</span>
+<span class="nc" id="L1692">              int idx = s.indexOf( '=' );</span>
+<span class="nc" id="L1693">              mac = s.substring( idx + 2 );</span>
+<span class="nc" id="L1694">            }</span>
+          }
+        }
+<span class="nc" id="L1697">        stdInput.close();</span>
+<span class="nc" id="L1698">      } catch ( Exception e ) {</span>
+<span class="nc" id="L1699">        errorOccured = true;</span>
+<span class="nc" id="L1700">      }</span>
+<span class="nc bnc" id="L1701" title="All 2 branches missed.">    } else if ( os.equalsIgnoreCase( &quot;Linux&quot; ) ) {</span>
+      try {
+<span class="nc" id="L1703">        Process p = Runtime.getRuntime().exec( &quot;/sbin/ifconfig -a&quot; );</span>
+
+        // read the standard output of the command
+<span class="nc" id="L1706">        BufferedReader stdInput = new BufferedReader( new InputStreamReader( p.getInputStream() ) );</span>
+
+<span class="nc bnc" id="L1708" title="All 2 branches missed.">        while ( !procDone( p ) ) {</span>
+<span class="nc bnc" id="L1709" title="All 2 branches missed.">          while ( ( s = stdInput.readLine() ) != null ) {</span>
+<span class="nc" id="L1710">            int idx = s.indexOf( &quot;HWaddr&quot; );</span>
+<span class="nc bnc" id="L1711" title="All 2 branches missed.">            if ( idx &gt;= 0 ) {</span>
+<span class="nc" id="L1712">              mac = s.substring( idx + 7 );</span>
+            }
+<span class="nc" id="L1714">          }</span>
+        }
+<span class="nc" id="L1716">        stdInput.close();</span>
+<span class="nc" id="L1717">      } catch ( Exception e ) {</span>
+<span class="nc" id="L1718">        errorOccured = true;</span>
+
+<span class="nc" id="L1720">      }</span>
+<span class="nc bnc" id="L1721" title="All 2 branches missed.">    } else if ( os.equalsIgnoreCase( &quot;Solaris&quot; ) ) {</span>
+      try {
+<span class="nc" id="L1723">        Process p = Runtime.getRuntime().exec( &quot;/usr/sbin/ifconfig -a&quot; );</span>
+
+        // read the standard output of the command
+<span class="nc" id="L1726">        BufferedReader stdInput = new BufferedReader( new InputStreamReader( p.getInputStream() ) );</span>
+
+<span class="nc bnc" id="L1728" title="All 2 branches missed.">        while ( !procDone( p ) ) {</span>
+<span class="nc bnc" id="L1729" title="All 2 branches missed.">          while ( ( s = stdInput.readLine() ) != null ) {</span>
+<span class="nc" id="L1730">            int idx = s.indexOf( &quot;ether&quot; );</span>
+<span class="nc bnc" id="L1731" title="All 2 branches missed.">            if ( idx &gt;= 0 ) {</span>
+<span class="nc" id="L1732">              mac = s.substring( idx + 6 );</span>
+            }
+<span class="nc" id="L1734">          }</span>
+        }
+<span class="nc" id="L1736">        stdInput.close();</span>
+<span class="nc" id="L1737">      } catch ( Exception e ) {</span>
+<span class="nc" id="L1738">        errorOccured = true;</span>
+
+<span class="nc" id="L1740">      }</span>
+<span class="nc bnc" id="L1741" title="All 2 branches missed.">    } else if ( os.equalsIgnoreCase( &quot;HP-UX&quot; ) ) {</span>
+      try {
+<span class="nc" id="L1743">        Process p = Runtime.getRuntime().exec( &quot;/usr/sbin/lanscan -a&quot; );</span>
+
+        // read the standard output of the command
+<span class="nc" id="L1746">        BufferedReader stdInput = new BufferedReader( new InputStreamReader( p.getInputStream() ) );</span>
+
+<span class="nc bnc" id="L1748" title="All 2 branches missed.">        while ( !procDone( p ) ) {</span>
+<span class="nc bnc" id="L1749" title="All 2 branches missed.">          while ( ( s = stdInput.readLine() ) != null ) {</span>
+<span class="nc bnc" id="L1750" title="All 2 branches missed.">            if ( s.indexOf( &quot;MAC&quot; ) &gt;= 0 ) {</span>
+<span class="nc" id="L1751">              int idx = s.indexOf( &quot;0x&quot; );</span>
+<span class="nc" id="L1752">              mac = s.substring( idx + 2 );</span>
+<span class="nc" id="L1753">            }</span>
+          }
+        }
+<span class="nc" id="L1756">        stdInput.close();</span>
+<span class="nc" id="L1757">      } catch ( Exception e ) {</span>
+<span class="nc" id="L1758">        errorOccured = true;</span>
+
+<span class="nc" id="L1760">      }</span>
+    }
+    // should do something if we got an error processing!
+<span class="nc" id="L1763">    return Const.trim( mac );</span>
+  }
+
+  private static final boolean procDone( Process p ) {
+    try {
+<span class="nc" id="L1768">      p.exitValue();</span>
+<span class="nc" id="L1769">      return true;</span>
+<span class="nc" id="L1770">    } catch ( IllegalThreadStateException e ) {</span>
+<span class="nc" id="L1771">      return false;</span>
+    }
+  }
+
+  /**
+   * Returns the path to the Hop local (current directory) Hop Server password file:
+   * &lt;p&gt;
+   * ./pwd/hop.pwd&lt;br&gt;
+   *
+   * @return The local hop server password file.
+   */
+  public static String getHopLocalServerPasswordFile() {
+<span class="nc" id="L1783">    return &quot;pwd/hop.pwd&quot;;</span>
+  }
+
+  /**
+   * Provides the base documentation url (top-level help)
+   *
+   * @return the fully qualified base documentation URL
+   */
+  public static String getBaseDocUrl() {
+<span class="fc" id="L1792">    return BaseMessages.getString( PKG, &quot;Const.BaseDocUrl&quot; );</span>
+  }
+
+  /**
+   * Provides the documentation url with the configured base + the given URI.
+   *
+   * @param uri the resource identifier for the documentation
+   *            (eg. Products/Data_Integration/Data_Integration_Perspective/050/000)
+   * @return the fully qualified documentation URL for the given URI
+   */
+  public static String getDocUrl( final String uri ) {
+    // initialize the docUrl to point to the top-level doc page
+<span class="fc" id="L1804">    String docUrl = getBaseDocUrl();</span>
+<span class="fc bfc" id="L1805" title="All 2 branches covered.">    if ( !Utils.isEmpty( uri ) ) {</span>
+      // if the uri is not empty, use it to build the URL
+<span class="pc bpc" id="L1807" title="1 of 2 branches missed.">      if ( uri.startsWith( &quot;http&quot; ) ) {</span>
+        // use what is provided, it's already absolute
+<span class="nc" id="L1809">        docUrl = uri;</span>
+      } else {
+        // the uri provided needs to be assembled
+<span class="pc bpc" id="L1812" title="1 of 2 branches missed.">        docUrl = uri.startsWith( &quot;/&quot; ) ? docUrl + uri.substring( 1 ) : docUrl + uri;</span>
+      }
+    }
+<span class="fc" id="L1815">    return docUrl;</span>
+  }
+
+  /**
+   * Retrieves the content of an environment variable
+   *
+   * @param variable The name of the environment variable
+   * @param deflt    The default value in case no value was found
+   * @return The value of the environment variable or the value of deflt in case no variable was defined.
+   */
+  public static String getEnvironmentVariable( String variable, String deflt ) {
+<span class="fc" id="L1826">    return System.getProperty( variable, deflt );</span>
+  }
+
+  /**
+   * Replaces environment variables in a string. For example if you set HOP_HOME as an environment variable, you can
+   * use %%HOP_HOME%% in dialogs etc. to refer to this value. This procedures looks for %%...%% pairs and replaces
+   * them including the name of the environment variable with the actual value. In case the variable was not set,
+   * nothing is replaced!
+   *
+   * @param string The source string where text is going to be replaced.
+   * @return The expanded string.
+   * @deprecated use StringUtil.environmentSubstitute(): handles both Windows and unix conventions
+   */
+  @Deprecated
+  public static String replEnv( String string ) {
+<span class="fc bfc" id="L1841" title="All 2 branches covered.">    if ( string == null ) {</span>
+<span class="fc" id="L1842">      return null;</span>
+    }
+<span class="fc" id="L1844">    StringBuilder str = new StringBuilder( string );</span>
+
+<span class="fc" id="L1846">    int idx = str.indexOf( &quot;%%&quot; );</span>
+<span class="fc bfc" id="L1847" title="All 2 branches covered.">    while ( idx &gt;= 0 ) {</span>
+      // OK, so we found a marker, look for the next one...
+<span class="fc" id="L1849">      int to = str.indexOf( &quot;%%&quot;, idx + 2 );</span>
+<span class="pc bpc" id="L1850" title="1 of 2 branches missed.">      if ( to &gt;= 0 ) {</span>
+        // OK, we found the other marker also...
+<span class="fc" id="L1852">        String marker = str.substring( idx, to + 2 );</span>
+<span class="fc" id="L1853">        String var = str.substring( idx + 2, to );</span>
+
+<span class="pc bpc" id="L1855" title="2 of 4 branches missed.">        if ( var != null &amp;&amp; var.length() &gt; 0 ) {</span>
+          // Get the environment variable
+<span class="fc" id="L1857">          String newval = getEnvironmentVariable( var, null );</span>
+
+<span class="pc bpc" id="L1859" title="1 of 2 branches missed.">          if ( newval != null ) {</span>
+            // Replace the whole bunch
+<span class="fc" id="L1861">            str.replace( idx, to + 2, newval );</span>
+
+            // The last position has changed...
+<span class="fc" id="L1864">            to += newval.length() - marker.length();</span>
+          }
+        }
+
+<span class="fc" id="L1868">      } else {</span>
+        // We found the start, but NOT the ending %% without closing %%
+<span class="nc" id="L1870">        to = idx;</span>
+      }
+
+      // Look for the next variable to replace...
+<span class="fc" id="L1874">      idx = str.indexOf( &quot;%%&quot;, to + 1 );</span>
+<span class="fc" id="L1875">    }</span>
+
+<span class="fc" id="L1877">    return str.toString();</span>
+  }
+
+  /**
+   * Replaces environment variables in an array of strings.
+   * &lt;p&gt;
+   * See also: replEnv(String string)
+   *
+   * @param string The array of strings that wants its variables to be replaced.
+   * @return the array with the environment variables replaced.
+   * @deprecated please use StringUtil.environmentSubstitute now.
+   */
+  @Deprecated
+  public static String[] replEnv( String[] string ) {
+<span class="fc" id="L1891">    String[] retval = new String[ string.length ];</span>
+<span class="fc bfc" id="L1892" title="All 2 branches covered.">    for ( int i = 0; i &lt; string.length; i++ ) {</span>
+<span class="fc" id="L1893">      retval[ i ] = Const.replEnv( string[ i ] );</span>
+    }
+<span class="fc" id="L1895">    return retval;</span>
+  }
+
+  /**
+   * Implements Oracle style NVL function
+   *
+   * @param source The source argument
+   * @param def    The default value in case source is null or the length of the string is 0
+   * @return source if source is not null, otherwise return def
+   */
+  public static String NVL( String source, String def ) {
+<span class="fc bfc" id="L1906" title="All 4 branches covered.">    if ( source == null || source.length() == 0 ) {</span>
+<span class="fc" id="L1907">      return def;</span>
+    }
+<span class="fc" id="L1909">    return source;</span>
+  }
+
+  /**
+   * Return empty string &quot;&quot; in case the given parameter is null, otherwise return the same value.
+   *
+   * @param source The source value to check for null.
+   * @return empty string if source is null, otherwise simply return the source value.
+   */
+  public static String nullToEmpty( String source ) {
+<span class="fc bfc" id="L1919" title="All 2 branches covered.">    if ( source == null ) {</span>
+<span class="fc" id="L1920">      return &quot;&quot;;</span>
+    }
+<span class="fc" id="L1922">    return source;</span>
+  }
+
+  /**
+   * Search for a string in an array of strings and return the index.
+   *
+   * @param lookup The string to search for
+   * @param array  The array of strings to look in
+   * @return The index of a search string in an array of strings. -1 if not found.
+   */
+  public static int indexOfString( String lookup, String[] array ) {
+<span class="fc bfc" id="L1933" title="All 2 branches covered.">    if ( array == null ) {</span>
+<span class="fc" id="L1934">      return -1;</span>
+    }
+<span class="fc bfc" id="L1936" title="All 2 branches covered.">    if ( lookup == null ) {</span>
+<span class="fc" id="L1937">      return -1;</span>
+    }
+
+<span class="fc bfc" id="L1940" title="All 2 branches covered.">    for ( int i = 0; i &lt; array.length; i++ ) {</span>
+<span class="fc bfc" id="L1941" title="All 2 branches covered.">      if ( lookup.equalsIgnoreCase( array[ i ] ) ) {</span>
+<span class="fc" id="L1942">        return i;</span>
+      }
+    }
+<span class="fc" id="L1945">    return -1;</span>
+  }
+
+  /**
+   * Search for strings in an array of strings and return the indexes.
+   *
+   * @param lookup The strings to search for
+   * @param array  The array of strings to look in
+   * @return The indexes of strings in an array of strings. -1 if not found.
+   */
+  public static int[] indexsOfStrings( String[] lookup, String[] array ) {
+<span class="fc" id="L1956">    int[] indexes = new int[ lookup.length ];</span>
+<span class="fc bfc" id="L1957" title="All 2 branches covered.">    for ( int i = 0; i &lt; indexes.length; i++ ) {</span>
+<span class="fc" id="L1958">      indexes[ i ] = indexOfString( lookup[ i ], array );</span>
+    }
+<span class="fc" id="L1960">    return indexes;</span>
+  }
+
+  /**
+   * Search for strings in an array of strings and return the indexes. If a string is not found, the index is not
+   * returned.
+   *
+   * @param lookup The strings to search for
+   * @param array  The array of strings to look in
+   * @return The indexes of strings in an array of strings. Only existing indexes are returned (no -1)
+   */
+  public static int[] indexesOfFoundStrings( String[] lookup, String[] array ) {
+<span class="fc" id="L1972">    List&lt;Integer&gt; indexesList = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L1973" title="All 2 branches covered.">    for ( int i = 0; i &lt; lookup.length; i++ ) {</span>
+<span class="fc" id="L1974">      int idx = indexOfString( lookup[ i ], array );</span>
+<span class="fc bfc" id="L1975" title="All 2 branches covered.">      if ( idx &gt;= 0 ) {</span>
+<span class="fc" id="L1976">        indexesList.add( Integer.valueOf( idx ) );</span>
+      }
+    }
+<span class="fc" id="L1979">    int[] indexes = new int[ indexesList.size() ];</span>
+<span class="fc bfc" id="L1980" title="All 2 branches covered.">    for ( int i = 0; i &lt; indexesList.size(); i++ ) {</span>
+<span class="fc" id="L1981">      indexes[ i ] = ( indexesList.get( i ) ).intValue();</span>
+    }
+<span class="fc" id="L1983">    return indexes;</span>
+  }
+
+  /**
+   * Search for strings in a list of strings and return the indexes. If a string is not found, the index is not
+   * returned.
+   *
+   * @param lookup The strings to search for
+   * @param list   The array of strings to look in
+   * @return The indexes of strings in a list of strings. Only existing indexes are returned (no -1)
+   */
+  public static List&lt;Integer&gt; indexesOfFoundStrings( List&lt;String&gt; lookup, List&lt;String&gt; list ) {
+<span class="nc" id="L1995">    List&lt;Integer&gt; indexesList = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L1996" title="All 2 branches missed.">    for ( int i = 0; i &lt; lookup.size(); i++ ) {</span>
+<span class="nc" id="L1997">      int idx = indexOfString( lookup.get( i ), list );</span>
+<span class="nc bnc" id="L1998" title="All 2 branches missed.">      if ( idx &gt;= 0 ) {</span>
+<span class="nc" id="L1999">        indexesList.add( Integer.valueOf( idx ) );</span>
+      }
+    }
+<span class="nc" id="L2002">    int[] indexes = new int[ indexesList.size() ];</span>
+<span class="nc bnc" id="L2003" title="All 2 branches missed.">    for ( int i = 0; i &lt; indexesList.size(); i++ ) {</span>
+<span class="nc" id="L2004">      indexes[ i ] = ( indexesList.get( i ) ).intValue();</span>
+    }
+<span class="nc" id="L2006">    return indexesList;</span>
+  }
+
+  /**
+   * Search for a string in a list of strings and return the index.
+   *
+   * @param lookup The string to search for
+   * @param list   The ArrayList of strings to look in
+   * @return The index of a search string in an array of strings. -1 if not found.
+   */
+  public static int indexOfString( String lookup, List&lt;String&gt; list ) {
+<span class="fc bfc" id="L2017" title="All 2 branches covered.">    if ( list == null ) {</span>
+<span class="fc" id="L2018">      return -1;</span>
+    }
+
+<span class="fc bfc" id="L2021" title="All 2 branches covered.">    for ( int i = 0; i &lt; list.size(); i++ ) {</span>
+<span class="fc" id="L2022">      String compare = list.get( i );</span>
+<span class="fc bfc" id="L2023" title="All 2 branches covered.">      if ( lookup.equalsIgnoreCase( compare ) ) {</span>
+<span class="fc" id="L2024">        return i;</span>
+      }
+    }
+<span class="fc" id="L2027">    return -1;</span>
+  }
+
+  /**
+   * Sort the strings of an array in alphabetical order.
+   *
+   * @param input The array of strings to sort.
+   * @return The sorted array of strings.
+   */
+  public static String[] sortStrings( String[] input ) {
+<span class="fc" id="L2037">    Arrays.sort( input );</span>
+<span class="fc" id="L2038">    return input;</span>
+  }
+
+  /**
+   * Convert strings separated by a string into an array of strings.
+   * &lt;p&gt;
+   * &lt;code&gt;
+   * Example: a;b;c;d    ==&gt;    new String[] { a, b, c, d }
+   * &lt;/code&gt;
+   *
+   * &lt;p&gt;
+   * &lt;b&gt;NOTE: this differs from String.split() in a way that the built-in method uses regular expressions and this one
+   * does not.&lt;/b&gt;
+   *
+   * @param string    The string to split
+   * @param separator The separator used.
+   * @return the string split into an array of strings
+   */
+  public static String[] splitString( String string, String separator ) {
+    /*
+     * 0123456 Example a;b;c;d --&gt; new String[] { a, b, c, d }
+     */
+<span class="fc" id="L2060">    List&lt;String&gt; list = new ArrayList&lt;&gt;();</span>
+
+<span class="fc bfc" id="L2062" title="All 4 branches covered.">    if ( string == null || string.length() == 0 ) {</span>
+<span class="fc" id="L2063">      return new String[] {};</span>
+    }
+
+<span class="fc" id="L2066">    int sepLen = separator.length();</span>
+<span class="fc" id="L2067">    int from = 0;</span>
+<span class="fc" id="L2068">    int end = string.length() - sepLen + 1;</span>
+
+<span class="fc bfc" id="L2070" title="All 2 branches covered.">    for ( int i = from; i &lt; end; i += sepLen ) {</span>
+<span class="fc bfc" id="L2071" title="All 2 branches covered.">      if ( string.substring( i, i + sepLen ).equalsIgnoreCase( separator ) ) {</span>
+        // OK, we found a separator, the string to add to the list
+        // is [from, i[
+<span class="fc" id="L2074">        list.add( nullToEmpty( string.substring( from, i ) ) );</span>
+<span class="fc" id="L2075">        from = i + sepLen;</span>
+      }
+    }
+
+    // Wait, if the string didn't end with a separator, we still have information at the end of the string...
+    // In our example that would be &quot;d&quot;...
+<span class="fc bfc" id="L2081" title="All 2 branches covered.">    if ( from + sepLen &lt;= string.length() ) {</span>
+<span class="fc" id="L2082">      list.add( nullToEmpty( string.substring( from, string.length() ) ) );</span>
+    }
+
+<span class="fc" id="L2085">    return list.toArray( new String[ list.size() ] );</span>
+  }
+
+  /**
+   * Convert strings separated by a character into an array of strings.
+   * &lt;p&gt;
+   * &lt;code&gt;
+   * Example: a;b;c;d    ==  new String[] { a, b, c, d }
+   * &lt;/code&gt;
+   *
+   * @param string    The string to split
+   * @param separator The separator used.
+   * @return the string split into an array of strings
+   */
+  public static String[] splitString( String string, char separator ) {
+<span class="fc" id="L2100">    return splitString( string, separator, false );</span>
+  }
+
+  /**
+   * Convert strings separated by a character into an array of strings.
+   * &lt;p&gt;
+   * &lt;code&gt;
+   * Example: a;b;c;d    ==  new String[] { a, b, c, d }
+   * &lt;/code&gt;
+   *
+   * @param string    The string to split
+   * @param separator The separator used.
+   * @param escape    in case the separator can be escaped (\;) The escape characters are NOT removed!
+   * @return the string split into an array of strings
+   */
+  public static String[] splitString( String string, char separator, boolean escape ) {
+    /*
+     * 0123456 Example a;b;c;d --&gt; new String[] { a, b, c, d }
+     */
+<span class="fc" id="L2119">    List&lt;String&gt; list = new ArrayList&lt;&gt;();</span>
+
+<span class="fc bfc" id="L2121" title="All 4 branches covered.">    if ( string == null || string.length() == 0 ) {</span>
+<span class="fc" id="L2122">      return new String[] {};</span>
+    }
+
+<span class="fc" id="L2125">    int from = 0;</span>
+<span class="fc" id="L2126">    int end = string.length();</span>
+
+<span class="fc bfc" id="L2128" title="All 2 branches covered.">    for ( int i = from; i &lt; end; i += 1 ) {</span>
+<span class="fc bfc" id="L2129" title="All 2 branches covered.">      boolean found = string.charAt( i ) == separator;</span>
+<span class="pc bpc" id="L2130" title="1 of 6 branches missed.">      if ( found &amp;&amp; escape &amp;&amp; i &gt; 0 ) {</span>
+<span class="fc bfc" id="L2131" title="All 2 branches covered.">        found &amp;= string.charAt( i - 1 ) != '\\';</span>
+      }
+<span class="fc bfc" id="L2133" title="All 2 branches covered.">      if ( found ) {</span>
+        // OK, we found a separator, the string to add to the list
+        // is [from, i[
+<span class="fc" id="L2136">        list.add( nullToEmpty( string.substring( from, i ) ) );</span>
+<span class="fc" id="L2137">        from = i + 1;</span>
+      }
+    }
+
+    // Wait, if the string didn't end with a separator, we still have information at the end of the string...
+    // In our example that would be &quot;d&quot;...
+<span class="fc bfc" id="L2143" title="All 2 branches covered.">    if ( from + 1 &lt;= string.length() ) {</span>
+<span class="fc" id="L2144">      list.add( nullToEmpty( string.substring( from, string.length() ) ) );</span>
+    }
+
+<span class="fc" id="L2147">    return list.toArray( new String[ list.size() ] );</span>
+  }
+
+  /**
+   * Convert strings separated by a string into an array of strings.
+   * &lt;p&gt;
+   * &lt;code&gt;
+   * Example /a/b/c --&gt; new String[] { a, b, c }
+   * &lt;/code&gt;
+   *
+   * @param path      The string to split
+   * @param separator The separator used.
+   * @return the string split into an array of strings
+   */
+  public static String[] splitPath( String path, String separator ) {
+    //
+    // Example /a/b/c --&gt; new String[] { a, b, c }
+    //
+    // Make sure training slashes are removed
+    //
+    // Example /a/b/c/ --&gt; new String[] { a, b, c }
+    //
+
+    // Check for empty paths...
+    //
+<span class="fc bfc" id="L2172" title="All 6 branches covered.">    if ( path == null || path.length() == 0 || path.equals( separator ) ) {</span>
+<span class="fc" id="L2173">      return new String[] {};</span>
+    }
+
+    // lose trailing separators
+    //
+<span class="pc bpc" id="L2178" title="1 of 2 branches missed.">    while ( path.endsWith( separator ) ) {</span>
+<span class="nc" id="L2179">      path = path.substring( 0, path.length() - 1 );</span>
+    }
+
+<span class="fc" id="L2182">    int sepLen = separator.length();</span>
+<span class="fc" id="L2183">    int nr_separators = 1;</span>
+<span class="fc bfc" id="L2184" title="All 2 branches covered.">    int from = path.startsWith( separator ) ? sepLen : 0;</span>
+
+<span class="fc bfc" id="L2186" title="All 2 branches covered.">    for ( int i = from; i &lt; path.length(); i += sepLen ) {</span>
+<span class="fc bfc" id="L2187" title="All 2 branches covered.">      if ( path.substring( i, i + sepLen ).equalsIgnoreCase( separator ) ) {</span>
+<span class="fc" id="L2188">        nr_separators++;</span>
+      }
+    }
+
+<span class="fc" id="L2192">    String[] spath = new String[ nr_separators ];</span>
+<span class="fc" id="L2193">    int nr = 0;</span>
+<span class="fc bfc" id="L2194" title="All 2 branches covered.">    for ( int i = from; i &lt; path.length(); i += sepLen ) {</span>
+<span class="fc bfc" id="L2195" title="All 2 branches covered.">      if ( path.substring( i, i + sepLen ).equalsIgnoreCase( separator ) ) {</span>
+<span class="fc" id="L2196">        spath[ nr ] = path.substring( from, i );</span>
+<span class="fc" id="L2197">        nr++;</span>
+
+<span class="fc" id="L2199">        from = i + sepLen;</span>
+      }
+    }
+<span class="pc bpc" id="L2202" title="1 of 2 branches missed.">    if ( nr &lt; spath.length ) {</span>
+<span class="fc" id="L2203">      spath[ nr ] = path.substring( from );</span>
+    }
+
+    //
+    // a --&gt; { a }
+    //
+<span class="pc bpc" id="L2209" title="3 of 4 branches missed.">    if ( spath.length == 0 &amp;&amp; path.length() &gt; 0 ) {</span>
+<span class="nc" id="L2210">      spath = new String[] { path };</span>
+    }
+
+<span class="fc" id="L2213">    return spath;</span>
+  }
+
+  /**
+   * Split the given string using the given delimiter and enclosure strings.
+   * &lt;p&gt;
+   * The delimiter and enclosures are not regular expressions (regexes); rather they are literal strings that will be
+   * quoted so as not to be treated like regexes.
+   * &lt;p&gt;
+   * This method expects that the data contains an even number of enclosure strings in the input; otherwise the results
+   * are undefined
+   *
+   * @param stringToSplit the String to split
+   * @param delimiter     the delimiter string
+   * @param enclosure     the enclosure string
+   * @return an array of strings split on the delimiter (ignoring those in enclosures), or null if the string to split
+   * is null.
+   */
+  public static String[] splitString( String stringToSplit, String delimiter, String enclosure ) {
+<span class="fc" id="L2232">    return splitString( stringToSplit, delimiter, enclosure, false );</span>
+  }
+
+  /**
+   * Split the given string using the given delimiter and enclosure strings.
+   * &lt;p&gt;
+   * The delimiter and enclosures are not regular expressions (regexes); rather they are literal strings that will be
+   * quoted so as not to be treated like regexes.
+   * &lt;p&gt;
+   * This method expects that the data contains an even number of enclosure strings in the input; otherwise the results
+   * are undefined
+   *
+   * @param stringToSplit   the String to split
+   * @param delimiter       the delimiter string
+   * @param enclosure       the enclosure string
+   * @param removeEnclosure removes enclosure from split result
+   * @return an array of strings split on the delimiter (ignoring those in enclosures), or null if the string to split
+   * is null.
+   */
+  public static String[] splitString( String stringToSplit, String delimiter, String enclosure, boolean removeEnclosure ) {
+
+<span class="fc" id="L2253">    ArrayList&lt;String&gt; splitList = null;</span>
+
+    // Handle &quot;bad input&quot; cases
+<span class="fc bfc" id="L2256" title="All 2 branches covered.">    if ( stringToSplit == null ) {</span>
+<span class="fc" id="L2257">      return null;</span>
+    }
+<span class="fc bfc" id="L2259" title="All 2 branches covered.">    if ( delimiter == null ) {</span>
+<span class="fc" id="L2260">      return ( new String[] { stringToSplit } );</span>
+    }
+
+    // Split the string on the delimiter, we'll build the &quot;real&quot; results from the partial results
+<span class="fc" id="L2264">    String[] delimiterSplit = stringToSplit.split( Pattern.quote( delimiter ) );</span>
+
+    // At this point, if the enclosure is null or empty, we will return the delimiter split
+<span class="fc bfc" id="L2267" title="All 2 branches covered.">    if ( Utils.isEmpty( enclosure ) ) {</span>
+<span class="fc" id="L2268">      return delimiterSplit;</span>
+    }
+
+    // Keep track of partial splits and concatenate them into a legit split
+<span class="fc" id="L2272">    StringBuilder concatSplit = null;</span>
+
+<span class="pc bpc" id="L2274" title="2 of 4 branches missed.">    if ( delimiterSplit != null &amp;&amp; delimiterSplit.length &gt; 0 ) {</span>
+
+      // We'll have at least one result so create the result list object
+<span class="fc" id="L2277">      splitList = new ArrayList&lt;&gt;();</span>
+
+      // Proceed through the partial splits, concatenating if the splits are within the enclosure
+<span class="fc bfc" id="L2280" title="All 2 branches covered.">      for ( String currentSplit : delimiterSplit ) {</span>
+<span class="fc bfc" id="L2281" title="All 2 branches covered.">        if ( !currentSplit.contains( enclosure ) ) {</span>
+
+          // If we are currently concatenating a split, we are inside an enclosure. Since this
+          // split doesn't contain an enclosure, we can concatenate it (with a delimiter in front).
+          // If we're not concatenating, the split is fine so add it to the result list.
+<span class="fc bfc" id="L2286" title="All 2 branches covered.">          if ( concatSplit != null ) {</span>
+<span class="fc" id="L2287">            concatSplit.append( delimiter );</span>
+<span class="fc" id="L2288">            concatSplit.append( currentSplit );</span>
+          } else {
+<span class="fc" id="L2290">            splitList.add( currentSplit );</span>
+          }
+        } else {
+          // Find number of enclosures in the split, and whether that number is odd or even.
+<span class="fc" id="L2294">          int numEnclosures = StringUtils.countMatches( currentSplit, enclosure );</span>
+<span class="fc bfc" id="L2295" title="All 2 branches covered.">          boolean oddNumberOfEnclosures = ( numEnclosures % 2 != 0 );</span>
+<span class="fc" id="L2296">          boolean addSplit = false;</span>
+
+          // This split contains an enclosure, so either start or finish concatenating
+<span class="fc bfc" id="L2299" title="All 2 branches covered.">          if ( concatSplit == null ) {</span>
+<span class="fc" id="L2300">            concatSplit = new StringBuilder( currentSplit ); // start concatenation</span>
+<span class="fc bfc" id="L2301" title="All 2 branches covered.">            addSplit = !oddNumberOfEnclosures;</span>
+          } else {
+            // Check to make sure a new enclosure hasn't started within this split. This method expects
+            // that there are no non-delimiter characters between a delimiter and a starting enclosure.
+
+            // At this point in the code, the split shouldn't start with the enclosure, so add a delimiter
+<span class="fc" id="L2307">            concatSplit.append( delimiter );</span>
+
+            // Add the current split to the concatenated split
+<span class="fc" id="L2310">            concatSplit.append( currentSplit );</span>
+
+            // If the number of enclosures is odd, the enclosure is closed so add the split to the list
+            // and reset the &quot;concatSplit&quot; buffer. Otherwise continue
+<span class="fc" id="L2314">            addSplit = oddNumberOfEnclosures;</span>
+          }
+<span class="fc bfc" id="L2316" title="All 2 branches covered.">          if ( addSplit ) {</span>
+<span class="fc" id="L2317">            String splitResult = concatSplit.toString();</span>
+            //remove enclosure from resulting split
+<span class="fc bfc" id="L2319" title="All 2 branches covered.">            if ( removeEnclosure ) {</span>
+<span class="fc" id="L2320">              splitResult = removeEnclosure( splitResult, enclosure );</span>
+            }
+
+<span class="fc" id="L2323">            splitList.add( splitResult );</span>
+<span class="fc" id="L2324">            concatSplit = null;</span>
+<span class="fc" id="L2325">            addSplit = false;</span>
+          }
+        }
+      }
+    }
+
+    // Return list as array
+<span class="fc" id="L2332">    return splitList.toArray( new String[ splitList.size() ] );</span>
+  }
+
+  private static String removeEnclosure( String stringToSplit, String enclosure ) {
+<span class="fc" id="L2336">    int firstIndex = stringToSplit.indexOf( enclosure );</span>
+<span class="fc" id="L2337">    int lastIndex = stringToSplit.lastIndexOf( enclosure );</span>
+<span class="pc bpc" id="L2338" title="1 of 2 branches missed.">    if ( firstIndex == lastIndex ) {</span>
+<span class="nc" id="L2339">      return stringToSplit;</span>
+    }
+<span class="fc" id="L2341">    StrBuilder strBuilder = new StrBuilder( stringToSplit );</span>
+<span class="fc" id="L2342">    strBuilder.replace( firstIndex, enclosure.length() + firstIndex, &quot;&quot; );</span>
+<span class="fc" id="L2343">    strBuilder.replace( lastIndex - enclosure.length(), lastIndex, &quot;&quot; );</span>
+
+<span class="fc" id="L2345">    return strBuilder.toString();</span>
+  }
+
+  /**
+   * Sorts the array of Strings, determines the uniquely occurring strings.
+   *
+   * @param strings the array that you want to do a distinct on
+   * @return a sorted array of uniquely occurring strings
+   */
+  public static String[] getDistinctStrings( String[] strings ) {
+<span class="fc bfc" id="L2355" title="All 2 branches covered.">    if ( strings == null ) {</span>
+<span class="fc" id="L2356">      return null;</span>
+    }
+<span class="fc bfc" id="L2358" title="All 2 branches covered.">    if ( strings.length == 0 ) {</span>
+<span class="fc" id="L2359">      return new String[] {};</span>
+    }
+<span class="fc" id="L2361">    HashSet&lt;String&gt; set = new HashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L2362" title="All 2 branches covered.">    for (String string : strings) {</span>
+<span class="fc" id="L2363">      set.add(string);</span>
+    }
+<span class="fc" id="L2365">    List&lt;String&gt; list = new ArrayList&lt;&gt;( set );</span>
+<span class="fc" id="L2366">    Collections.sort(list);</span>
+<span class="fc" id="L2367">    return list.toArray( new String[0] );</span>
+  }
+
+  /**
+   * Returns a string of the stack trace of the specified exception
+   */
+  public static String getStackTracker( Throwable e ) {
+<span class="pc bpc" id="L2374" title="1 of 2 branches missed.">    if (isUsingSimpleStackTraces()) {</span>
+<span class="nc" id="L2375">      return getSimpleStackTrace( e );</span>
+    } else {
+<span class="fc" id="L2377">      return getClassicStackTrace( e );</span>
+    }
+  }
+
+  public static String getClassicStackTrace( Throwable e ) {
+<span class="fc" id="L2382">    StringWriter stringWriter = new StringWriter();</span>
+<span class="fc" id="L2383">    PrintWriter printWriter = new PrintWriter( stringWriter );</span>
+<span class="fc" id="L2384">    e.printStackTrace( printWriter );</span>
+<span class="fc" id="L2385">    String string = stringWriter.toString();</span>
+    try {
+<span class="fc" id="L2387">      stringWriter.close();</span>
+<span class="nc" id="L2388">    } catch ( IOException ioe ) {</span>
+      // is this really required?
+<span class="fc" id="L2390">    }</span>
+<span class="fc" id="L2391">    return string;</span>
+  }
+
+  public static String getSimpleStackTrace( Throwable aThrowable ) {
+<span class="fc" id="L2395">    final StringBuilder result = new StringBuilder();</span>
+<span class="fc" id="L2396">    result.append(ExceptionUtils.getMessage( aThrowable ));</span>
+<span class="fc" id="L2397">    result.append( Const.CR );</span>
+<span class="fc" id="L2398">    result.append(&quot;Root cause: &quot;);</span>
+<span class="fc" id="L2399">    result.append(ExceptionUtils.getRootCauseMessage( aThrowable ));</span>
+<span class="fc" id="L2400">    return result.toString();</span>
+  }
+
+  /**
+   * Create a valid filename using a name We remove all special characters, spaces, etc.
+   *
+   * @param name The name to use as a base for the filename
+   * @return a valid filename
+   */
+  public static String createFilename( String name ) {
+<span class="fc" id="L2410">    StringBuilder filename = new StringBuilder();</span>
+<span class="fc bfc" id="L2411" title="All 2 branches covered.">    for ( int i = 0; i &lt; name.length(); i++ ) {</span>
+<span class="fc" id="L2412">      char c = name.charAt( i );</span>
+<span class="fc bfc" id="L2413" title="All 2 branches covered.">      if ( Character.isUnicodeIdentifierPart( c ) ) {</span>
+<span class="fc" id="L2414">        filename.append( c );</span>
+<span class="fc bfc" id="L2415" title="All 2 branches covered.">      } else if ( Character.isWhitespace( c ) ) {</span>
+<span class="fc" id="L2416">        filename.append( '_' );</span>
+      }
+    }
+<span class="fc" id="L2419">    return filename.toString().toLowerCase();</span>
+  }
+
+  public static String createFilename( String directory, String name, String extension ) {
+<span class="fc bfc" id="L2423" title="All 2 branches covered.">    if ( directory.endsWith( Const.FILE_SEPARATOR ) ) {</span>
+<span class="fc" id="L2424">      return directory + createFilename( name ) + extension;</span>
+    } else {
+<span class="fc" id="L2426">      return directory + Const.FILE_SEPARATOR + createFilename( name ) + extension;</span>
+    }
+  }
+
+  public static String createName( String filename ) {
+<span class="fc bfc" id="L2431" title="All 2 branches covered.">    if ( Utils.isEmpty( filename ) ) {</span>
+<span class="fc" id="L2432">      return filename;</span>
+    }
+
+<span class="fc" id="L2435">    String pureFilename = filenameOnly( filename );</span>
+<span class="pc bpc" id="L2436" title="5 of 6 branches missed.">    if ( pureFilename.endsWith( &quot;.hpl&quot; ) || pureFilename.endsWith( &quot;.hwf&quot; ) || pureFilename.endsWith( &quot;.xml&quot; ) ) {</span>
+<span class="fc" id="L2437">      pureFilename = pureFilename.substring( 0, pureFilename.length() - 4 );</span>
+    }
+<span class="fc" id="L2439">    StringBuilder sb = new StringBuilder();</span>
+<span class="fc bfc" id="L2440" title="All 2 branches covered.">    for ( int i = 0; i &lt; pureFilename.length(); i++ ) {</span>
+<span class="fc" id="L2441">      char c = pureFilename.charAt( i );</span>
+<span class="fc bfc" id="L2442" title="All 2 branches covered.">      if ( Character.isUnicodeIdentifierPart( c ) ) {</span>
+<span class="fc" id="L2443">        sb.append( c );</span>
+<span class="fc bfc" id="L2444" title="All 2 branches covered.">      } else if ( Character.isWhitespace( c ) ) {</span>
+<span class="fc" id="L2445">        sb.append( ' ' );</span>
+<span class="fc bfc" id="L2446" title="All 2 branches covered.">      } else if ( c == '-' ) {</span>
+<span class="fc" id="L2447">        sb.append( c );</span>
+      }
+    }
+<span class="fc" id="L2450">    return sb.toString();</span>
+  }
+
+  /**
+   * &lt;p&gt;
+   * Returns the pure filename of a filename with full path. E.g. if passed parameter is
+   * &lt;code&gt;/opt/tomcat/logs/catalina.out&lt;/code&gt; this method returns &lt;code&gt;catalina.out&lt;/code&gt;. The method works with the
+   * Environment variable &lt;i&gt;System.getProperty(&quot;file.separator&quot;)&lt;/i&gt;, so on linux/Unix it will check for the last
+   * occurrence of a frontslash, on windows for the last occurrence of a backslash.
+   * &lt;/p&gt;
+   *
+   * &lt;p&gt;
+   * To make this OS independent, the method could check for the last occurrence of a frontslash and backslash and use
+   * the higher value of both. Should work, since these characters aren't allowed in filenames on neither OS types (or
+   * said differently: Neither linux nor windows can carry frontslashes OR backslashes in filenames). Just a suggestion
+   * of an improvement ...
+   * &lt;/p&gt;
+   *
+   * @param sFullPath
+   * @return
+   */
+  public static String filenameOnly( String sFullPath ) {
+<span class="fc bfc" id="L2472" title="All 2 branches covered.">    if ( Utils.isEmpty( sFullPath ) ) {</span>
+<span class="fc" id="L2473">      return sFullPath;</span>
+    }
+
+<span class="fc" id="L2476">    int idx = sFullPath.lastIndexOf( FILE_SEPARATOR );</span>
+<span class="fc bfc" id="L2477" title="All 2 branches covered.">    if ( idx != -1 ) {</span>
+<span class="fc" id="L2478">      return sFullPath.substring( idx + 1 );</span>
+    } else {
+<span class="fc" id="L2480">      idx = sFullPath.lastIndexOf( '/' ); // URL, VFS/**/</span>
+<span class="pc bpc" id="L2481" title="1 of 2 branches missed.">      if ( idx != -1 ) {</span>
+<span class="nc" id="L2482">        return sFullPath.substring( idx + 1 );</span>
+      } else {
+<span class="fc" id="L2484">        return sFullPath;</span>
+      }
+    }
+  }
+
+  /**
+   * Returning the localized date conversion formats. They get created once on first request.
+   *
+   * @return
+   */
+  public static String[] getDateFormats() {
+<span class="fc bfc" id="L2495" title="All 2 branches covered.">    if ( dateFormats == null ) {</span>
+<span class="fc" id="L2496">      int dateFormatsCount = toInt( BaseMessages.getString( PKG, &quot;Const.DateFormat.Count&quot; ), 0 );</span>
+<span class="fc" id="L2497">      dateFormats = new String[ dateFormatsCount ];</span>
+<span class="fc bfc" id="L2498" title="All 2 branches covered.">      for ( int i = 1; i &lt;= dateFormatsCount; i++ ) {</span>
+<span class="fc" id="L2499">        dateFormats[ i - 1 ] = BaseMessages.getString( PKG, &quot;Const.DateFormat&quot; + Integer.toString( i ) );</span>
+      }
+    }
+<span class="fc" id="L2502">    return dateFormats;</span>
+  }
+
+  /**
+   * Returning the localized number conversion formats. They get created once on first request.
+   *
+   * @return
+   */
+  public static String[] getNumberFormats() {
+<span class="fc bfc" id="L2511" title="All 2 branches covered.">    if ( numberFormats == null ) {</span>
+<span class="fc" id="L2512">      int numberFormatsCount = toInt( BaseMessages.getString( PKG, &quot;Const.NumberFormat.Count&quot; ), 0 );</span>
+<span class="fc" id="L2513">      numberFormats = new String[ numberFormatsCount + 1 ];</span>
+<span class="fc" id="L2514">      numberFormats[ 0 ] = DEFAULT_NUMBER_FORMAT;</span>
+<span class="fc bfc" id="L2515" title="All 2 branches covered.">      for ( int i = 1; i &lt;= numberFormatsCount; i++ ) {</span>
+<span class="fc" id="L2516">        numberFormats[ i ] = BaseMessages.getString( PKG, &quot;Const.NumberFormat&quot; + Integer.toString( i ) );</span>
+      }
+    }
+<span class="fc" id="L2519">    return numberFormats;</span>
+  }
+
+  /**
+   * @return An array of all default conversion formats, to be used in dialogs etc.
+   */
+  public static String[] getConversionFormats() {
+<span class="fc" id="L2526">    String[] dats = Const.getDateFormats();</span>
+<span class="fc" id="L2527">    String[] nums = Const.getNumberFormats();</span>
+<span class="fc" id="L2528">    int totsize = dats.length + nums.length;</span>
+<span class="fc" id="L2529">    String[] formats = new String[ totsize ];</span>
+<span class="fc bfc" id="L2530" title="All 2 branches covered.">    for ( int x = 0; x &lt; dats.length; x++ ) {</span>
+<span class="fc" id="L2531">      formats[ x ] = dats[ x ];</span>
+    }
+<span class="fc bfc" id="L2533" title="All 2 branches covered.">    for ( int x = 0; x &lt; nums.length; x++ ) {</span>
+<span class="fc" id="L2534">      formats[ dats.length + x ] = nums[ x ];</span>
+    }
+
+<span class="fc" id="L2537">    return formats;</span>
+  }
+
+  /**
+   * Return the input string trimmed as specified.
+   *
+   * @param string   String to be trimmed
+   * @param trimType Type of trimming
+   * @return Trimmed string.
+   */
+  public static String trimToType( String string, int trimType ) {
+<span class="fc bfc" id="L2548" title="All 4 branches covered.">    switch ( trimType ) {</span>
+      case IValueMeta.TRIM_TYPE_BOTH:
+<span class="fc" id="L2550">        return trim( string );</span>
+      case IValueMeta.TRIM_TYPE_LEFT:
+<span class="fc" id="L2552">        return ltrim( string );</span>
+      case IValueMeta.TRIM_TYPE_RIGHT:
+<span class="fc" id="L2554">        return rtrim( string );</span>
+      case IValueMeta.TRIM_TYPE_NONE:
+      default:
+<span class="fc" id="L2557">        return string;</span>
+    }
+  }
+
+  /**
+   * implemented to help prevent errors in matching up pluggable LAF directories and paths/files eliminating malformed
+   * URLs - duplicate file separators or missing file separators.
+   *
+   * @param dir
+   * @param file
+   * @return concatenated string representing a file url
+   */
+  public static String safeAppendDirectory( String dir, String file ) {
+<span class="fc bfc" id="L2570" title="All 2 branches covered.">    boolean dirHasSeparator = ( ( dir.lastIndexOf( FILE_SEPARATOR ) ) == dir.length() - 1 );</span>
+<span class="fc bfc" id="L2571" title="All 2 branches covered.">    boolean fileHasSeparator = ( file.indexOf( FILE_SEPARATOR ) == 0 );</span>
+<span class="fc bfc" id="L2572" title="All 8 branches covered.">    if ( ( dirHasSeparator &amp;&amp; !fileHasSeparator ) || ( !dirHasSeparator &amp;&amp; fileHasSeparator ) ) {</span>
+<span class="fc" id="L2573">      return dir + file;</span>
+    }
+<span class="pc bpc" id="L2575" title="1 of 4 branches missed.">    if ( dirHasSeparator &amp;&amp; fileHasSeparator ) {</span>
+<span class="fc" id="L2576">      return dir + file.substring( 1 );</span>
+    }
+<span class="fc" id="L2578">    return dir + FILE_SEPARATOR + file;</span>
+  }
+
+  /**
+   * Create an array of Strings consisting of spaces. The index of a String in the array determines the number of spaces
+   * in that string.
+   *
+   * @return array of 'space' Strings.
+   */
+  public static String[] getEmptyPaddedStrings() {
+<span class="pc bpc" id="L2588" title="1 of 2 branches missed.">    if ( emptyPaddedSpacesStrings == null ) {</span>
+<span class="fc" id="L2589">      emptyPaddedSpacesStrings = new String[ 250 ];</span>
+<span class="fc bfc" id="L2590" title="All 2 branches covered.">      for ( int i = 0; i &lt; emptyPaddedSpacesStrings.length; i++ ) {</span>
+<span class="fc" id="L2591">        emptyPaddedSpacesStrings[ i ] = rightPad( &quot;&quot;, i );</span>
+      }
+    }
+<span class="fc" id="L2594">    return emptyPaddedSpacesStrings;</span>
+  }
+
+  /**
+   * Return the percentage of free memory for this JVM.
+   *
+   * @return Percentage of free memory.
+   */
+  public static int getPercentageFreeMemory() {
+<span class="fc" id="L2603">    Runtime runtime = Runtime.getRuntime();</span>
+<span class="fc" id="L2604">    long maxMemory = runtime.maxMemory();</span>
+<span class="fc" id="L2605">    long allocatedMemory = runtime.totalMemory();</span>
+<span class="fc" id="L2606">    long freeMemory = runtime.freeMemory();</span>
+<span class="fc" id="L2607">    long totalFreeMemory = ( freeMemory + ( maxMemory - allocatedMemory ) );</span>
+
+<span class="fc" id="L2609">    return (int) Math.round( 100 * (double) totalFreeMemory / maxMemory );</span>
+  }
+
+  /**
+   * Return non digits only.
+   *
+   * @return non digits in a string.
+   */
+
+  public static String removeDigits( String input ) {
+<span class="fc bfc" id="L2619" title="All 2 branches covered.">    if ( Utils.isEmpty( input ) ) {</span>
+<span class="fc" id="L2620">      return null;</span>
+    }
+<span class="fc" id="L2622">    StringBuilder digitsOnly = new StringBuilder();</span>
+    char c;
+<span class="fc bfc" id="L2624" title="All 2 branches covered.">    for ( int i = 0; i &lt; input.length(); i++ ) {</span>
+<span class="fc" id="L2625">      c = input.charAt( i );</span>
+<span class="fc bfc" id="L2626" title="All 2 branches covered.">      if ( !Character.isDigit( c ) ) {</span>
+<span class="fc" id="L2627">        digitsOnly.append( c );</span>
+      }
+    }
+<span class="fc" id="L2630">    return digitsOnly.toString();</span>
+  }
+
+  /**
+   * Return digits only.
+   *
+   * @return digits in a string.
+   */
+  public static String getDigitsOnly( String input ) {
+<span class="pc bpc" id="L2639" title="1 of 2 branches missed.">    if ( Utils.isEmpty( input ) ) {</span>
+<span class="nc" id="L2640">      return null;</span>
+    }
+<span class="fc" id="L2642">    StringBuilder digitsOnly = new StringBuilder();</span>
+    char c;
+<span class="fc bfc" id="L2644" title="All 2 branches covered.">    for ( int i = 0; i &lt; input.length(); i++ ) {</span>
+<span class="fc" id="L2645">      c = input.charAt( i );</span>
+<span class="fc bfc" id="L2646" title="All 2 branches covered.">      if ( Character.isDigit( c ) ) {</span>
+<span class="fc" id="L2647">        digitsOnly.append( c );</span>
+      }
+    }
+<span class="fc" id="L2650">    return digitsOnly.toString();</span>
+  }
+
+  /**
+   * Remove time from a date.
+   *
+   * @return a date without hour.
+   */
+  public static Date removeTimeFromDate( Date input ) {
+<span class="pc bpc" id="L2659" title="1 of 2 branches missed.">    if ( input == null ) {</span>
+<span class="nc" id="L2660">      return null;</span>
+    }
+    // Get an instance of the Calendar.
+<span class="fc" id="L2663">    Calendar calendar = Calendar.getInstance();</span>
+
+    // Make sure the calendar will not perform automatic correction.
+<span class="fc" id="L2666">    calendar.setLenient( false );</span>
+
+    // Set the time of the calendar to the given date.
+<span class="fc" id="L2669">    calendar.setTime( input );</span>
+
+    // Remove the hours, minutes, seconds and milliseconds.
+<span class="fc" id="L2672">    calendar.set( Calendar.HOUR_OF_DAY, 0 );</span>
+<span class="fc" id="L2673">    calendar.set( Calendar.MINUTE, 0 );</span>
+<span class="fc" id="L2674">    calendar.set( Calendar.SECOND, 0 );</span>
+<span class="fc" id="L2675">    calendar.set( Calendar.MILLISECOND, 0 );</span>
+
+    // Return the date again.
+<span class="fc" id="L2678">    return calendar.getTime();</span>
+  }
+
+  /**
+   * Escape HTML content. i.e. replace characters with &amp;values;
+   *
+   * @param content content
+   * @return escaped content
+   */
+  public static String escapeHtml( String content ) {
+<span class="fc bfc" id="L2688" title="All 2 branches covered.">    if ( Utils.isEmpty( content ) ) {</span>
+<span class="fc" id="L2689">      return content;</span>
+    }
+<span class="fc" id="L2691">    return StringEscapeUtils.escapeHtml( content );</span>
+  }
+
+  /**
+   * UnEscape HTML content. i.e. replace characters with &amp;values;
+   *
+   * @param content content
+   * @return unescaped content
+   */
+  public static String unEscapeHtml( String content ) {
+<span class="fc bfc" id="L2701" title="All 2 branches covered.">    if ( Utils.isEmpty( content ) ) {</span>
+<span class="fc" id="L2702">      return content;</span>
+    }
+<span class="fc" id="L2704">    return StringEscapeUtils.unescapeHtml( content );</span>
+  }
+
+  /**
+   * UnEscape XML content. i.e. replace characters with &amp;values;
+   *
+   * @param content content
+   * @return unescaped content
+   */
+  public static String unEscapeXml( String content ) {
+<span class="fc bfc" id="L2714" title="All 2 branches covered.">    if ( Utils.isEmpty( content ) ) {</span>
+<span class="fc" id="L2715">      return content;</span>
+    }
+<span class="fc" id="L2717">    return StringEscapeUtils.unescapeXml( content );</span>
+  }
+
+  /**
+   * Escape SQL content. i.e. replace characters with &amp;values;
+   *
+   * @param content content
+   * @return escaped content
+   */
+  public static String escapeSql(String content ) {
+<span class="pc bpc" id="L2727" title="1 of 2 branches missed.">    if ( Utils.isEmpty( content ) ) {</span>
+<span class="nc" id="L2728">      return content;</span>
+    }
+<span class="fc" id="L2730">    return StringEscapeUtils.escapeSql( content );</span>
+  }
+
+  /**
+   * Remove CR / LF from String - Better performance version
+   * - Doesn't NPE
+   * - 40 times faster on an empty string
+   * - 2 times faster on a mixed string
+   * - 25% faster on 2 char string with only CRLF in it
+   *
+   * @param in input
+   * @return cleaned string
+   */
+  public static String removeCRLF( String in ) {
+<span class="fc bfc" id="L2744" title="All 4 branches covered.">    if ( ( in != null ) &amp;&amp; ( in.length() &gt; 0 ) ) {</span>
+<span class="fc" id="L2745">      int inLen = in.length(), posn = 0;</span>
+<span class="fc" id="L2746">      char[] tmp = new char[ inLen ];</span>
+      char ch;
+<span class="fc bfc" id="L2748" title="All 2 branches covered.">      for ( int i = 0; i &lt; inLen; i++ ) {</span>
+<span class="fc" id="L2749">        ch = in.charAt( i );</span>
+<span class="fc bfc" id="L2750" title="All 4 branches covered.">        if ( ( ch != '\n' &amp;&amp; ch != '\r' ) ) {</span>
+<span class="fc" id="L2751">          tmp[ posn ] = ch;</span>
+<span class="fc" id="L2752">          posn++;</span>
+        }
+      }
+<span class="fc" id="L2755">      return new String( tmp, 0, posn );</span>
+    } else {
+<span class="fc" id="L2757">      return &quot;&quot;;</span>
+    }
+  }
+
+  /**
+   * Remove Character from String - Better performance version
+   * - Doesn't NPE
+   * - 40 times faster on an empty string
+   * - 2 times faster on a mixed string
+   * - 25% faster on 2 char string with only CR/LF/TAB in it
+   *
+   * @param in input
+   * @return cleaned string
+   */
+  public static String removeChar( String in, char badChar ) {
+<span class="fc bfc" id="L2772" title="All 4 branches covered.">    if ( ( in != null ) &amp;&amp; ( in.length() &gt; 0 ) ) {</span>
+<span class="fc" id="L2773">      int inLen = in.length(), posn = 0;</span>
+<span class="fc" id="L2774">      char[] tmp = new char[ inLen ];</span>
+      char ch;
+<span class="fc bfc" id="L2776" title="All 2 branches covered.">      for ( int i = 0; i &lt; inLen; i++ ) {</span>
+<span class="fc" id="L2777">        ch = in.charAt( i );</span>
+<span class="fc bfc" id="L2778" title="All 2 branches covered.">        if ( ch != badChar ) {</span>
+<span class="fc" id="L2779">          tmp[ posn ] = ch;</span>
+<span class="fc" id="L2780">          posn++;</span>
+        }
+      }
+<span class="fc" id="L2783">      return new String( tmp, 0, posn );</span>
+    } else {
+<span class="fc" id="L2785">      return &quot;&quot;;</span>
+    }
+  }
+
+  /**
+   * Remove CR / LF from String
+   *
+   * @param in input
+   * @return cleaned string
+   */
+  public static String removeCR( String in ) {
+<span class="fc" id="L2796">    return removeChar( in, '\r' );</span>
+  } // removeCR
+
+  /**
+   * Remove CR / LF from String
+   *
+   * @param in input
+   * @return cleaned string
+   */
+  public static String removeLF( String in ) {
+<span class="fc" id="L2806">    return removeChar( in, '\n' );</span>
+  } // removeCRLF
+
+  /**
+   * Remove horizontal tab from string
+   *
+   * @param in input
+   * @return cleaned string
+   */
+  public static String removeTAB( String in ) {
+<span class="fc" id="L2816">    return removeChar( in, '\t' );</span>
+  }
+
+  /**
+   * Add time to an input date
+   *
+   * @param input      the date
+   * @param time       the time to add (in string)
+   * @param dateFormat the time format
+   * @return date = input + time
+   */
+  public static Date addTimeToDate( Date input, String time, String dateFormat ) throws Exception {
+<span class="fc bfc" id="L2828" title="All 2 branches covered.">    if ( Utils.isEmpty( time ) ) {</span>
+<span class="fc" id="L2829">      return input;</span>
+    }
+<span class="pc bpc" id="L2831" title="1 of 2 branches missed.">    if ( input == null ) {</span>
+<span class="nc" id="L2832">      return null;</span>
+    }
+<span class="fc" id="L2834">    String dateformatString = NVL( dateFormat, &quot;HH:mm:ss&quot; );</span>
+<span class="fc" id="L2835">    int t = decodeTime( time, dateformatString );</span>
+<span class="fc" id="L2836">    return new Date( input.getTime() + t );</span>
+  }
+
+  // Decodes a time value in specified date format and returns it as milliseconds since midnight.
+  public static int decodeTime( String s, String dateFormat ) throws Exception {
+<span class="fc" id="L2841">    SimpleDateFormat f = new SimpleDateFormat( dateFormat );</span>
+<span class="fc" id="L2842">    TimeZone utcTimeZone = TimeZone.getTimeZone( &quot;UTC&quot; );</span>
+<span class="fc" id="L2843">    f.setTimeZone( utcTimeZone );</span>
+<span class="fc" id="L2844">    f.setLenient( false );</span>
+<span class="fc" id="L2845">    ParsePosition p = new ParsePosition( 0 );</span>
+<span class="fc" id="L2846">    Date d = f.parse( s, p );</span>
+<span class="pc bpc" id="L2847" title="1 of 2 branches missed.">    if ( d == null ) {</span>
+<span class="nc" id="L2848">      throw new Exception( &quot;Invalid time value &quot; + dateFormat + &quot;: \&quot;&quot; + s + &quot;\&quot;.&quot; );</span>
+    }
+<span class="fc" id="L2850">    return (int) d.getTime();</span>
+  }
+
+  /**
+   * Get the number of occurrences of searchFor in string.
+   *
+   * @param string    String to be searched
+   * @param searchFor to be counted string
+   * @return number of occurrences
+   */
+  public static int getOccurenceString( String string, String searchFor ) {
+<span class="pc bpc" id="L2861" title="1 of 4 branches missed.">    if ( string == null || string.length() == 0 ) {</span>
+<span class="fc" id="L2862">      return 0;</span>
+    }
+<span class="fc" id="L2864">    int counter = 0;</span>
+<span class="fc" id="L2865">    int len = searchFor.length();</span>
+<span class="pc bpc" id="L2866" title="1 of 2 branches missed.">    if ( len &gt; 0 ) {</span>
+<span class="fc" id="L2867">      int start = string.indexOf( searchFor );</span>
+<span class="fc bfc" id="L2868" title="All 2 branches covered.">      while ( start != -1 ) {</span>
+<span class="fc" id="L2869">        counter++;</span>
+<span class="fc" id="L2870">        start = string.indexOf( searchFor, start + len );</span>
+      }
+    }
+<span class="fc" id="L2873">    return counter;</span>
+  }
+
+  public static String[] GetAvailableFontNames() {
+<span class="fc" id="L2877">    GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();</span>
+<span class="fc" id="L2878">    Font[] fonts = ge.getAllFonts();</span>
+<span class="fc" id="L2879">    String[] FontName = new String[ fonts.length ];</span>
+<span class="fc bfc" id="L2880" title="All 2 branches covered.">    for ( int i = 0; i &lt; fonts.length; i++ ) {</span>
+<span class="fc" id="L2881">      FontName[ i ] = fonts[ i ].getFontName();</span>
+    }
+<span class="fc" id="L2883">    return FontName;</span>
+  }
+
+  /**
+   * Mask XML content. i.e. protect with CDATA;
+   *
+   * @param content content
+   * @return protected content
+   */
+  public static String protectXmlCdata(String content ) {
+<span class="fc bfc" id="L2893" title="All 2 branches covered.">    if ( Utils.isEmpty( content ) ) {</span>
+<span class="fc" id="L2894">      return content;</span>
+    }
+<span class="fc" id="L2896">    return &quot;&lt;![CDATA[&quot; + content + &quot;]]&gt;&quot;;</span>
+  }
+
+  /**
+   * Get the number of occurrences of searchFor in string.
+   *
+   * @param string    String to be searched
+   * @param searchFor to be counted string
+   * @return number of occurrences
+   */
+  public static int getOcuranceString( String string, String searchFor ) {
+<span class="pc bpc" id="L2907" title="1 of 4 branches missed.">    if ( string == null || string.length() == 0 ) {</span>
+<span class="fc" id="L2908">      return 0;</span>
+    }
+<span class="fc" id="L2910">    Pattern p = Pattern.compile( searchFor );</span>
+<span class="fc" id="L2911">    Matcher m = p.matcher( string );</span>
+<span class="fc" id="L2912">    int count = 0;</span>
+<span class="fc bfc" id="L2913" title="All 2 branches covered.">    while ( m.find() ) {</span>
+<span class="fc" id="L2914">      ++count;</span>
+    }
+<span class="fc" id="L2916">    return count;</span>
+  }
+
+  /**
+   * Mask XML content. i.e. replace characters with &amp;values;
+   *
+   * @param content content
+   * @return masked content
+   */
+  public static String escapeXml( String content ) {
+<span class="fc bfc" id="L2926" title="All 2 branches covered.">    if ( Utils.isEmpty( content ) ) {</span>
+<span class="fc" id="L2927">      return content;</span>
+    }
+<span class="fc" id="L2929">    return StringEscapeUtils.escapeXml( content );</span>
+  }
+
+  /**
+   * New method avoids string concatenation is between 20% and &gt; 2000% faster
+   * depending on length of the string to pad, and the size to pad it to.
+   * For larger amounts to pad, (e.g. pad a 4 character string out to 20 places)
+   * this is orders of magnitude faster.
+   *
+   * @param valueToPad the string to pad
+   * @param filler     the pad string to fill with
+   * @param size       the size to pad to
+   * @return the new string, padded to the left
+   * &lt;p&gt;
+   * Note - The original method was flawed in a few cases:
+   * &lt;p&gt;
+   * 1- The filler could be a string of any length - and the returned
+   * string was not necessarily limited to size. So a 3 character pad
+   * of an 11 character string could end up being 17 characters long.
+   * 2- For a pad of zero characters (&quot;&quot;) the former method would enter
+   * an infinite loop.
+   * 3- For a null pad, it would throw an NPE
+   * 4- For a null valueToPad, it would throw an NPE
+   */
+  public static String Lpad( String valueToPad, String filler, int size ) {
+<span class="fc bfc" id="L2954" title="All 6 branches covered.">    if ( ( size == 0 ) || ( valueToPad == null ) || ( filler == null ) ) {</span>
+<span class="fc" id="L2955">      return valueToPad;</span>
+    }
+<span class="fc" id="L2957">    int vSize = valueToPad.length();</span>
+<span class="fc" id="L2958">    int fSize = filler.length();</span>
+    // This next if ensures previous behavior, but prevents infinite loop
+    // if &quot;&quot; is passed in as a filler.
+<span class="fc bfc" id="L2961" title="All 4 branches covered.">    if ( ( vSize &gt;= size ) || ( fSize == 0 ) ) {</span>
+<span class="fc" id="L2962">      return valueToPad;</span>
+    }
+<span class="fc" id="L2964">    int tgt = ( size - vSize );</span>
+<span class="fc" id="L2965">    StringBuilder sb = new StringBuilder( size );</span>
+<span class="fc" id="L2966">    sb.append( filler );</span>
+<span class="fc bfc" id="L2967" title="All 2 branches covered.">    while ( sb.length() &lt; tgt ) {</span>
+      // instead of adding one character at a time, this
+      // is exponential - much fewer times in loop
+<span class="fc" id="L2970">      sb.append( sb );</span>
+    }
+<span class="fc" id="L2972">    sb.append( valueToPad );</span>
+<span class="fc" id="L2973">    return sb.substring( Math.max( 0, sb.length() - size ) ); // this makes sure you have the right size string returned.</span>
+  }
+
+  /**
+   * New method avoids string concatenation is between 50% and &gt; 2000% faster
+   * depending on length of the string to pad, and the size to pad it to.
+   * For larger amounts to pad, (e.g. pad a 4 character string out to 20 places)
+   * this is orders of magnitude faster.
+   *
+   * @param valueToPad the string to pad
+   * @param filler     the pad string to fill with
+   * @param size       the size to pad to
+   * @return The string, padded to the right
+   * &lt;p&gt;
+   * 1- The filler can still be a string of any length - and the returned
+   * string was not necessarily limited to size. So a 3 character pad
+   * of an 11 character string with a size of 15 could end up being 17
+   * characters long (instead of the &quot;asked for 15&quot;).
+   * 2- For a pad of zero characters (&quot;&quot;) the former method would enter
+   * an infinite loop.
+   * 3- For a null pad, it would throw an NPE
+   * 4- For a null valueToPad, it would throw an NPE
+   */
+  public static String Rpad( String valueToPad, String filler, int size ) {
+<span class="fc bfc" id="L2997" title="All 6 branches covered.">    if ( ( size == 0 ) || ( valueToPad == null ) || ( filler == null ) ) {</span>
+<span class="fc" id="L2998">      return valueToPad;</span>
+    }
+<span class="fc" id="L3000">    int vSize = valueToPad.length();</span>
+<span class="fc" id="L3001">    int fSize = filler.length();</span>
+    // This next if ensures previous behavior, but prevents infinite loop
+    // if &quot;&quot; is passed in as a filler.
+<span class="fc bfc" id="L3004" title="All 4 branches covered.">    if ( ( vSize &gt;= size ) || ( fSize == 0 ) ) {</span>
+<span class="fc" id="L3005">      return valueToPad;</span>
+    }
+<span class="fc" id="L3007">    int tgt = ( size - vSize );</span>
+<span class="fc" id="L3008">    StringBuilder sb1 = new StringBuilder( size );</span>
+<span class="fc" id="L3009">    sb1.append( filler );</span>
+<span class="fc bfc" id="L3010" title="All 2 branches covered.">    while ( sb1.length() &lt; tgt ) {</span>
+      // instead of adding one character at a time, this
+      // is exponential - much fewer times in loop
+<span class="fc" id="L3013">      sb1.append( sb1 );</span>
+    }
+<span class="fc" id="L3015">    StringBuilder sb = new StringBuilder( valueToPad );</span>
+<span class="fc" id="L3016">    sb.append( sb1 );</span>
+<span class="fc" id="L3017">    return sb.substring( 0, size );</span>
+  }
+
+  public static boolean classIsOrExtends( Class&lt;?&gt; clazz, Class&lt;?&gt; superClass ) {
+<span class="fc bfc" id="L3021" title="All 2 branches covered.">    if ( clazz.equals( Object.class ) ) {</span>
+<span class="fc" id="L3022">      return false;</span>
+    }
+<span class="pc bpc" id="L3024" title="1 of 4 branches missed.">    return clazz.equals( superClass ) || classIsOrExtends( clazz.getSuperclass(), superClass );</span>
+  }
+
+  public static String getDeprecatedPrefix() {
+<span class="nc" id="L3028">    return &quot; &quot; + BaseMessages.getString( PKG, &quot;Const.Deprecated&quot; );</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

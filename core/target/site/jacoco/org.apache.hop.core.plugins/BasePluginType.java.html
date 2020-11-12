@@ -1,0 +1,917 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BasePluginType.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.plugins</a> &gt; <span class="el_source">BasePluginType.java</span></div><h1>BasePluginType.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.plugins;
+
+import com.google.common.annotations.VisibleForTesting;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.StringUtils;
+import org.apache.commons.vfs2.FileObject;
+import org.apache.commons.vfs2.FileSelectInfo;
+import org.apache.commons.vfs2.FileSelector;
+import org.apache.hop.core.Const;
+import org.apache.hop.core.exception.HopPluginException;
+import org.apache.hop.core.exception.HopXmlException;
+import org.apache.hop.core.logging.DefaultLogLevel;
+import org.apache.hop.core.logging.LogChannel;
+import org.apache.hop.core.logging.LogLevel;
+import org.apache.hop.core.util.Utils;
+import org.apache.hop.core.vfs.HopVfs;
+import org.apache.hop.core.xml.XmlHandler;
+import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.i18n.GlobalMessageUtil;
+import org.scannotation.AnnotationDB;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.InputStream;
+import java.lang.annotation.Annotation;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.net.URLDecoder;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Hashtable;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+public abstract class BasePluginType&lt;T extends Annotation&gt; implements IPluginType&lt;T&gt; {
+<span class="fc" id="L68">  protected static Class&lt;?&gt; PKG = BasePluginType.class; // for i18n purposes, needed by Translator!!</span>
+
+  protected String id;
+  protected String name;
+  protected List&lt;IPluginFolder&gt; pluginFolders;
+
+  protected PluginRegistry registry;
+
+  protected LogChannel log;
+
+<span class="fc" id="L78">  protected Map&lt;Class&lt;?&gt;, String&gt; objectTypes = new HashMap&lt;&gt;();</span>
+
+  protected boolean searchLibDir;
+
+  protected Class&lt;T&gt; pluginType;
+
+  protected List&lt;String&gt; extraLibraryFolders;
+
+<span class="fc" id="L86">  public BasePluginType( Class&lt;T&gt; pluginType ) {</span>
+<span class="fc" id="L87">    this.pluginFolders = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L88">    this.log = new LogChannel( &quot;Plugin type&quot; );</span>
+
+<span class="fc" id="L90">    registry = PluginRegistry.getInstance();</span>
+<span class="fc" id="L91">    this.pluginType = pluginType;</span>
+
+<span class="fc" id="L93">    this.extraLibraryFolders = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L94">  }</span>
+
+  /**
+   * @param id   The plugin type ID
+   * @param name the name of the plugin
+   */
+  public BasePluginType( Class&lt;T&gt; pluginType, String id, String name ) {
+<span class="fc" id="L101">    this( pluginType );</span>
+<span class="fc" id="L102">    this.id = id;</span>
+<span class="fc" id="L103">    this.name = name;</span>
+<span class="fc" id="L104">  }</span>
+
+  /**
+   * This method return parameter for registerNatives() method
+   *
+   * @return XML plugin file
+   */
+  protected String getXmlPluginFile() {
+<span class="nc" id="L112">    return null;</span>
+  }
+
+  /**
+   * This method return parameter for registerNatives() method
+   *
+   * @return Alternative XML plugin file
+   */
+  protected String getAlternativePluginFile() {
+<span class="fc" id="L121">    return null;</span>
+  }
+
+  /**
+   * This method return parameter for registerPlugins() method
+   *
+   * @return Main XML tag
+   */
+  protected String getMainTag() {
+<span class="nc" id="L130">    return null;</span>
+  }
+
+  /**
+   * This method return parameter for registerPlugins() method
+   *
+   * @return Subordinate XML tag
+   */
+  protected String getSubTag() {
+<span class="nc" id="L139">    return null;</span>
+  }
+
+  /**
+   * This method return parameter for registerPlugins() method
+   *
+   * @return Path
+   */
+  protected String getPath() {
+<span class="fc" id="L148">    return null;</span>
+  }
+
+  /**
+   * This method return parameter for registerNatives() method
+   *
+   * @return Flag (&quot;return;&quot; or &quot;throw exception&quot;)
+   */
+  protected boolean isReturn() {
+<span class="nc" id="L157">    return false;</span>
+  }
+
+  /**
+   * this is a utility method for subclasses so they can easily register which folders contain plugins
+   *
+   * @param xmlSubfolder the sub-folder where xml plugin definitions can be found
+   */
+  protected void populateFolders( String xmlSubfolder ) {
+<span class="fc" id="L166">    pluginFolders.addAll( PluginFolder.populateFolders( xmlSubfolder ) );</span>
+<span class="fc" id="L167">  }</span>
+
+  public Map&lt;Class&lt;?&gt;, String&gt; getAdditionalRuntimeObjectTypes() {
+<span class="fc" id="L170">    return objectTypes;</span>
+  }
+
+  @Override
+  public void addObjectType( Class&lt;?&gt; clz, String xmlNodeName ) {
+<span class="nc" id="L175">    objectTypes.put( clz, xmlNodeName );</span>
+<span class="nc" id="L176">  }</span>
+
+  @Override
+  public String toString() {
+<span class="nc" id="L180">    return name + &quot;(&quot; + id + &quot;)&quot;;</span>
+  }
+
+  /**
+   * Let's put in code here to search for the transform plugins..
+   */
+  @Override
+  public void searchPlugins() throws HopPluginException {
+<span class="fc" id="L188">    registerNatives();</span>
+<span class="fc" id="L189">    registerPluginJars();</span>
+<span class="fc" id="L190">  }</span>
+
+  protected void registerNatives() throws HopPluginException {
+    // Scan the native transforms...
+    //
+<span class="fc" id="L195">    String xmlFile = getXmlPluginFile();</span>
+<span class="fc" id="L196">    String alternative = null;</span>
+<span class="fc bfc" id="L197" title="All 2 branches covered.">    if ( !Utils.isEmpty( getAlternativePluginFile() ) ) {</span>
+<span class="fc" id="L198">      alternative = getPropertyExternal( getAlternativePluginFile(), null );</span>
+<span class="fc bfc" id="L199" title="All 2 branches covered.">      if ( !Utils.isEmpty( alternative ) ) {</span>
+<span class="fc" id="L200">        xmlFile = alternative;</span>
+      }
+    }
+
+    // Load the plugins for this file...
+    //
+<span class="fc" id="L206">    InputStream inputStream = null;</span>
+    try {
+<span class="fc" id="L208">      inputStream = getResAsStreamExternal( xmlFile );</span>
+<span class="fc bfc" id="L209" title="All 2 branches covered.">      if ( inputStream == null ) {</span>
+<span class="fc" id="L210">        inputStream = getResAsStreamExternal( &quot;/&quot; + xmlFile );</span>
+      }
+
+<span class="fc bfc" id="L213" title="All 2 branches covered.">      if ( !Utils.isEmpty( getAlternativePluginFile() ) ) {</span>
+        // Retry to load a regular file...
+<span class="pc bpc" id="L215" title="1 of 4 branches missed.">        if ( inputStream == null &amp;&amp; !Utils.isEmpty( alternative ) ) {</span>
+          try {
+<span class="fc" id="L217">            inputStream = getFileInputStreamExternal( xmlFile );</span>
+<span class="nc" id="L218">          } catch ( Exception e ) {</span>
+<span class="nc" id="L219">            throw new HopPluginException( &quot;Unable to load native plugins '&quot; + xmlFile + &quot;'&quot;, e );</span>
+<span class="fc" id="L220">          }</span>
+        }
+      }
+
+<span class="pc bpc" id="L224" title="1 of 2 branches missed.">      if ( inputStream == null ) {</span>
+<span class="nc bnc" id="L225" title="All 2 branches missed.">        if ( isReturn() ) {</span>
+<span class="nc" id="L226">          return;</span>
+        } else {
+<span class="nc" id="L228">          throw new HopPluginException( &quot;Unable to find native plugins definition file: &quot; + xmlFile );</span>
+        }
+      }
+
+<span class="fc" id="L232">      registerPlugins( inputStream );</span>
+
+<span class="nc" id="L234">    } catch ( HopXmlException e ) {</span>
+<span class="nc" id="L235">      throw new HopPluginException( &quot;Unable to read the kettle XML config file: &quot; + xmlFile, e );</span>
+    } finally {
+<span class="fc" id="L237">      IOUtils.closeQuietly( inputStream );</span>
+    }
+<span class="fc" id="L239">  }</span>
+
+  @VisibleForTesting
+  protected String getPropertyExternal( String key, String def ) {
+<span class="fc" id="L243">    return System.getProperty( key, def );</span>
+  }
+
+  @VisibleForTesting
+  protected InputStream getResAsStreamExternal( String name ) {
+<span class="fc" id="L248">    return getClass().getResourceAsStream( name );</span>
+  }
+
+  @VisibleForTesting
+  protected InputStream getFileInputStreamExternal( String name ) throws FileNotFoundException {
+<span class="nc" id="L253">    return new FileInputStream( name );</span>
+  }
+
+  /**
+   * This method registers plugins from the InputStream with the XML Resource
+   *
+   * @param inputStream
+   * @throws HopPluginException
+   * @throws HopXmlException
+   */
+  protected void registerPlugins( InputStream inputStream ) throws HopPluginException, HopXmlException {
+<span class="fc" id="L264">    Document document = XmlHandler.loadXmlFile( inputStream, null, true, false );</span>
+
+<span class="fc" id="L266">    Node repsNode = XmlHandler.getSubNode( document, getMainTag() );</span>
+<span class="fc" id="L267">    List&lt;Node&gt; repsNodes = XmlHandler.getNodes( repsNode, getSubTag() );</span>
+
+<span class="fc bfc" id="L269" title="All 2 branches covered.">    for ( Node repNode : repsNodes ) {</span>
+<span class="fc" id="L270">      registerPluginFromXmlResource( repNode, getPath(), this.getClass(), true, null );</span>
+<span class="fc" id="L271">    }</span>
+<span class="fc" id="L272">  }</span>
+
+  /**
+   * @return the id
+   */
+  @Override
+  public String getId() {
+<span class="nc" id="L279">    return id;</span>
+  }
+
+  /**
+   * @param id the id to set
+   */
+  public void setId( String id ) {
+<span class="nc" id="L286">    this.id = id;</span>
+<span class="nc" id="L287">  }</span>
+
+  /**
+   * @return the name
+   */
+  @Override
+  public String getName() {
+<span class="fc" id="L294">    return name;</span>
+  }
+
+  /**
+   * @param name the name to set
+   */
+  public void setName( String name ) {
+<span class="nc" id="L301">    this.name = name;</span>
+<span class="nc" id="L302">  }</span>
+
+  /**
+   * @return the pluginFolders
+   */
+  @Override
+  public List&lt;IPluginFolder&gt; getPluginFolders() {
+<span class="fc" id="L309">    return pluginFolders;</span>
+  }
+
+  /**
+   * @param pluginFolders the pluginFolders to set
+   */
+  public void setPluginFolders( List&lt;IPluginFolder&gt; pluginFolders ) {
+<span class="nc" id="L316">    this.pluginFolders = pluginFolders;</span>
+<span class="nc" id="L317">  }</span>
+
+  protected static String getCodedTranslation( String codedString ) {
+<span class="nc bnc" id="L320" title="All 2 branches missed.">    if ( codedString == null ) {</span>
+<span class="nc" id="L321">      return null;</span>
+    }
+
+<span class="nc bnc" id="L324" title="All 2 branches missed.">    if ( codedString.startsWith( &quot;i18n:&quot; ) ) {</span>
+<span class="nc" id="L325">      String[] parts = codedString.split( &quot;:&quot; );</span>
+<span class="nc bnc" id="L326" title="All 2 branches missed.">      if ( parts.length != 3 ) {</span>
+<span class="nc" id="L327">        return codedString;</span>
+      } else {
+<span class="nc" id="L329">        return BaseMessages.getString( parts[ 1 ], parts[ 2 ] );</span>
+      }
+    } else {
+<span class="nc" id="L332">      return codedString;</span>
+    }
+  }
+
+  protected static String[] getTranslations( String[] strings, String packageName, String altPackageName, Class&lt;?&gt; resourceClass) {
+<span class="nc bnc" id="L337" title="All 2 branches missed.">    if (strings==null) {</span>
+<span class="nc" id="L338">      return null;</span>
+    }
+<span class="nc" id="L340">    String[] translations = new String[strings.length];</span>
+<span class="nc bnc" id="L341" title="All 2 branches missed.">    for (int i=0;i&lt;translations.length;i++) {</span>
+<span class="nc" id="L342">      translations[i] = getTranslation( strings[i], packageName, altPackageName, resourceClass );</span>
+    }
+<span class="nc" id="L344">    return translations;</span>
+  }
+
+  protected static String getTranslation( String string, String packageName, String altPackageName,
+                                          Class&lt;?&gt; resourceClass ) {
+<span class="nc bnc" id="L349" title="All 2 branches missed.">    if ( string == null ) {</span>
+<span class="nc" id="L350">      return null;</span>
+    }
+
+<span class="nc bnc" id="L353" title="All 2 branches missed.">    if ( string.startsWith( &quot;i18n:&quot; ) ) {</span>
+<span class="nc" id="L354">      String[] parts = string.split( &quot;:&quot; );</span>
+<span class="nc bnc" id="L355" title="All 2 branches missed.">      if ( parts.length != 3 ) {</span>
+<span class="nc" id="L356">        return string;</span>
+      } else {
+<span class="nc" id="L358">        return BaseMessages.getString( parts[ 1 ], parts[ 2 ] );</span>
+      }
+    } else {
+      // Try the default package name
+      //
+      String translation;
+<span class="nc bnc" id="L364" title="All 2 branches missed.">      if ( !Utils.isEmpty( packageName ) ) {</span>
+<span class="nc" id="L365">        LogLevel oldLogLevel = DefaultLogLevel.getLogLevel();</span>
+
+        // avoid i18n messages for missing locale
+        //
+<span class="nc" id="L369">        DefaultLogLevel.setLogLevel( LogLevel.BASIC );</span>
+
+<span class="nc" id="L371">        translation = BaseMessages.getString( packageName, string, resourceClass );</span>
+<span class="nc bnc" id="L372" title="All 4 branches missed.">        if ( translation.startsWith( &quot;!&quot; ) &amp;&amp; translation.endsWith( &quot;!&quot; ) ) {</span>
+<span class="nc" id="L373">          translation = BaseMessages.getString( PKG, string, resourceClass );</span>
+        }
+
+        // restore loglevel, when the last alternative fails, log it when loglevel is detailed
+        //
+<span class="nc" id="L378">        DefaultLogLevel.setLogLevel( oldLogLevel );</span>
+<span class="nc bnc" id="L379" title="All 2 branches missed.">        if ( !Utils.isEmpty( altPackageName ) ) {</span>
+<span class="nc bnc" id="L380" title="All 4 branches missed.">          if ( translation.startsWith( &quot;!&quot; ) &amp;&amp; translation.endsWith( &quot;!&quot; ) ) {</span>
+<span class="nc" id="L381">            translation = BaseMessages.getString( altPackageName, string, resourceClass );</span>
+          }
+        }
+<span class="nc" id="L384">      } else {</span>
+        // Translations are not supported, simply keep the original text.
+        //
+<span class="nc" id="L387">        translation = string;</span>
+      }
+
+<span class="nc" id="L390">      return translation;</span>
+    }
+  }
+
+  protected List&lt;JarFileAnnotationPlugin&gt; findAnnotatedClassFiles( String annotationClassName ) {
+<span class="fc" id="L395">    JarFileCache jarFileCache = JarFileCache.getInstance();</span>
+<span class="fc" id="L396">    List&lt;JarFileAnnotationPlugin&gt; classFiles = new ArrayList&lt;&gt;();</span>
+
+    // We want to scan the plugins folder for plugin.xml files...
+    //
+<span class="fc bfc" id="L400" title="All 2 branches covered.">    for ( IPluginFolder pluginFolder : getPluginFolders() ) {</span>
+
+<span class="fc bfc" id="L402" title="All 2 branches covered.">      if ( pluginFolder.isPluginAnnotationsFolder() ) {</span>
+
+        try {
+          // Get all the jar files in the plugin folder...
+          //
+<span class="fc" id="L407">          File[] fileObjects = jarFileCache.getFileObjects( pluginFolder );</span>
+<span class="pc bpc" id="L408" title="1 of 2 branches missed.">          if ( fileObjects != null ) {</span>
+<span class="pc bpc" id="L409" title="1 of 2 branches missed.">            for ( File fileObject : fileObjects ) {</span>
+
+              // These are the jar files : find annotations in it...
+              //
+<span class="nc" id="L413">              AnnotationDB annotationDB = jarFileCache.getAnnotationDB( fileObject );</span>
+<span class="nc" id="L414">              Set&lt;String&gt; impls = annotationDB.getAnnotationIndex().get( annotationClassName );</span>
+<span class="nc bnc" id="L415" title="All 2 branches missed.">              if ( impls != null ) {</span>
+
+<span class="nc bnc" id="L417" title="All 2 branches missed.">                for ( String fil : impls ) {</span>
+<span class="nc" id="L418">                  classFiles.add( new JarFileAnnotationPlugin( fil, fileObject.toURI().toURL(), fileObject.getParentFile().toURI().toURL() ) );</span>
+<span class="nc" id="L419">                }</span>
+              }
+            }
+
+          }
+<span class="nc" id="L424">        } catch ( Exception e ) {</span>
+<span class="nc" id="L425">          e.printStackTrace();</span>
+<span class="fc" id="L426">        }</span>
+      }
+<span class="fc" id="L428">    }</span>
+<span class="fc" id="L429">    return classFiles;</span>
+  }
+
+  protected List&lt;FileObject&gt; findPluginXmlFiles( String folder ) {
+
+<span class="nc" id="L434">    return findPluginFiles( folder, &quot;.*\\/plugin\\.xml$&quot; );</span>
+  }
+
+  protected List&lt;FileObject&gt; findPluginFiles( String folder, final String regex ) {
+
+<span class="nc" id="L439">    List&lt;FileObject&gt; list = new ArrayList&lt;&gt;();</span>
+    try {
+<span class="nc" id="L441">      FileObject folderObject = HopVfs.getFileObject( folder );</span>
+<span class="nc" id="L442">      FileObject[] files = folderObject.findFiles( new FileSelector() {</span>
+
+        @Override
+        public boolean traverseDescendents( FileSelectInfo fileSelectInfo ) throws Exception {
+<span class="nc" id="L446">          return true;</span>
+        }
+
+        @Override
+        public boolean includeFile( FileSelectInfo fileSelectInfo ) throws Exception {
+<span class="nc" id="L451">          return fileSelectInfo.getFile().toString().matches( regex );</span>
+        }
+      } );
+<span class="nc bnc" id="L454" title="All 2 branches missed.">      if ( files != null ) {</span>
+<span class="nc" id="L455">        Collections.addAll( list, files );</span>
+      }
+<span class="nc" id="L457">    } catch ( Exception e ) {</span>
+      // ignore this: unknown folder, insufficient permissions, etc
+<span class="nc" id="L459">    }</span>
+<span class="nc" id="L460">    return list;</span>
+  }
+
+  /**
+   * This method allows for custom registration of plugins that are on the main classpath. This was originally created
+   * so that test environments could register test plugins programmatically.
+   *
+   * @param clazz the plugin implementation to register
+   * @param cat   the category of the plugin
+   * @param id    the id for the plugin
+   * @param name  the name for the plugin
+   * @param desc  the description for the plugin
+   * @param image the image for the plugin
+   * @throws HopPluginException
+   */
+  public void registerCustom( Class&lt;?&gt; clazz, String cat, String id, String name, String desc, String image ) throws HopPluginException {
+<span class="fc" id="L476">    Class&lt;? extends IPluginType&gt; pluginType = getClass();</span>
+<span class="fc" id="L477">    Map&lt;Class&lt;?&gt;, String&gt; classMap = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L478">    PluginMainClassType mainClassTypesAnnotation = pluginType.getAnnotation( PluginMainClassType.class );</span>
+<span class="fc" id="L479">    classMap.put( mainClassTypesAnnotation.value(), clazz.getName() );</span>
+<span class="fc" id="L480">    IPlugin transformPlugin = new Plugin( new String[] { id }, pluginType, mainClassTypesAnnotation.value(), cat, name, desc, image, false,</span>
+        false, classMap, new ArrayList&lt;&gt;(), null, null, null, false, null, null, null );
+<span class="fc" id="L482">    registry.registerPlugin( pluginType, transformPlugin );</span>
+<span class="fc" id="L483">  }</span>
+
+  protected IPlugin registerPluginFromXmlResource( Node pluginNode, String path,
+                                                   Class&lt;? extends IPluginType&gt; pluginType, boolean nativePlugin, URL pluginFolder ) throws HopPluginException {
+    try {
+
+<span class="fc" id="L489">      String id = XmlHandler.getTagAttribute( pluginNode, &quot;id&quot; );</span>
+<span class="fc" id="L490">      String description = getTagOrAttribute( pluginNode, &quot;description&quot; );</span>
+<span class="fc" id="L491">      String iconfile = getTagOrAttribute( pluginNode, &quot;iconfile&quot; );</span>
+<span class="fc" id="L492">      String tooltip = getTagOrAttribute( pluginNode, &quot;tooltip&quot; );</span>
+<span class="fc" id="L493">      String category = getTagOrAttribute( pluginNode, &quot;category&quot; );</span>
+<span class="fc" id="L494">      String classname = getTagOrAttribute( pluginNode, &quot;classname&quot; );</span>
+<span class="fc" id="L495">      String errorHelpfile = getTagOrAttribute( pluginNode, &quot;errorhelpfile&quot; );</span>
+<span class="fc" id="L496">      String documentationUrl = getTagOrAttribute( pluginNode, &quot;documentation_url&quot; );</span>
+<span class="fc" id="L497">      String casesUrl = getTagOrAttribute( pluginNode, &quot;cases_url&quot; );</span>
+<span class="fc" id="L498">      String forumUrl = getTagOrAttribute( pluginNode, &quot;forum_url&quot; );</span>
+<span class="fc" id="L499">      String suggestion = getTagOrAttribute( pluginNode, &quot;suggestion&quot; );</span>
+<span class="fc" id="L500">      String keywordsString = getTagOrAttribute( pluginNode, &quot;keywords&quot; );</span>
+<span class="pc bpc" id="L501" title="1 of 2 branches missed.">      String[] keywords = keywordsString == null ? new String[] {} : keywordsString.split( &quot;,&quot; );</span>
+
+      // If we have no ID, we take the class name as unique ID of the plugin
+      //
+<span class="pc bpc" id="L505" title="1 of 2 branches missed.">      if ( StringUtils.isEmpty( id ) ) {</span>
+<span class="nc" id="L506">        id = classname;</span>
+      }
+
+<span class="fc" id="L509">      Node libsnode = XmlHandler.getSubNode( pluginNode, &quot;libraries&quot; );</span>
+<span class="fc" id="L510">      int nrlibs = XmlHandler.countNodes( libsnode, &quot;library&quot; );</span>
+
+<span class="fc" id="L512">      List&lt;String&gt; jarFiles = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L513" title="All 2 branches covered.">      if ( path != null ) {</span>
+<span class="pc bpc" id="L514" title="1 of 2 branches missed.">        for ( int j = 0; j &lt; nrlibs; j++ ) {</span>
+<span class="nc" id="L515">          Node libnode = XmlHandler.getSubNodeByNr( libsnode, &quot;library&quot;, j );</span>
+<span class="nc" id="L516">          String jarfile = XmlHandler.getTagAttribute( libnode, &quot;name&quot; );</span>
+<span class="nc" id="L517">          jarFiles.add( new File( path + Const.FILE_SEPARATOR + jarfile ).getAbsolutePath() );</span>
+        }
+      }
+
+      // Add all the jar files in the extra library folders
+      //
+<span class="fc" id="L523">      jarFiles.addAll(addExtraJarFiles());</span>
+
+      // Localized categories, descriptions and tool tips
+      //
+<span class="fc" id="L527">      Map&lt;String, String&gt; localizedCategories = readPluginLocale( pluginNode, &quot;localized_category&quot;, &quot;category&quot; );</span>
+<span class="fc" id="L528">      category = getAlternativeTranslation( category, localizedCategories );</span>
+
+<span class="fc" id="L530">      Map&lt;String, String&gt; localDescriptions =</span>
+<span class="fc" id="L531">        readPluginLocale( pluginNode, &quot;localized_description&quot;, &quot;description&quot; );</span>
+<span class="fc" id="L532">      description = getAlternativeTranslation( description, localDescriptions );</span>
+<span class="fc" id="L533">      description += addDeprecation( category );</span>
+
+<span class="fc" id="L535">      suggestion = getAlternativeTranslation( suggestion, localDescriptions );</span>
+
+<span class="fc" id="L537">      Map&lt;String, String&gt; localizedTooltips = readPluginLocale( pluginNode, &quot;localized_tooltip&quot;, &quot;tooltip&quot; );</span>
+<span class="fc" id="L538">      tooltip = getAlternativeTranslation( tooltip, localizedTooltips );</span>
+
+<span class="fc bfc" id="L540" title="All 2 branches covered.">      String iconFilename = ( path == null ) ? iconfile : path + Const.FILE_SEPARATOR + iconfile;</span>
+<span class="fc" id="L541">      String errorHelpFileFull = errorHelpfile;</span>
+<span class="pc bpc" id="L542" title="1 of 2 branches missed.">      if ( !Utils.isEmpty( errorHelpfile ) ) {</span>
+<span class="nc bnc" id="L543" title="All 2 branches missed.">        errorHelpFileFull = ( path == null ) ? errorHelpfile : path + Const.FILE_SEPARATOR + errorHelpfile;</span>
+      }
+
+<span class="fc" id="L546">      Map&lt;Class&lt;?&gt;, String&gt; classMap = new HashMap&lt;Class&lt;?&gt;, String&gt;();</span>
+
+<span class="fc" id="L548">      PluginMainClassType mainClassTypesAnnotation = pluginType.getAnnotation( PluginMainClassType.class );</span>
+<span class="fc bfc" id="L549" title="All 2 branches covered.">      if ( mainClassTypesAnnotation != null ) {</span>
+<span class="fc" id="L550">        classMap.put( mainClassTypesAnnotation.value(), classname );</span>
+      } else {
+<span class="fc" id="L552">        classMap.put( PluginMainClassType.class, classname );</span>
+      }
+
+      // process annotated extra types
+<span class="fc" id="L556">      PluginExtraClassTypes classTypesAnnotation = pluginType.getAnnotation( PluginExtraClassTypes.class );</span>
+<span class="pc bpc" id="L557" title="1 of 2 branches missed.">      if ( classTypesAnnotation != null ) {</span>
+<span class="nc bnc" id="L558" title="All 2 branches missed.">        for ( int i = 0; i &lt; classTypesAnnotation.classTypes().length; i++ ) {</span>
+<span class="nc" id="L559">          Class&lt;?&gt; classType = classTypesAnnotation.classTypes()[ i ];</span>
+<span class="nc" id="L560">          String className = getTagOrAttribute( pluginNode, classTypesAnnotation.xmlNodeNames()[ i ] );</span>
+
+<span class="nc" id="L562">          classMap.put( classType, className );</span>
+        }
+      }
+
+      // process extra types added at runtime
+<span class="fc" id="L567">      Map&lt;Class&lt;?&gt;, String&gt; objectMap = getAdditionalRuntimeObjectTypes();</span>
+<span class="pc bpc" id="L568" title="1 of 2 branches missed.">      for ( Map.Entry&lt;Class&lt;?&gt;, String&gt; entry : objectMap.entrySet() ) {</span>
+<span class="nc" id="L569">        String clzName = getTagOrAttribute( pluginNode, entry.getValue() );</span>
+<span class="nc" id="L570">        classMap.put( entry.getKey(), clzName );</span>
+<span class="nc" id="L571">      }</span>
+
+<span class="fc" id="L573">      Class&lt;?&gt; mainAnnotationClass = PluginMainClassType.class;</span>
+<span class="fc bfc" id="L574" title="All 2 branches covered.">      if ( mainClassTypesAnnotation != null ) {</span>
+<span class="fc" id="L575">        mainAnnotationClass = mainClassTypesAnnotation.value();</span>
+      }
+
+<span class="fc" id="L578">      IPlugin pluginInterface =</span>
+<span class="fc" id="L579">        new Plugin( id.split( &quot;,&quot; ), pluginType, mainAnnotationClass, category, description, tooltip,</span>
+          iconFilename, false, nativePlugin, classMap, jarFiles, errorHelpFileFull, keywords, pluginFolder,
+          false, documentationUrl, casesUrl, forumUrl, suggestion );
+<span class="fc" id="L582">      registry.registerPlugin( pluginType, pluginInterface );</span>
+
+<span class="fc" id="L584">      return pluginInterface;</span>
+<span class="nc" id="L585">    } catch ( Throwable e ) {</span>
+<span class="nc" id="L586">      throw new HopPluginException( BaseMessages.getString(</span>
+        PKG, &quot;BasePluginType.RuntimeError.UnableToReadPluginXML.PLUGIN0001&quot; ), e );
+    }
+  }
+
+  /**
+   * Loop over the extra library folders and find all the jar files in all sub-folders
+   * @return the list of jar files in all the extra library folders
+   */
+  private List&lt;String&gt; addExtraJarFiles( ) {
+<span class="fc" id="L596">    List&lt;String&gt; files = new ArrayList&lt;&gt;();</span>
+<span class="pc bpc" id="L597" title="1 of 2 branches missed.">    for (String extraLibraryFolder : extraLibraryFolders) {</span>
+<span class="nc" id="L598">      File folder = new File(extraLibraryFolder);</span>
+<span class="nc bnc" id="L599" title="All 2 branches missed.">      if (folder.exists()) {</span>
+<span class="nc" id="L600">        Collection&lt;File&gt; jarFiles = FileUtils.listFiles( folder, new String[] { &quot;jar&quot;, &quot;JAR&quot;, }, true );</span>
+<span class="nc" id="L601">        jarFiles.stream().forEach( file-&gt;files.add(file.getPath()) );</span>
+      }
+<span class="nc" id="L603">    }</span>
+<span class="fc" id="L604">    return files;</span>
+  }
+
+  protected String getTagOrAttribute( Node pluginNode, String tag ) {
+<span class="fc" id="L608">    String string = XmlHandler.getTagValue( pluginNode, tag );</span>
+<span class="fc bfc" id="L609" title="All 2 branches covered.">    if ( string == null ) {</span>
+<span class="fc" id="L610">      string = XmlHandler.getTagAttribute( pluginNode, tag );</span>
+    }
+<span class="fc" id="L612">    return string;</span>
+  }
+
+  /**
+   * @param input
+   * @param localizedMap
+   * @return
+   */
+  protected String getAlternativeTranslation( String input, Map&lt;String, String&gt; localizedMap ) {
+
+<span class="fc bfc" id="L622" title="All 2 branches covered.">    if ( Utils.isEmpty( input ) ) {</span>
+<span class="fc" id="L623">      return null;</span>
+    }
+
+<span class="pc bpc" id="L626" title="1 of 2 branches missed.">    if ( input.startsWith( &quot;i18n&quot; ) ) {</span>
+<span class="nc" id="L627">      return getCodedTranslation( input );</span>
+    } else {
+<span class="fc bfc" id="L629" title="All 2 branches covered.">      for ( final Locale locale : GlobalMessageUtil.getActiveLocales() ) {</span>
+<span class="fc" id="L630">        String alt = localizedMap.get( locale.toString().toLowerCase() );</span>
+<span class="pc bpc" id="L631" title="1 of 2 branches missed.">        if ( !Utils.isEmpty( alt ) ) {</span>
+<span class="nc" id="L632">          return alt;</span>
+        }
+<span class="fc" id="L634">      }</span>
+      // Nothing found?
+      // Return the original!
+      //
+<span class="fc" id="L638">      return input;</span>
+    }
+  }
+
+  protected Map&lt;String, String&gt; readPluginLocale( Node pluginNode, String localizedTag, String translationTag ) {
+<span class="fc" id="L643">    Map&lt;String, String&gt; map = new Hashtable&lt;String, String&gt;();</span>
+
+<span class="fc" id="L645">    Node locTipsNode = XmlHandler.getSubNode( pluginNode, localizedTag );</span>
+<span class="fc" id="L646">    int nrLocTips = XmlHandler.countNodes( locTipsNode, translationTag );</span>
+<span class="pc bpc" id="L647" title="1 of 2 branches missed.">    for ( int j = 0; j &lt; nrLocTips; j++ ) {</span>
+<span class="nc" id="L648">      Node locTipNode = XmlHandler.getSubNodeByNr( locTipsNode, translationTag, j );</span>
+<span class="nc bnc" id="L649" title="All 2 branches missed.">      if ( locTipNode != null ) {</span>
+<span class="nc" id="L650">        String locale = XmlHandler.getTagAttribute( locTipNode, &quot;locale&quot; );</span>
+<span class="nc" id="L651">        String locTip = XmlHandler.getNodeValue( locTipNode );</span>
+
+<span class="nc bnc" id="L653" title="All 4 branches missed.">        if ( !Utils.isEmpty( locale ) &amp;&amp; !Utils.isEmpty( locTip ) ) {</span>
+<span class="nc" id="L654">          map.put( locale.toLowerCase(), locTip );</span>
+        }
+      }
+    }
+
+<span class="fc" id="L659">    return map;</span>
+  }
+
+  /**
+   * Create a new URL class loader with the jar file specified. Also include all the jar files in the lib folder next to
+   * that file.
+   *
+   * @param jarFileUrl  The jar file to include
+   * @param classLoader the parent class loader to use
+   * @return The URL class loader
+   */
+  protected URLClassLoader createUrlClassLoader( URL jarFileUrl, ClassLoader classLoader ) {
+<span class="nc" id="L671">    List&lt;URL&gt; urls = new ArrayList&lt;&gt;();</span>
+
+    // Also append all the files in the underlying lib folder if it exists...
+    //
+    try {
+
+<span class="nc" id="L677">      String parentFolderName = new File( URLDecoder.decode( jarFileUrl.getFile(), &quot;UTF-8&quot; ) ).getParent();</span>
+
+<span class="nc" id="L679">      String libFolderName = parentFolderName + Const.FILE_SEPARATOR + &quot;lib&quot;;</span>
+<span class="nc bnc" id="L680" title="All 2 branches missed.">      if ( new File( libFolderName ).exists() ) {</span>
+<span class="nc" id="L681">        PluginFolder pluginFolder = new PluginFolder( libFolderName, false, true, searchLibDir );</span>
+<span class="nc" id="L682">        File[] libFiles = pluginFolder.findJarFiles( true );</span>
+<span class="nc bnc" id="L683" title="All 2 branches missed.">        for ( File libFile : libFiles ) {</span>
+<span class="nc" id="L684">          urls.add( libFile.toURI().toURL() );</span>
+        }
+      }
+
+      // Also get the libraries in the dependency folders of the plugin in question...
+      // The file is called dependencies.xml
+      //
+<span class="nc" id="L691">      String dependenciesFileName = parentFolderName + Const.FILE_SEPARATOR + &quot;dependencies.xml&quot;;</span>
+<span class="nc" id="L692">      File dependenciesFile = new File( dependenciesFileName );</span>
+<span class="nc bnc" id="L693" title="All 2 branches missed.">      if ( dependenciesFile.exists() ) {</span>
+        // Add the files in the dependencies folders to the classpath...
+        //
+<span class="nc" id="L696">        Document document = XmlHandler.loadXmlFile( dependenciesFile );</span>
+<span class="nc" id="L697">        Node dependenciesNode = XmlHandler.getSubNode( document, &quot;dependencies&quot; );</span>
+<span class="nc" id="L698">        List&lt;Node&gt; folderNodes = XmlHandler.getNodes( dependenciesNode, &quot;folder&quot; );</span>
+<span class="nc bnc" id="L699" title="All 2 branches missed.">        for ( Node folderNode : folderNodes ) {</span>
+<span class="nc" id="L700">          String relativeFolderName = XmlHandler.getNodeValue( folderNode );</span>
+<span class="nc" id="L701">          String dependenciesFolderName = parentFolderName + Const.FILE_SEPARATOR + relativeFolderName;</span>
+<span class="nc" id="L702">          File dependenciesFolder = new File( dependenciesFolderName );</span>
+<span class="nc bnc" id="L703" title="All 2 branches missed.">          if ( dependenciesFolder.exists() ) {</span>
+            // Now get the jar files in this dependency folder
+            // This includes the possible lib/ folder dependencies in there
+            //
+<span class="nc" id="L707">            PluginFolder pluginFolder = new PluginFolder( dependenciesFolderName, false, false, true );</span>
+<span class="nc" id="L708">            File[] libFiles = pluginFolder.findJarFiles( true );</span>
+<span class="nc bnc" id="L709" title="All 2 branches missed.">            for ( File libFile : libFiles ) {</span>
+<span class="nc" id="L710">              urls.add( libFile.toURI().toURL() );</span>
+            }
+          }
+<span class="nc" id="L713">        }</span>
+      }
+<span class="nc" id="L715">    } catch ( Exception e ) {</span>
+<span class="nc" id="L716">      LogChannel.GENERAL.logError( &quot;Unexpected error searching for plugin jar files in lib/ folder and dependencies for jar file '&quot;</span>
+        + jarFileUrl + &quot;'&quot;, e );
+<span class="nc" id="L718">    }</span>
+
+
+<span class="nc" id="L721">    urls.add( jarFileUrl );</span>
+
+<span class="nc" id="L723">    return new HopURLClassLoader( urls.toArray( new URL[ urls.size() ] ), classLoader );</span>
+  }
+
+  protected String extractCategory( T annotation ) {
+<span class="nc" id="L727">    return null;</span>
+  }
+
+  protected abstract String extractID( T annotation );
+
+  protected abstract String extractName( T annotation );
+
+  protected abstract String extractDesc( T annotation );
+
+  /**
+   * Extract extra classes information from a plugin annotation.
+   *
+   * @param annotation
+   */
+  protected String extractClassLoaderGroup( T annotation ) {
+<span class="nc" id="L742">    return null;</span>
+  }
+
+  protected String extractImageFile( T annotation ) {
+<span class="nc" id="L746">    return null;</span>
+  }
+
+  protected boolean extractSeparateClassLoader( T annotation ) {
+<span class="nc" id="L750">    return false;</span>
+  }
+
+  protected String extractI18nPackageName( T annotation ) {
+<span class="nc" id="L754">    return null;</span>
+  }
+
+  protected void addExtraClasses( Map&lt;Class&lt;?&gt;, String&gt; classMap, Class&lt;?&gt; clazz, T annotation ) {
+<span class="nc" id="L758">  }</span>
+
+  protected String extractDocumentationUrl( T annotation ) {
+<span class="nc" id="L761">    return null;</span>
+  }
+
+  protected String extractCasesUrl( T annotation ) {
+<span class="nc" id="L765">    return null;</span>
+  }
+
+  protected String extractForumUrl( T annotation ) {
+<span class="nc" id="L769">    return null;</span>
+  }
+
+  protected String extractSuggestion( T annotation ) {
+<span class="nc" id="L773">    return null;</span>
+  }
+
+  protected String[] extractKeywords( T annotation ) {
+<span class="nc" id="L777">    return new String[] {};</span>
+  }
+
+  /**
+   * When set to true the PluginFolder objects created by this type will be instructed to search for additional plugins
+   * in the lib directory of plugin folders.
+   *
+   * @param searchLibDir
+   */
+  protected void setSearchLibDirs( boolean searchLibDir ) {
+<span class="nc" id="L787">    this.searchLibDir = searchLibDir;</span>
+<span class="nc" id="L788">  }</span>
+
+  protected void registerPluginJars() throws HopPluginException {
+<span class="fc" id="L791">    List&lt;JarFileAnnotationPlugin&gt; jarFilePlugins = findAnnotatedClassFiles( pluginType.getName() );</span>
+<span class="pc bpc" id="L792" title="1 of 2 branches missed.">    for ( JarFileAnnotationPlugin jarFilePlugin : jarFilePlugins ) {</span>
+
+<span class="nc" id="L794">      URLClassLoader urlClassLoader = createUrlClassLoader( jarFilePlugin.getJarFile(), getClass().getClassLoader() );</span>
+
+      try {
+<span class="nc" id="L797">        Class&lt;?&gt; clazz = urlClassLoader.loadClass( jarFilePlugin.getClassName() );</span>
+<span class="nc bnc" id="L798" title="All 2 branches missed.">        if ( clazz == null ) {</span>
+<span class="nc" id="L799">          throw new HopPluginException( &quot;Unable to load class: &quot; + jarFilePlugin.getClassName() );</span>
+        }
+<span class="nc" id="L801">        List&lt;String&gt; libraries = Arrays.stream( urlClassLoader.getURLs() )</span>
+<span class="nc" id="L802">          .map( URL::getFile )</span>
+<span class="nc" id="L803">          .collect( Collectors.toList() );</span>
+<span class="nc" id="L804">        T annotation = clazz.getAnnotation( pluginType );</span>
+
+<span class="nc" id="L806">        handlePluginAnnotation( clazz, annotation, libraries, false, jarFilePlugin.getPluginFolder() );</span>
+<span class="nc" id="L807">      } catch ( Exception e ) {</span>
+        // Ignore for now, don't know if it's even possible.
+<span class="nc" id="L809">        LogChannel.GENERAL.logError(</span>
+<span class="nc" id="L810">          &quot;Unexpected error registering jar plugin file: &quot; + jarFilePlugin.getJarFile(), e );</span>
+      } finally {
+<span class="nc bnc" id="L812" title="All 4 branches missed.">        if ( urlClassLoader != null &amp;&amp; urlClassLoader instanceof HopURLClassLoader ) {</span>
+<span class="nc" id="L813">          ( (HopURLClassLoader) urlClassLoader ).closeClassLoader();</span>
+        }
+      }
+<span class="nc" id="L816">    }</span>
+<span class="fc" id="L817">  }</span>
+
+  /**
+   * Handle an annotated plugin
+   *
+   * @param clazz            The class to use
+   * @param annotation       The annotation to get information from
+   * @param libraries        The libraries to add
+   * @param nativePluginType Is this a native plugin?
+   * @param pluginFolder     The plugin folder to use
+   * @throws HopPluginException
+   */
+  @Override
+  public void handlePluginAnnotation( Class&lt;?&gt; clazz, T annotation, List&lt;String&gt; libraries, boolean nativePluginType, URL pluginFolder ) throws HopPluginException {
+
+<span class="nc" id="L832">    String idList = extractID( annotation );</span>
+<span class="nc bnc" id="L833" title="All 2 branches missed.">    if ( Utils.isEmpty( idList ) ) {</span>
+      // We take the class name as ID...
+      //
+<span class="nc" id="L836">      idList = clazz.getName();</span>
+    }
+
+    // Only one ID for now
+<span class="nc" id="L840">    String[] ids = idList.split( &quot;,&quot; );</span>
+<span class="nc" id="L841">    String packageName = extractI18nPackageName( annotation );</span>
+<span class="nc" id="L842">    String altPackageName = clazz.getPackage().getName();</span>
+<span class="nc" id="L843">    String name = getTranslation( extractName( annotation ), packageName, altPackageName, clazz );</span>
+<span class="nc" id="L844">    String description = getTranslation( extractDesc( annotation ), packageName, altPackageName, clazz );</span>
+<span class="nc" id="L845">    String category = getTranslation( extractCategory( annotation ), packageName, altPackageName, clazz );</span>
+<span class="nc" id="L846">    String imageFile = extractImageFile( annotation );</span>
+<span class="nc" id="L847">    boolean separateClassLoader = extractSeparateClassLoader( annotation );</span>
+<span class="nc" id="L848">    String documentationUrl = extractDocumentationUrl( annotation );</span>
+<span class="nc" id="L849">    String casesUrl = extractCasesUrl( annotation );</span>
+<span class="nc" id="L850">    String forumUrl = extractForumUrl( annotation );</span>
+<span class="nc" id="L851">    String suggestion = getTranslation( extractSuggestion( annotation ), packageName, altPackageName, clazz );</span>
+<span class="nc" id="L852">    String classLoaderGroup = extractClassLoaderGroup( annotation );</span>
+<span class="nc" id="L853">    String[] keywords = getTranslations(extractKeywords( annotation ), packageName, altPackageName, clazz);</span>
+
+<span class="nc" id="L855">    name += addDeprecation( category );</span>
+
+<span class="nc" id="L857">    Map&lt;Class&lt;?&gt;, String&gt; classMap = new HashMap&lt;&gt;();</span>
+
+<span class="nc" id="L859">    PluginMainClassType mainType = getClass().getAnnotation( PluginMainClassType.class );</span>
+    Class&lt;?&gt; mainClass;
+<span class="nc bnc" id="L861" title="All 2 branches missed.">    if ( mainType != null ) {</span>
+<span class="nc" id="L862">      mainClass = mainType.value();</span>
+    } else {
+<span class="nc" id="L864">      mainClass = clazz;</span>
+    }
+<span class="nc" id="L866">    classMap.put( mainClass, clazz.getName() );</span>
+<span class="nc" id="L867">    addExtraClasses( classMap, clazz, annotation );</span>
+
+    // Add all the jar files in the extra library folders
+    //
+<span class="nc" id="L871">    List&lt;String&gt; extraJarFiles = addExtraJarFiles();</span>
+<span class="nc" id="L872">    libraries.addAll(extraJarFiles);</span>
+
+    // If there are extra classes somewhere else, don't use a plugin folder
+    //
+<span class="nc bnc" id="L876" title="All 2 branches missed.">    boolean usingLibrariesOutsidePluginFolder = !extraJarFiles.isEmpty();</span>
+<span class="nc" id="L877">    IPlugin plugin = new Plugin( ids, this.getClass(), mainClass, category, name, description, imageFile, separateClassLoader,</span>
+        classLoaderGroup, nativePluginType, classMap, libraries, null, keywords, pluginFolder, usingLibrariesOutsidePluginFolder, documentationUrl,
+        casesUrl, forumUrl, suggestion );
+
+<span class="nc" id="L881">    ParentFirst parentFirstAnnotation = clazz.getAnnotation( ParentFirst.class );</span>
+<span class="nc bnc" id="L882" title="All 2 branches missed.">    if ( parentFirstAnnotation != null ) {</span>
+<span class="nc" id="L883">      registry.addParentClassLoaderPatterns( plugin, parentFirstAnnotation.patterns() );</span>
+    }
+<span class="nc" id="L885">    registry.registerPlugin( this.getClass(), plugin );</span>
+
+<span class="nc bnc" id="L887" title="All 4 branches missed.">    if ( libraries != null &amp;&amp; libraries.size() &gt; 0 ) {</span>
+<span class="nc" id="L888">      LogChannel.GENERAL.logDetailed( &quot;Plugin with id [&quot;</span>
+<span class="nc" id="L889">        + ids[ 0 ] + &quot;] has &quot; + libraries.size() + &quot; libaries in its private class path&quot; );</span>
+    }
+<span class="nc" id="L891">  }</span>
+
+  private String addDeprecation( String category ) {
+<span class="fc" id="L894">    String deprecated = BaseMessages.getString( PKG, &quot;PluginRegistry.Category.Deprecated&quot; );</span>
+<span class="pc bpc" id="L895" title="1 of 2 branches missed.">    if ( deprecated.equals( category ) ) {</span>
+<span class="nc" id="L896">      return &quot; (&quot; + deprecated.toLowerCase() + &quot;)&quot;;</span>
+    }
+<span class="fc" id="L898">    return &quot;&quot;;</span>
+  }
+
+  /**
+   * Gets extraLibraryFolders
+   *
+   * @return value of extraLibraryFolders
+   */
+  public List&lt;String&gt; getExtraLibraryFolders() {
+<span class="nc" id="L907">    return extraLibraryFolders;</span>
+  }
+
+  /**
+   * @param extraLibraryFolders The extraLibraryFolders to set
+   */
+  public void setExtraLibraryFolders( List&lt;String&gt; extraLibraryFolders ) {
+<span class="nc" id="L914">    this.extraLibraryFolders = extraLibraryFolders;</span>
+<span class="nc" id="L915">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

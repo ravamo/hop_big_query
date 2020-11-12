@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ResultFile.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core</a> &gt; <span class="el_source">ResultFile.java</span></div><h1>ResultFile.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core;
+
+import org.apache.commons.vfs2.FileObject;
+import org.apache.hop.core.exception.HopFileException;
+import org.apache.hop.core.row.value.ValueMetaDate;
+import org.apache.hop.core.row.value.ValueMetaString;
+import org.apache.hop.core.vfs.HopVfs;
+import org.apache.hop.core.xml.XmlHandler;
+import org.apache.hop.i18n.BaseMessages;
+import org.w3c.dom.Node;
+
+import java.util.Date;
+
+/**
+ * This is a result file: a file as a result of the execution of a action, a pipeline transform, etc.
+ *
+ * @author matt
+ */
+public class ResultFile implements Cloneable {
+<span class="fc" id="L42">  private static Class&lt;?&gt; PKG = Const.class; // for i18n purposes, needed by Translator!!</span>
+
+  public static final int FILE_TYPE_GENERAL = 0;
+  public static final int FILE_TYPE_LOG = 1;
+  public static final int FILE_TYPE_ERRORLINE = 2;
+  public static final int FILE_TYPE_ERROR = 3;
+  public static final int FILE_TYPE_WARNING = 4;
+
+<span class="fc" id="L50">  public static final String[] fileTypeCode = { &quot;GENERAL&quot;, &quot;LOG&quot;, &quot;ERRORLINE&quot;, &quot;ERROR&quot;, &quot;WARNING&quot; };</span>
+
+<span class="fc" id="L52">  public static final String[] fileTypeDesc = {</span>
+<span class="fc" id="L53">    BaseMessages.getString( PKG, &quot;ResultFile.FileType.General&quot; ),</span>
+<span class="fc" id="L54">    BaseMessages.getString( PKG, &quot;ResultFile.FileType.Log&quot; ),</span>
+<span class="fc" id="L55">    BaseMessages.getString( PKG, &quot;ResultFile.FileType.ErrorLine&quot; ),</span>
+<span class="fc" id="L56">    BaseMessages.getString( PKG, &quot;ResultFile.FileType.Error&quot; ),</span>
+<span class="fc" id="L57">    BaseMessages.getString( PKG, &quot;ResultFile.FileType.Warning&quot; ) };</span>
+  private static final String XML_TAG = &quot;result-file&quot;;
+
+  private int type;
+  private FileObject file;
+  private String originParent;
+  private String origin;
+  private String comment;
+  private Date timestamp;
+
+  /**
+   * Construct a new result file
+   *
+   * @param type         The type of file : FILE_TYPE_GENERAL, ...
+   * @param file         The file to use
+   * @param originParent The pipeline or workflow that has generated this result file
+   * @param origin       The transform or action that has generated this result file
+   */
+<span class="fc" id="L75">  public ResultFile( int type, FileObject file, String originParent, String origin ) {</span>
+<span class="fc" id="L76">    this.type = type;</span>
+<span class="fc" id="L77">    this.file = file;</span>
+<span class="fc" id="L78">    this.originParent = originParent;</span>
+<span class="fc" id="L79">    this.origin = origin;</span>
+<span class="fc" id="L80">    this.timestamp = new Date();</span>
+<span class="fc" id="L81">  }</span>
+
+  @Override
+  public String toString() {
+<span class="nc" id="L85">    return file.toString()</span>
+<span class="nc bnc" id="L86" title="All 4 branches missed.">      + &quot; - &quot; + getTypeDesc() + &quot; - &quot; + XmlHandler.date2string( timestamp )</span>
+      + ( origin == null ? &quot;&quot; : &quot; - &quot; + origin ) + ( originParent == null ? &quot;&quot; : &quot; - &quot; + originParent );
+
+  }
+
+  @Override
+  protected ResultFile clone() throws CloneNotSupportedException {
+<span class="nc" id="L93">    return (ResultFile) super.clone();</span>
+  }
+
+  /**
+   * @return Returns the comment.
+   */
+  public String getComment() {
+<span class="nc" id="L100">    return comment;</span>
+  }
+
+  /**
+   * @param comment The comment to set.
+   */
+  public void setComment( String comment ) {
+<span class="nc" id="L107">    this.comment = comment;</span>
+<span class="nc" id="L108">  }</span>
+
+  /**
+   * @return Returns the file.
+   */
+  public FileObject getFile() {
+<span class="nc" id="L114">    return file;</span>
+  }
+
+  /**
+   * @param file The file to set.
+   */
+  public void setFile( FileObject file ) {
+<span class="nc" id="L121">    this.file = file;</span>
+<span class="nc" id="L122">  }</span>
+
+  /**
+   * @return Returns the origin : the transform or action that generated this result file
+   */
+  public String getOrigin() {
+<span class="fc" id="L128">    return origin;</span>
+  }
+
+  /**
+   * @param origin The origin to set : the transform or action that generated this result file
+   */
+  public void setOrigin( String origin ) {
+<span class="nc" id="L135">    this.origin = origin;</span>
+<span class="nc" id="L136">  }</span>
+
+  /**
+   * @return Returns the originParent : the pipeline or workflow that generated this result file
+   */
+  public String getOriginParent() {
+<span class="fc" id="L142">    return originParent;</span>
+  }
+
+  /**
+   * @param originParent The originParent to set : the pipeline or workflow that generated this result file
+   */
+  public void setOriginParent( String originParent ) {
+<span class="nc" id="L149">    this.originParent = originParent;</span>
+<span class="nc" id="L150">  }</span>
+
+  /**
+   * @return Returns the type.
+   */
+  public int getType() {
+<span class="fc" id="L156">    return type;</span>
+  }
+
+  /**
+   * @param type The type to set.
+   */
+  public void setType( int type ) {
+<span class="nc" id="L163">    this.type = type;</span>
+<span class="nc" id="L164">  }</span>
+
+  /**
+   * @return The description of this result files type.
+   */
+  public String getTypeDesc() {
+<span class="fc" id="L170">    return fileTypeDesc[ type ];</span>
+  }
+
+  public String getTypeCode() {
+<span class="nc" id="L174">    return fileTypeCode[ type ];</span>
+  }
+
+  /**
+   * Search for the result file type, looking in both the descriptions (i18n depending) and the codes
+   *
+   * @param typeString the type string to search for
+   * @return the result file type
+   */
+  public static final int getType( String typeString ) {
+<span class="nc" id="L184">    int idx = Const.indexOfString( typeString, fileTypeDesc );</span>
+<span class="nc bnc" id="L185" title="All 2 branches missed.">    if ( idx &gt;= 0 ) {</span>
+<span class="nc" id="L186">      return idx;</span>
+    }
+<span class="nc" id="L188">    idx = Const.indexOfString( typeString, fileTypeCode );</span>
+<span class="nc bnc" id="L189" title="All 2 branches missed.">    if ( idx &gt;= 0 ) {</span>
+<span class="nc" id="L190">      return idx;</span>
+    }
+
+<span class="nc" id="L193">    return FILE_TYPE_GENERAL;</span>
+  }
+
+  /**
+   * @param fileType the result file type
+   * @return the result file type code
+   */
+  public static final String getTypeCode( int fileType ) {
+<span class="nc" id="L201">    return fileTypeCode[ fileType ];</span>
+  }
+
+  /**
+   * @param fileType the result file type
+   * @return the result file type description
+   */
+  public static final String getTypeDesc( int fileType ) {
+<span class="nc" id="L209">    return fileTypeDesc[ fileType ];</span>
+  }
+
+  public static final String[] getAllTypeDesc() {
+<span class="nc" id="L213">    return fileTypeDesc;</span>
+  }
+
+  /**
+   * @return Returns the timestamp.
+   */
+  public Date getTimestamp() {
+<span class="fc" id="L220">    return timestamp;</span>
+  }
+
+  /**
+   * @param timestamp The timestamp to set.
+   */
+  public void setTimestamp( Date timestamp ) {
+<span class="nc" id="L227">    this.timestamp = timestamp;</span>
+<span class="nc" id="L228">  }</span>
+
+  /**
+   * @return an output Row for this Result File object.
+   */
+  public RowMetaAndData getRow() {
+<span class="fc" id="L234">    RowMetaAndData row = new RowMetaAndData();</span>
+
+    // First the type
+<span class="fc" id="L237">    row.addValue( new ValueMetaString( &quot;type&quot; ), getTypeDesc() );</span>
+
+    // The filename
+<span class="fc" id="L240">    row.addValue( new ValueMetaString( &quot;filename&quot; ), file.getName().getBaseName() );</span>
+
+    // The path
+<span class="fc" id="L243">    row.addValue( new ValueMetaString( &quot;path&quot; ), file.getName().getURI() );</span>
+
+    // The origin parent
+<span class="fc" id="L246">    row.addValue( new ValueMetaString( &quot;parentorigin&quot; ), originParent );</span>
+
+    // The origin
+<span class="fc" id="L249">    row.addValue( new ValueMetaString( &quot;origin&quot; ), origin );</span>
+
+    // The comment
+<span class="fc" id="L252">    row.addValue( new ValueMetaString( &quot;comment&quot; ), comment );</span>
+
+    // The timestamp
+<span class="fc" id="L255">    row.addValue( new ValueMetaDate( &quot;timestamp&quot; ), timestamp );</span>
+
+<span class="fc" id="L257">    return row;</span>
+  }
+
+  public String getXml() {
+<span class="nc" id="L261">    StringBuilder xml = new StringBuilder();</span>
+
+<span class="nc" id="L263">    xml.append( XmlHandler.openTag( XML_TAG ) );</span>
+
+<span class="nc" id="L265">    xml.append( XmlHandler.addTagValue( &quot;type&quot;, getTypeCode() ) );</span>
+<span class="nc" id="L266">    xml.append( XmlHandler.addTagValue( &quot;file&quot;, file.getName().toString() ) );</span>
+<span class="nc" id="L267">    xml.append( XmlHandler.addTagValue( &quot;parentorigin&quot;, originParent ) );</span>
+<span class="nc" id="L268">    xml.append( XmlHandler.addTagValue( &quot;origin&quot;, origin ) );</span>
+<span class="nc" id="L269">    xml.append( XmlHandler.addTagValue( &quot;comment&quot;, comment ) );</span>
+<span class="nc" id="L270">    xml.append( XmlHandler.addTagValue( &quot;timestamp&quot;, timestamp ) );</span>
+
+<span class="nc" id="L272">    xml.append( XmlHandler.closeTag( XML_TAG ) );</span>
+
+<span class="nc" id="L274">    return xml.toString();</span>
+  }
+
+<span class="nc" id="L277">  public ResultFile( Node node ) throws HopFileException {</span>
+    try {
+<span class="nc" id="L279">      type = getType( XmlHandler.getTagValue( node, &quot;type&quot; ) );</span>
+<span class="nc" id="L280">      file = HopVfs.getFileObject( XmlHandler.getTagValue( node, &quot;file&quot; ) );</span>
+<span class="nc" id="L281">      originParent = XmlHandler.getTagValue( node, &quot;parentorigin&quot; );</span>
+<span class="nc" id="L282">      origin = XmlHandler.getTagValue( node, &quot;origin&quot; );</span>
+<span class="nc" id="L283">      comment = XmlHandler.getTagValue( node, &quot;comment&quot; );</span>
+<span class="nc" id="L284">      timestamp = XmlHandler.stringToDate( XmlHandler.getTagValue( node, &quot;timestamp&quot; ) );</span>
+<span class="nc" id="L285">    } catch ( Exception e ) {</span>
+<span class="nc" id="L286">      throw new HopFileException( e );</span>
+<span class="nc" id="L287">    }</span>
+<span class="nc" id="L288">  }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

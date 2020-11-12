@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LongHashIndex.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.hash</a> &gt; <span class="el_source">LongHashIndex.java</span></div><h1>LongHashIndex.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.hash;
+
+import org.apache.hop.core.exception.HopValueException;
+
+public class LongHashIndex {
+
+  private static final int STANDARD_INDEX_SIZE = 512;
+  private static final float STANDARD_LOAD_FACTOR = 0.78f;
+
+  private LongHashIndexEntry[] index;
+  private int size;
+  private int resizeThresHold;
+
+  /**
+   * Create a new long/long hash index
+   *
+   * @param size the initial size of the hash index
+   */
+<span class="fc" id="L41">  public LongHashIndex( int size ) {</span>
+
+    // Find a suitable capacity being a factor of 2:
+<span class="fc" id="L44">    int factor2Size = 1;</span>
+<span class="fc bfc" id="L45" title="All 2 branches covered.">    while ( factor2Size &lt; size ) {</span>
+<span class="fc" id="L46">      factor2Size &lt;&lt;= 1; // Multiply by 2</span>
+    }
+
+<span class="fc" id="L49">    this.resizeThresHold = (int) ( factor2Size * STANDARD_LOAD_FACTOR );</span>
+
+<span class="fc" id="L51">    index = new LongHashIndexEntry[ factor2Size ];</span>
+<span class="fc" id="L52">  }</span>
+
+  /**
+   * Create a new long/long hash index
+   */
+  public LongHashIndex() {
+<span class="fc" id="L58">    this( STANDARD_INDEX_SIZE );</span>
+<span class="fc" id="L59">  }</span>
+
+  public int getSize() {
+<span class="fc" id="L62">    return size;</span>
+  }
+
+  public boolean isEmpty() {
+<span class="fc bfc" id="L66" title="All 2 branches covered.">    return size == 0;</span>
+  }
+
+  public Long get( long key ) throws HopValueException {
+<span class="fc" id="L70">    int hashCode = generateHashCode( key );</span>
+
+<span class="fc" id="L72">    int indexPointer = indexFor( hashCode, index.length );</span>
+<span class="fc" id="L73">    LongHashIndexEntry check = index[ indexPointer ];</span>
+
+<span class="pc bpc" id="L75" title="1 of 2 branches missed.">    while ( check != null ) {</span>
+<span class="pc bpc" id="L76" title="1 of 4 branches missed.">      if ( check.hashCode == hashCode &amp;&amp; check.equalsKey( key ) ) {</span>
+<span class="fc" id="L77">        return check.value;</span>
+      }
+<span class="fc" id="L79">      check = check.nextEntry;</span>
+    }
+<span class="nc" id="L81">    return null;</span>
+  }
+
+  public void put( long key, Long value ) throws HopValueException {
+<span class="fc" id="L85">    int hashCode = generateHashCode( key );</span>
+<span class="fc" id="L86">    int indexPointer = indexFor( hashCode, index.length );</span>
+
+<span class="fc" id="L88">    LongHashIndexEntry check = index[ indexPointer ];</span>
+<span class="fc" id="L89">    LongHashIndexEntry previousCheck = null;</span>
+
+<span class="fc bfc" id="L91" title="All 2 branches covered.">    while ( check != null ) {</span>
+
+      // If there is an identical entry in there, we replace the entry
+      // And then we just return...
+      //
+<span class="pc bpc" id="L96" title="1 of 4 branches missed.">      if ( check.hashCode == hashCode &amp;&amp; check.equalsKey( key ) ) {</span>
+<span class="fc" id="L97">        check.value = value;</span>
+<span class="fc" id="L98">        return;</span>
+      }
+<span class="fc" id="L100">      previousCheck = check;</span>
+<span class="fc" id="L101">      check = check.nextEntry;</span>
+    }
+
+    // Don't forget to link to the previous check entry if there was any...
+    //
+<span class="fc bfc" id="L106" title="All 2 branches covered.">    if ( previousCheck != null ) {</span>
+<span class="fc" id="L107">      previousCheck.nextEntry = new LongHashIndexEntry( hashCode, key, value, null );</span>
+    } else {
+<span class="fc" id="L109">      index[ indexPointer ] = new LongHashIndexEntry( hashCode, key, value, null );</span>
+    }
+
+    // If required, resize the table...
+    //
+<span class="fc" id="L114">    resize();</span>
+<span class="fc" id="L115">  }</span>
+
+  private final void resize() {
+    // Increase the size of the index...
+    //
+<span class="fc" id="L120">    size++;</span>
+
+    // See if we've reached our resize threshold...
+    //
+<span class="fc bfc" id="L124" title="All 2 branches covered.">    if ( size &gt;= resizeThresHold ) {</span>
+
+<span class="fc" id="L126">      LongHashIndexEntry[] oldIndex = index;</span>
+
+      // Double the size to keep the size of the index a factor of 2...
+      // Allocate the new array...
+      //
+<span class="fc" id="L131">      int newSize = 2 * index.length;</span>
+
+<span class="fc" id="L133">      LongHashIndexEntry[] newIndex = new LongHashIndexEntry[ newSize ];</span>
+
+      // Loop over the old index and re-distribute the entries
+      // We want to make sure that the calculation
+      // entry.hashCode &amp; ( size - 1)
+      // ends up in the right location after re-sizing...
+      //
+<span class="fc bfc" id="L140" title="All 2 branches covered.">      for ( int i = 0; i &lt; oldIndex.length; i++ ) {</span>
+<span class="fc" id="L141">        LongHashIndexEntry entry = oldIndex[ i ];</span>
+<span class="pc bpc" id="L142" title="1 of 2 branches missed.">        if ( entry != null ) {</span>
+<span class="fc" id="L143">          oldIndex[ i ] = null;</span>
+
+          // Make sure we follow all the linked entries...
+          // This is a bit of extra work, TODO: see how we can avoid it!
+          //
+          do {
+<span class="fc" id="L149">            LongHashIndexEntry next = entry.nextEntry;</span>
+<span class="fc" id="L150">            int indexPointer = indexFor( entry.hashCode, newSize );</span>
+<span class="fc" id="L151">            entry.nextEntry = newIndex[ indexPointer ];</span>
+<span class="fc" id="L152">            newIndex[ indexPointer ] = entry;</span>
+<span class="fc" id="L153">            entry = next;</span>
+<span class="pc bpc" id="L154" title="1 of 2 branches missed.">          } while ( entry != null );</span>
+        }
+      }
+
+      // Replace the old index with the new one we just created...
+      //
+<span class="fc" id="L160">      index = newIndex;</span>
+
+      // Also change the resize threshold...
+      //
+<span class="fc" id="L164">      resizeThresHold = (int) ( newSize * STANDARD_LOAD_FACTOR );</span>
+    }
+<span class="fc" id="L166">  }</span>
+
+  public static int generateHashCode( Long key ) throws HopValueException {
+<span class="fc" id="L169">    return key.hashCode();</span>
+  }
+
+  public static int indexFor( int hash, int length ) {
+<span class="fc" id="L173">    return hash &amp; ( length - 1 );</span>
+  }
+
+  private static final class LongHashIndexEntry {
+    private int hashCode;
+    private long key;
+    private long value;
+    private LongHashIndexEntry nextEntry;
+
+    /**
+     * @param hashCode
+     * @param key
+     * @param value
+     * @param nextEntry
+     */
+<span class="fc" id="L188">    public LongHashIndexEntry( int hashCode, Long key, Long value, LongHashIndexEntry nextEntry ) {</span>
+<span class="fc" id="L189">      this.hashCode = hashCode;</span>
+<span class="fc" id="L190">      this.key = key;</span>
+<span class="fc" id="L191">      this.value = value;</span>
+<span class="fc" id="L192">      this.nextEntry = nextEntry;</span>
+<span class="fc" id="L193">    }</span>
+
+    public boolean equalsKey( long cmpKey ) {
+<span class="pc bpc" id="L196" title="1 of 2 branches missed.">      return key == cmpKey;</span>
+    }
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

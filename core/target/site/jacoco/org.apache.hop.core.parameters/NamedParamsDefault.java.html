@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NamedParamsDefault.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.parameters</a> &gt; <span class="el_source">NamedParamsDefault.java</span></div><h1>NamedParamsDefault.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.parameters;
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * This class is an implementation of INamedParams.
+ *
+ * @author Sven Boden
+ */
+public class NamedParamsDefault implements INamedParams {
+  /**
+   * Map to store named parameters in.
+   */
+<span class="fc" id="L39">  protected Map&lt;String, OneNamedParam&gt; params = new HashMap&lt;&gt;();</span>
+
+  /**
+   * Target class for the parameter keys.
+   */
+<span class="fc" id="L44">  class OneNamedParam {</span>
+    /**
+     * key of this parameter
+     */
+    public String key;
+
+    /**
+     * Description of the parameter
+     */
+    public String description;
+
+    /**
+     * Default value for this parameter
+     */
+    public String defaultValue;
+
+    /**
+     * Actual value of the parameter.
+     */
+    public String value;
+  }
+
+  /**
+   * Default constructor.
+   */
+<span class="fc" id="L69">  public NamedParamsDefault() {</span>
+<span class="fc" id="L70">  }</span>
+
+  @Override
+  public void addParameterDefinition( String key, String defValue, String description ) throws DuplicateParamException {
+
+<span class="fc bfc" id="L75" title="All 2 branches covered.">    if ( params.get( key ) == null ) {</span>
+<span class="fc" id="L76">      OneNamedParam oneParam = new OneNamedParam();</span>
+
+<span class="fc" id="L78">      oneParam.key = key;</span>
+<span class="fc" id="L79">      oneParam.defaultValue = defValue;</span>
+<span class="fc" id="L80">      oneParam.description = description;</span>
+<span class="fc" id="L81">      oneParam.value = &quot;&quot;;</span>
+
+<span class="fc" id="L83">      params.put( key, oneParam );</span>
+<span class="fc" id="L84">    } else {</span>
+<span class="fc" id="L85">      throw new DuplicateParamException( &quot;Duplicate parameter '&quot; + key + &quot;' detected.&quot; );</span>
+    }
+<span class="fc" id="L87">  }</span>
+
+  @Override
+  public String getParameterDescription( String key ) throws UnknownParamException {
+<span class="fc" id="L91">    String description = null;</span>
+
+<span class="fc" id="L93">    OneNamedParam theParam = params.get( key );</span>
+<span class="fc bfc" id="L94" title="All 2 branches covered.">    if ( theParam != null ) {</span>
+<span class="fc" id="L95">      description = theParam.description;</span>
+    }
+
+<span class="fc" id="L98">    return description;</span>
+  }
+
+  @Override
+  public String getParameterValue( String key ) throws UnknownParamException {
+<span class="fc" id="L103">    String value = null;</span>
+
+<span class="fc" id="L105">    OneNamedParam theParam = params.get( key );</span>
+<span class="fc bfc" id="L106" title="All 2 branches covered.">    if ( theParam != null ) {</span>
+<span class="fc" id="L107">      value = theParam.value;</span>
+    }
+
+<span class="fc" id="L110">    return value;</span>
+  }
+
+  @Override
+  public String getParameterDefault( String key ) throws UnknownParamException {
+<span class="fc" id="L115">    String value = null;</span>
+
+<span class="fc" id="L117">    OneNamedParam theParam = params.get( key );</span>
+<span class="fc bfc" id="L118" title="All 2 branches covered.">    if ( theParam != null ) {</span>
+<span class="fc" id="L119">      value = theParam.defaultValue;</span>
+    }
+
+<span class="fc" id="L122">    return value;</span>
+  }
+
+  @Override
+  public String[] listParameters() {
+<span class="fc" id="L127">    Set&lt;String&gt; keySet = params.keySet();</span>
+
+<span class="fc" id="L129">    String[] paramArray = keySet.toArray( new String[ 0 ] );</span>
+<span class="fc" id="L130">    Arrays.sort( paramArray );</span>
+
+<span class="fc" id="L132">    return paramArray;</span>
+  }
+
+  @Override
+  public void setParameterValue( String key, String value ) {
+<span class="fc" id="L137">    OneNamedParam theParam = params.get( key );</span>
+<span class="fc bfc" id="L138" title="All 2 branches covered.">    if ( theParam != null ) {</span>
+<span class="fc" id="L139">      theParam.value = value;</span>
+    }
+<span class="fc" id="L141">  }</span>
+
+  @Override
+  public void eraseParameters() {
+<span class="fc" id="L145">    params.clear();</span>
+<span class="fc" id="L146">  }</span>
+
+  @Override
+  public void clearParameters() {
+<span class="fc" id="L150">    String[] keys = listParameters();</span>
+<span class="fc bfc" id="L151" title="All 2 branches covered.">    for ( int idx = 0; idx &lt; keys.length; idx++ ) {</span>
+<span class="fc" id="L152">      OneNamedParam theParam = params.get( keys[ idx ] );</span>
+<span class="pc bpc" id="L153" title="1 of 2 branches missed.">      if ( theParam != null ) {</span>
+<span class="fc" id="L154">        theParam.value = &quot;&quot;;</span>
+      }
+    }
+<span class="fc" id="L157">  }</span>
+
+  @Override
+  public void activateParameters() {
+    // Do nothing here.
+<span class="fc" id="L162">  }</span>
+
+  @Override
+  public void copyParametersFrom( INamedParams aParam ) {
+<span class="fc bfc" id="L166" title="All 4 branches covered.">    if ( params != null &amp;&amp; aParam != null ) {</span>
+<span class="fc" id="L167">      params.clear();</span>
+<span class="fc" id="L168">      String[] keys = aParam.listParameters();</span>
+<span class="fc bfc" id="L169" title="All 2 branches covered.">      for ( int idx = 0; idx &lt; keys.length; idx++ ) {</span>
+        String desc;
+        try {
+<span class="fc" id="L172">          desc = aParam.getParameterDescription( keys[ idx ] );</span>
+<span class="fc" id="L173">        } catch ( UnknownParamException e ) {</span>
+<span class="fc" id="L174">          desc = &quot;&quot;;</span>
+<span class="fc" id="L175">        }</span>
+        String defValue;
+        try {
+<span class="fc" id="L178">          defValue = aParam.getParameterDefault( keys[ idx ] );</span>
+<span class="fc" id="L179">        } catch ( UnknownParamException e ) {</span>
+<span class="fc" id="L180">          defValue = &quot;&quot;;</span>
+<span class="fc" id="L181">        }</span>
+        String value;
+        try {
+<span class="fc" id="L184">          value = aParam.getParameterValue( keys[ idx ] );</span>
+<span class="fc" id="L185">        } catch ( UnknownParamException e ) {</span>
+<span class="fc" id="L186">          value = &quot;&quot;;</span>
+<span class="fc" id="L187">        }</span>
+
+        try {
+<span class="fc" id="L190">          addParameterDefinition( keys[ idx ], defValue, desc );</span>
+<span class="fc" id="L191">        } catch ( DuplicateParamException e ) {</span>
+          // Do nothing, just overwrite.
+<span class="fc" id="L193">        }</span>
+<span class="fc" id="L194">        setParameterValue( keys[ idx ], value );</span>
+      }
+    }
+<span class="fc" id="L197">  }</span>
+
+  @Override
+  public void mergeParametersWith( INamedParams aParam, boolean replace ) {
+<span class="pc bpc" id="L201" title="3 of 6 branches missed.">    if ( params != null &amp;&amp; aParam != null &amp;&amp; aParam.listParameters() != null ) {</span>
+<span class="fc bfc" id="L202" title="All 2 branches covered.">      for ( String key : aParam.listParameters() ) {</span>
+<span class="fc bfc" id="L203" title="All 4 branches covered.">        if ( replace || !params.containsKey( key ) ) {</span>
+
+          String desc;
+          try {
+<span class="fc" id="L207">            desc = aParam.getParameterDescription( key );</span>
+<span class="nc" id="L208">          } catch ( UnknownParamException e ) {</span>
+<span class="nc" id="L209">            desc = &quot;&quot;;</span>
+<span class="fc" id="L210">          }</span>
+          String defValue;
+          try {
+<span class="fc" id="L213">            defValue = aParam.getParameterDefault( key );</span>
+<span class="nc" id="L214">          } catch ( UnknownParamException e ) {</span>
+<span class="nc" id="L215">            defValue = &quot;&quot;;</span>
+<span class="fc" id="L216">          }</span>
+          String value;
+          try {
+<span class="fc" id="L219">            value = aParam.getParameterValue( key );</span>
+<span class="nc" id="L220">          } catch ( UnknownParamException e ) {</span>
+<span class="nc" id="L221">            value = &quot;&quot;;</span>
+<span class="fc" id="L222">          }</span>
+
+          try {
+<span class="fc" id="L225">            addParameterDefinition( key, defValue, desc );</span>
+<span class="fc" id="L226">          } catch ( DuplicateParamException e ) {</span>
+<span class="fc" id="L227">            params.get( key ).defaultValue = defValue;</span>
+<span class="fc" id="L228">            params.get( key ).description = desc;</span>
+<span class="fc" id="L229">          }</span>
+<span class="fc" id="L230">          setParameterValue( key, value );</span>
+        }
+      }
+    }
+<span class="fc" id="L234">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

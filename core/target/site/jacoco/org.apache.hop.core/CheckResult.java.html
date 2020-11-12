@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CheckResult.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core</a> &gt; <span class="el_source">CheckResult.java</span></div><h1>CheckResult.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core;
+
+import org.apache.hop.i18n.BaseMessages;
+
+/**
+ * This class is used to store results of pipeline and transform verifications.
+ *
+ * @author Matt
+ * @since 11-01-04
+ */
+public class CheckResult implements ICheckResult {
+<span class="fc" id="L34">  private static Class&lt;?&gt; PKG = Const.class; // for i18n purposes, needed by Translator!!</span>
+
+<span class="fc" id="L36">  public static final String[] typeDesc = {</span>
+<span class="fc" id="L37">    &quot;&quot;, BaseMessages.getString( PKG, &quot;CheckResult.OK&quot; ), BaseMessages.getString( PKG, &quot;CheckResult.Remark&quot; ),</span>
+<span class="fc" id="L38">    BaseMessages.getString( PKG, &quot;CheckResult.Warning&quot; ), BaseMessages.getString( PKG, &quot;CheckResult.Error&quot; ) };</span>
+
+  private int type;
+
+  private String text;
+
+  // MB - Support both JobEntry and Transform Checking
+  // 6/26/07
+  private ICheckResultSource sourceMeta;
+
+  private String errorCode;
+
+  public CheckResult() {
+<span class="fc" id="L51">    this( ICheckResult.TYPE_RESULT_NONE, &quot;&quot;, null );</span>
+<span class="fc" id="L52">  }</span>
+
+<span class="fc" id="L54">  public CheckResult( int t, String s, ICheckResultSource sourceMeta ) {</span>
+<span class="fc" id="L55">    type = t;</span>
+<span class="fc" id="L56">    text = s;</span>
+<span class="fc" id="L57">    this.sourceMeta = sourceMeta;</span>
+<span class="fc" id="L58">  }</span>
+
+  public CheckResult( int t, String errorCode, String s, ICheckResultSource sourceMeta ) {
+<span class="fc" id="L61">    this( t, s, sourceMeta );</span>
+<span class="fc" id="L62">    this.errorCode = errorCode;</span>
+<span class="fc" id="L63">  }</span>
+
+  @Override
+  public int getType() {
+<span class="fc" id="L67">    return type;</span>
+  }
+
+  @Override
+  public String getTypeDesc() {
+<span class="fc" id="L72">    return typeDesc[ type ];</span>
+  }
+
+  @Override
+  public String getText() {
+<span class="fc" id="L77">    return text;</span>
+  }
+
+  @Override
+  public ICheckResultSource getSourceInfo() {
+<span class="fc" id="L82">    return sourceMeta;</span>
+  }
+
+  @Override
+  public String toString() {
+<span class="fc" id="L87">    StringBuilder sb = new StringBuilder();</span>
+<span class="fc" id="L88">    sb.append( typeDesc[ type ] ).append( &quot;: &quot; ).append( text );</span>
+
+<span class="pc bpc" id="L90" title="1 of 2 branches missed.">    if ( sourceMeta != null ) {</span>
+<span class="fc" id="L91">      sb.append( &quot; (&quot; ).append( sourceMeta.getName() ).append( &quot;)&quot; );</span>
+    }
+
+<span class="fc" id="L94">    return sb.toString();</span>
+  }
+
+  /**
+   * @return the errorCode
+   */
+  @Override
+  public String getErrorCode() {
+<span class="fc" id="L102">    return errorCode;</span>
+  }
+
+  /**
+   * @param errorCode the errorCode to set
+   */
+  @Override
+  public void setErrorCode( String errorCode ) {
+<span class="fc" id="L110">    this.errorCode = errorCode;</span>
+<span class="fc" id="L111">  }</span>
+
+  @Override
+  public void setText( String value ) {
+<span class="fc" id="L115">    this.text = value;</span>
+<span class="fc" id="L116">  }</span>
+
+  @Override
+  public void setType( int value ) {
+<span class="fc" id="L120">    this.type = value;</span>
+<span class="fc" id="L121">  }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

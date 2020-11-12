@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LoggingRegistry.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.logging</a> &gt; <span class="el_source">LoggingRegistry.java</span></div><h1>LoggingRegistry.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.logging;
+
+import org.apache.hop.core.Const;
+import org.apache.hop.core.util.EnvUtil;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class LoggingRegistry {
+<span class="fc" id="L41">  private static LoggingRegistry registry = new LoggingRegistry();</span>
+  private Map&lt;String, ILoggingObject&gt; map;
+  private Map&lt;String, LogChannelFileWriterBuffer&gt; fileWriterBuffers;
+  private Map&lt;String, List&lt;String&gt;&gt; childrenMap;
+  private Date lastModificationTime;
+  private int maxSize;
+<span class="fc" id="L47">  private final int DEFAULT_MAX_SIZE = 10000;</span>
+
+<span class="fc" id="L49">  private final Object syncObject = new Object();</span>
+
+<span class="fc" id="L51">  private LoggingRegistry() {</span>
+<span class="fc" id="L52">    this.map = new ConcurrentHashMap&lt;String, ILoggingObject&gt;();</span>
+<span class="fc" id="L53">    this.childrenMap = new ConcurrentHashMap&lt;String, List&lt;String&gt;&gt;();</span>
+<span class="fc" id="L54">    this.fileWriterBuffers = new ConcurrentHashMap&lt;&gt;();</span>
+
+<span class="fc" id="L56">    this.lastModificationTime = new Date();</span>
+<span class="fc" id="L57">    this.maxSize = Const.toInt( EnvUtil.getSystemProperty( &quot;HOP_MAX_LOGGING_REGISTRY_SIZE&quot; ), DEFAULT_MAX_SIZE );</span>
+<span class="fc" id="L58">  }</span>
+
+  public static LoggingRegistry getInstance() {
+<span class="fc" id="L61">    return registry;</span>
+  }
+
+  public String registerLoggingSource( Object object ) {
+<span class="fc" id="L65">    synchronized ( this.syncObject ) {</span>
+
+<span class="fc" id="L67">      LoggingObject loggingSource = new LoggingObject( object );</span>
+
+<span class="fc" id="L69">      ILoggingObject found = findExistingLoggingSource( loggingSource );</span>
+<span class="fc bfc" id="L70" title="All 2 branches covered.">      if ( found != null ) {</span>
+<span class="fc" id="L71">        ILoggingObject foundParent = found.getParent();</span>
+<span class="fc" id="L72">        ILoggingObject loggingSourceParent = loggingSource.getParent();</span>
+<span class="fc" id="L73">        String foundLogChannelId = found.getLogChannelId();</span>
+<span class="pc bpc" id="L74" title="1 of 4 branches missed.">        if ( foundParent != null &amp;&amp; loggingSourceParent != null ) {</span>
+<span class="fc" id="L75">          String foundParentLogChannelId = foundParent.getLogChannelId();</span>
+<span class="fc" id="L76">          String sourceParentLogChannelId = loggingSourceParent.getLogChannelId();</span>
+<span class="pc bpc" id="L77" title="2 of 4 branches missed.">          if ( foundParentLogChannelId != null &amp;&amp; sourceParentLogChannelId != null</span>
+<span class="pc bpc" id="L78" title="1 of 2 branches missed.">            &amp;&amp; foundParentLogChannelId.equals( sourceParentLogChannelId ) ) {</span>
+<span class="pc bpc" id="L79" title="1 of 2 branches missed.">            if ( foundLogChannelId != null ) {</span>
+<span class="fc" id="L80">              return foundLogChannelId;</span>
+            }
+          }
+        }
+<span class="pc bpc" id="L84" title="2 of 4 branches missed.">        if ( foundParent == null &amp;&amp; loggingSourceParent == null ) {</span>
+<span class="pc bpc" id="L85" title="1 of 2 branches missed.">          if ( foundLogChannelId != null ) {</span>
+<span class="fc" id="L86">            return foundLogChannelId;</span>
+          }
+        }
+      }
+
+<span class="fc" id="L91">      String logChannelId = UUID.randomUUID().toString();</span>
+<span class="fc" id="L92">      loggingSource.setLogChannelId( logChannelId );</span>
+
+<span class="fc" id="L94">      this.map.put( logChannelId, loggingSource );</span>
+
+<span class="fc bfc" id="L96" title="All 2 branches covered.">      if ( loggingSource.getParent() != null ) {</span>
+<span class="fc" id="L97">        String parentLogChannelId = loggingSource.getParent().getLogChannelId();</span>
+<span class="pc bpc" id="L98" title="1 of 2 branches missed.">        if ( parentLogChannelId != null ) {</span>
+<span class="nc" id="L99">          List&lt;String&gt; parentChildren =</span>
+<span class="nc" id="L100">            this.childrenMap.computeIfAbsent( parentLogChannelId, k -&gt; new ArrayList&lt;&gt;() );</span>
+<span class="nc" id="L101">          parentChildren.add( logChannelId );</span>
+        }
+      }
+
+<span class="fc" id="L105">      this.lastModificationTime = new Date();</span>
+<span class="fc" id="L106">      loggingSource.setRegistrationDate( this.lastModificationTime );</span>
+
+<span class="pc bpc" id="L108" title="2 of 4 branches missed.">      if ( ( this.maxSize &gt; 0 ) &amp;&amp; ( this.map.size() &gt; this.maxSize ) ) {</span>
+<span class="nc" id="L109">        List&lt;ILoggingObject&gt; all = new ArrayList&lt;ILoggingObject&gt;( this.map.values() );</span>
+<span class="nc" id="L110">        Collections.sort( all, ( o1, o2 ) -&gt; {</span>
+<span class="nc bnc" id="L111" title="All 4 branches missed.">          if ( ( o1 == null ) &amp;&amp; ( o2 != null ) ) {</span>
+<span class="nc" id="L112">            return -1;</span>
+          }
+<span class="nc bnc" id="L114" title="All 4 branches missed.">          if ( ( o1 != null ) &amp;&amp; ( o2 == null ) ) {</span>
+<span class="nc" id="L115">            return 1;</span>
+          }
+<span class="nc bnc" id="L117" title="All 4 branches missed.">          if ( ( o1 == null ) &amp;&amp; ( o2 == null ) ) {</span>
+<span class="nc" id="L118">            return 0;</span>
+          }
+<span class="nc bnc" id="L120" title="All 4 branches missed.">          if ( o1.getRegistrationDate() == null &amp;&amp; o2.getRegistrationDate() != null ) {</span>
+<span class="nc" id="L121">            return -1;</span>
+          }
+<span class="nc bnc" id="L123" title="All 4 branches missed.">          if ( o1.getRegistrationDate() != null &amp;&amp; o2.getRegistrationDate() == null ) {</span>
+<span class="nc" id="L124">            return 1;</span>
+          }
+<span class="nc bnc" id="L126" title="All 4 branches missed.">          if ( o1.getRegistrationDate() == null &amp;&amp; o2.getRegistrationDate() == null ) {</span>
+<span class="nc" id="L127">            return 0;</span>
+          }
+<span class="nc" id="L129">          return ( o1.getRegistrationDate().compareTo( o2.getRegistrationDate() ) );</span>
+        } );
+<span class="nc bnc" id="L131" title="All 2 branches missed.">        int cutCount = this.maxSize &lt; 1000 ? this.maxSize : 1000;</span>
+<span class="nc" id="L132">        Set&lt;String&gt; channelsNotToRemove = getLogChannelFileWriterBufferIds();</span>
+<span class="nc bnc" id="L133" title="All 2 branches missed.">        for ( int i = 0; i &lt; cutCount; i++ ) {</span>
+<span class="nc" id="L134">          ILoggingObject toRemove = all.get( i );</span>
+<span class="nc bnc" id="L135" title="All 2 branches missed.">          if ( !channelsNotToRemove.contains( toRemove.getLogChannelId() ) ) {</span>
+<span class="nc" id="L136">            this.map.remove( toRemove.getLogChannelId() );</span>
+          }
+        }
+<span class="nc" id="L139">        removeOrphans();</span>
+      }
+<span class="fc" id="L141">      return logChannelId;</span>
+    }
+  }
+
+  public ILoggingObject findExistingLoggingSource( ILoggingObject loggingObject ) {
+<span class="fc" id="L146">    ILoggingObject found = null;</span>
+<span class="fc bfc" id="L147" title="All 2 branches covered.">    for ( ILoggingObject verify : this.map.values() ) {</span>
+<span class="fc bfc" id="L148" title="All 2 branches covered.">      if ( loggingObject.equals( verify ) ) {</span>
+<span class="fc" id="L149">        found = verify;</span>
+<span class="fc" id="L150">        break;</span>
+      }
+<span class="fc" id="L152">    }</span>
+<span class="fc" id="L153">    return found;</span>
+  }
+
+  public ILoggingObject getLoggingObject( String logChannelId ) {
+<span class="fc" id="L157">    return this.map.get( logChannelId );</span>
+  }
+
+  public Map&lt;String, ILoggingObject&gt; getMap() {
+<span class="fc" id="L161">    return this.map;</span>
+  }
+
+  public List&lt;String&gt; getLogChannelChildren( String parentLogChannelId ) {
+<span class="fc bfc" id="L165" title="All 2 branches covered.">    if ( parentLogChannelId == null ) {</span>
+<span class="fc" id="L166">      return null;</span>
+    }
+<span class="fc" id="L168">    List&lt;String&gt; list = getLogChannelChildren( new ArrayList&lt;&gt;(), parentLogChannelId );</span>
+<span class="fc" id="L169">    list.add( parentLogChannelId );</span>
+<span class="fc" id="L170">    return list;</span>
+  }
+
+  private List&lt;String&gt; getLogChannelChildren( List&lt;String&gt; children, String parentLogChannelId ) {
+<span class="fc" id="L174">    synchronized ( this.syncObject ) {</span>
+<span class="fc" id="L175">      List&lt;String&gt; list = this.childrenMap.get( parentLogChannelId );</span>
+<span class="pc bpc" id="L176" title="1 of 2 branches missed.">      if ( list == null ) {</span>
+        // Don't do anything, just return the input.
+<span class="fc" id="L178">        return children;</span>
+      }
+
+<span class="nc" id="L181">      Iterator&lt;String&gt; kids = list.iterator();</span>
+<span class="nc bnc" id="L182" title="All 2 branches missed.">      while ( kids.hasNext() ) {</span>
+<span class="nc" id="L183">        String logChannelId = kids.next();</span>
+
+        // Add the children recursively
+<span class="nc" id="L186">        getLogChannelChildren( children, logChannelId );</span>
+
+        // Also add the current parent
+<span class="nc" id="L189">        children.add( logChannelId );</span>
+<span class="nc" id="L190">      }</span>
+<span class="nc" id="L191">    }</span>
+
+<span class="nc" id="L193">    return children;</span>
+  }
+
+  public Date getLastModificationTime() {
+<span class="nc" id="L197">    return this.lastModificationTime;</span>
+  }
+
+  public String dump( boolean includeGeneral ) {
+<span class="nc" id="L201">    StringBuilder out = new StringBuilder( 50000 );</span>
+<span class="nc bnc" id="L202" title="All 2 branches missed.">    for ( ILoggingObject o : this.map.values() ) {</span>
+<span class="nc bnc" id="L203" title="All 4 branches missed.">      if ( ( includeGeneral ) || ( !o.getObjectType().equals( LoggingObjectType.GENERAL ) ) ) {</span>
+<span class="nc" id="L204">        out.append( o.getContainerId() );</span>
+<span class="nc" id="L205">        out.append( &quot;\t&quot; );</span>
+<span class="nc" id="L206">        out.append( o.getLogChannelId() );</span>
+<span class="nc" id="L207">        out.append( &quot;\t&quot; );</span>
+<span class="nc" id="L208">        out.append( o.getObjectType().name() );</span>
+<span class="nc" id="L209">        out.append( &quot;\t&quot; );</span>
+<span class="nc" id="L210">        out.append( o.getObjectName() );</span>
+<span class="nc" id="L211">        out.append( &quot;\t&quot; );</span>
+<span class="nc bnc" id="L212" title="All 2 branches missed.">        out.append( o.getParent() != null ? o.getParent().getLogChannelId() : &quot;-&quot; );</span>
+<span class="nc" id="L213">        out.append( &quot;\t&quot; );</span>
+<span class="nc bnc" id="L214" title="All 2 branches missed.">        out.append( o.getParent() != null ? o.getParent().getObjectType().name() : &quot;-&quot; );</span>
+<span class="nc" id="L215">        out.append( &quot;\t&quot; );</span>
+<span class="nc bnc" id="L216" title="All 2 branches missed.">        out.append( o.getParent() != null ? o.getParent().getObjectName() : &quot;-&quot; );</span>
+<span class="nc" id="L217">        out.append( &quot;\n&quot; );</span>
+      }
+<span class="nc" id="L219">    }</span>
+<span class="nc" id="L220">    return out.toString();</span>
+  }
+
+  /**
+   * For junit testing purposes
+   *
+   * @return ro items map
+   */
+  Map&lt;String, ILoggingObject&gt; dumpItems() {
+<span class="nc" id="L229">    return Collections.unmodifiableMap( this.map );</span>
+  }
+
+  /**
+   * For junit testing purposes
+   *
+   * @return ro parent-child relations map
+   */
+  Map&lt;String, List&lt;String&gt;&gt; dumpChildren() {
+<span class="nc" id="L238">    return Collections.unmodifiableMap( this.childrenMap );</span>
+  }
+
+  public void removeIncludingChildren( String logChannelId ) {
+<span class="fc" id="L242">    synchronized ( this.map ) {</span>
+<span class="fc" id="L243">      List&lt;String&gt; children = getLogChannelChildren( logChannelId );</span>
+<span class="fc bfc" id="L244" title="All 2 branches covered.">      for ( String child : children ) {</span>
+<span class="fc" id="L245">        this.map.remove( child );</span>
+<span class="fc" id="L246">      }</span>
+<span class="fc" id="L247">      this.map.remove( logChannelId );</span>
+<span class="fc" id="L248">      removeOrphans();</span>
+<span class="fc" id="L249">    }</span>
+<span class="fc" id="L250">  }</span>
+
+  public void removeOrphans() {
+    // Remove all orphaned children
+<span class="fc" id="L254">    this.childrenMap.keySet().retainAll( this.map.keySet() );</span>
+<span class="fc" id="L255">  }</span>
+
+  public void registerLogChannelFileWriterBuffer( LogChannelFileWriterBuffer fileWriterBuffer ) {
+<span class="fc" id="L258">    this.fileWriterBuffers.put( fileWriterBuffer.getLogChannelId(), fileWriterBuffer );</span>
+<span class="fc" id="L259">  }</span>
+
+  public LogChannelFileWriterBuffer getLogChannelFileWriterBuffer( String id ) {
+<span class="fc bfc" id="L262" title="All 2 branches covered.">    for ( String bufferId : this.fileWriterBuffers.keySet() ) {</span>
+<span class="pc bpc" id="L263" title="1 of 2 branches missed.">      if ( getLogChannelChildren( bufferId ).contains( id ) ) {</span>
+<span class="fc" id="L264">        return this.fileWriterBuffers.get( bufferId );</span>
+      }
+<span class="nc" id="L266">    }</span>
+<span class="fc" id="L267">    return null;</span>
+  }
+
+  protected Set&lt;String&gt; getLogChannelFileWriterBufferIds() {
+<span class="fc" id="L271">    Set&lt;String&gt; bufferIds = this.fileWriterBuffers.keySet();</span>
+
+    // Changed to a set as a band-aid for PDI-16658. This stuff really should be done
+    // using a proper LRU cache.
+<span class="fc" id="L275">    Set&lt;String&gt; ids = new HashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L276" title="All 2 branches covered.">    for ( String id : bufferIds ) {</span>
+<span class="fc" id="L277">      ids.addAll( getLogChannelChildren( id ) );</span>
+<span class="fc" id="L278">    }</span>
+
+<span class="fc" id="L280">    ids.addAll( bufferIds );</span>
+<span class="fc" id="L281">    return ids;</span>
+  }
+
+  public void removeLogChannelFileWriterBuffer( String id ) {
+<span class="fc" id="L285">    Set&lt;String&gt; bufferIds = this.fileWriterBuffers.keySet();</span>
+
+<span class="fc bfc" id="L287" title="All 2 branches covered.">    for ( String bufferId : bufferIds ) {</span>
+<span class="pc bpc" id="L288" title="1 of 2 branches missed.">      if ( getLogChannelChildren( id ).contains( bufferId ) ) {</span>
+<span class="fc" id="L289">        this.fileWriterBuffers.remove( bufferId );</span>
+      }
+<span class="fc" id="L291">    }</span>
+<span class="fc" id="L292">  }</span>
+
+  public void reset() {
+<span class="nc" id="L295">    synchronized ( this.syncObject ) {</span>
+<span class="nc" id="L296">      map.clear();</span>
+<span class="nc" id="L297">      childrenMap.clear();</span>
+<span class="nc" id="L298">      fileWriterBuffers.clear();</span>
+<span class="nc" id="L299">    }</span>
+<span class="nc" id="L300">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

@@ -1,0 +1,475 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SimpleTimestampFormat.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.row.value.timestamp</a> &gt; <span class="el_source">SimpleTimestampFormat.java</span></div><h1>SimpleTimestampFormat.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.row.value.timestamp;
+
+import java.lang.reflect.Method;
+import java.sql.Timestamp;
+import java.text.AttributedCharacterIterator;
+import java.text.DateFormatSymbols;
+import java.text.DecimalFormat;
+import java.text.FieldPosition;
+import java.text.ParseException;
+import java.text.ParsePosition;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+
+/**
+ * User: Dzmitry Stsiapanau Date: 3/13/14 Time: 6:32 PM
+ */
+public class SimpleTimestampFormat extends SimpleDateFormat {
+
+  private static final long serialVersionUID = -848077738238548608L;
+
+  /**
+   * Cached nanosecond positions in specified pattern.
+   */
+  private int startNanosecondPatternPosition;
+  private int endNanosecondPatternPosition;
+
+  /**
+   * Flag noticed that specified pattern can be succesfully operated by parent &lt;code&gt;SimpleDateFormat&lt;/code&gt;
+   */
+<span class="fc" id="L53">  private boolean compatibleToSuperPattern = true;</span>
+
+  /**
+   * The pattern string of this formatter.  This is always a non-localized pattern.  May not be null.  See parent class
+   * documentation for details.
+   *
+   * @serial
+   */
+  private String originalPattern;
+
+  /**
+   * Cached nanoseconds formatter.
+   */
+  private DecimalFormat nanoseconds;
+
+  /**
+   * Localized nanosecond letter.
+   */
+  private char patternNanosecond;
+
+  /**
+   * Letter which is used to specify in pattern nanoseconds component. Was extended from parent
+   * &lt;code&gt;SimpleDateFormat&lt;/code&gt; millisecond, so it is still could be internationalized.
+   */
+  private static final int PATTERN_MILLISECOND_POSITION = 8; // S
+
+  /**
+   * Internal &lt;code&gt;SimpleDateFormat&lt;/code&gt; instances are used in formatting.
+   */
+  private static final String DEFAULT_TIMESTAMP_FORMAT_FOR_TIMESTAMP = &quot;yyyy-MM-dd HH:mm:ss&quot;;
+  private static final String DEFAULT_MILLISECOND_DATE_FORMAT = &quot;SSS&quot;;
+
+<span class="fc" id="L85">  private static final SimpleDateFormat defaultTimestampFormat =</span>
+    new SimpleDateFormat( DEFAULT_TIMESTAMP_FORMAT_FOR_TIMESTAMP, Locale.US );
+
+<span class="fc" id="L88">  private static final SimpleDateFormat defaultMillisecondDateFormat =</span>
+    new SimpleDateFormat( DEFAULT_MILLISECOND_DATE_FORMAT, Locale.US );
+
+  /**
+   * Nanoseconds placeholder to specify unformatted nanoseconds position after formatting &lt;code&gt;Date&lt;/code&gt; part part of
+   * the &lt;code&gt;Timestamp&lt;/code&gt;.
+   */
+  private static final String NANOSECOND_PLACEHOLDER = &quot;NANO&quot;;
+  private static final char FORMATTER_ESCAPE_CHARACTER = '\'';
+  private static final String ESCAPED_NANOSECOND_PLACEHOLDER =
+    FORMATTER_ESCAPE_CHARACTER + &quot;NANO&quot; + FORMATTER_ESCAPE_CHARACTER;
+
+  /**
+   * Default format of the &lt;code&gt;Timestamp&lt;/code&gt; object for sql.
+   */
+  public static final String DEFAULT_TIMESTAMP_FORMAT = &quot;yyyy-MM-dd HH:mm:ss.SSSSSSSSS&quot;;
+  /**
+   * Fields for advantages of using locale version from  JRE 1.7 and for JRE 1.6 compatibility
+   */
+  private static Method getDefaultLocaleMethod;
+  private static Class&lt;?&gt; localeCategoryClass;
+  private static Object formatCategory;
+<span class="fc" id="L110">  private static boolean formatCategoryLocaleAvailable = true;</span>
+
+  static {
+    try {
+<span class="fc" id="L114">      localeCategoryClass = Class.forName( &quot;java.util.Locale$Category&quot; );</span>
+<span class="fc" id="L115">      final Class&lt;?&gt; localeClass = Class.forName( &quot;java.util.Locale&quot; );</span>
+<span class="fc" id="L116">      final Class&lt;?&gt;[] paramTypes = new Class&lt;?&gt;[] { localeCategoryClass };</span>
+<span class="fc" id="L117">      getDefaultLocaleMethod = localeClass.getMethod( &quot;getDefault&quot;, paramTypes );</span>
+<span class="fc" id="L118">      final java.lang.reflect.Field formatField = localeCategoryClass.getField( &quot;FORMAT&quot; );</span>
+      //we pass null because the FORMAT is an enumeration constant(the same applies for class variables)
+<span class="fc" id="L120">      formatCategory = formatField.get( null );</span>
+<span class="nc" id="L121">    } catch ( Exception e ) {</span>
+<span class="nc" id="L122">      formatCategoryLocaleAvailable = false;</span>
+<span class="fc" id="L123">    }</span>
+<span class="fc" id="L124">  }</span>
+
+  /**
+   * Sets the date and time format symbols of this date format.
+   *
+   * @param newFormatSymbols the new date and time format symbols
+   * @throws NullPointerException if the given newFormatSymbols is null
+   * @see #getDateFormatSymbols
+   */
+  @Override
+  public void setDateFormatSymbols( DateFormatSymbols newFormatSymbols ) {
+<span class="nc" id="L135">    patternNanosecond = newFormatSymbols.getLocalPatternChars().charAt( PATTERN_MILLISECOND_POSITION );</span>
+<span class="nc" id="L136">    super.setDateFormatSymbols( newFormatSymbols );</span>
+<span class="nc" id="L137">  }</span>
+
+  private void init( String pattern, DateFormatSymbols formatSymbols, Boolean compiledPattern ) {
+<span class="fc" id="L140">    originalPattern = pattern;</span>
+<span class="fc" id="L141">    String datePattern = pattern;</span>
+
+<span class="fc" id="L143">    super.setDateFormatSymbols( formatSymbols );</span>
+<span class="fc" id="L144">    patternNanosecond = formatSymbols.getLocalPatternChars().charAt( PATTERN_MILLISECOND_POSITION );</span>
+<span class="fc" id="L145">    StringBuilder sb = new StringBuilder();</span>
+
+<span class="fc" id="L147">    startNanosecondPatternPosition = datePattern.indexOf( patternNanosecond );</span>
+<span class="fc" id="L148">    endNanosecondPatternPosition = datePattern.lastIndexOf( patternNanosecond );</span>
+<span class="fc" id="L149">    initNanosecondsFormat();</span>
+
+<span class="fc bfc" id="L151" title="All 2 branches covered.">    if ( startNanosecondPatternPosition != -1 ) {</span>
+<span class="fc" id="L152">      sb.append( datePattern.substring( 0, startNanosecondPatternPosition ) );</span>
+<span class="fc" id="L153">      sb.append( FORMATTER_ESCAPE_CHARACTER );</span>
+<span class="fc" id="L154">      sb.append( NANOSECOND_PLACEHOLDER );</span>
+<span class="fc" id="L155">      sb.append( FORMATTER_ESCAPE_CHARACTER );</span>
+<span class="fc" id="L156">      sb.append( datePattern.substring( endNanosecondPatternPosition + 1 ) );</span>
+<span class="fc" id="L157">      datePattern = sb.toString();</span>
+<span class="fc" id="L158">      sb.setLength( 0 );</span>
+    }
+
+    String patternToApply;
+<span class="fc bfc" id="L162" title="All 4 branches covered.">    if ( startNanosecondPatternPosition == -1</span>
+      || endNanosecondPatternPosition - startNanosecondPatternPosition &lt; 3 ) {
+
+<span class="fc" id="L165">      compatibleToSuperPattern = true;</span>
+<span class="fc" id="L166">      patternToApply = originalPattern;</span>
+
+    } else {
+<span class="fc" id="L169">      compatibleToSuperPattern = false;</span>
+<span class="fc" id="L170">      patternToApply = datePattern;</span>
+
+    }
+<span class="fc bfc" id="L173" title="All 2 branches covered.">    if ( compiledPattern ) {</span>
+<span class="fc" id="L174">      super.applyLocalizedPattern( patternToApply );</span>
+    } else {
+<span class="fc" id="L176">      super.applyPattern( patternToApply );</span>
+    }
+<span class="fc" id="L178">  }</span>
+
+  /**
+   * Constructs a &lt;code&gt;SimpleTimestampFormat&lt;/code&gt; using the given pattern and the default date format symbols for the
+   * default locale. &lt;b&gt;Note:&lt;/b&gt; This constructor may not support all locales. For full coverage, use the factory
+   * methods in the {@link SimpleTimestampFormat} class.
+   *
+   * @param pattern the pattern describing the date and time format
+   * @throws NullPointerException     if the given pattern is null
+   * @throws IllegalArgumentException if the given pattern is invalid
+   */
+  public SimpleTimestampFormat( String pattern ) {
+<span class="fc" id="L190">    this( pattern, getCompatibleLocale() );</span>
+<span class="fc" id="L191">  }</span>
+
+  private static Locale getCompatibleLocale() {
+<span class="fc" id="L194">    Locale locale = null;</span>
+<span class="pc bpc" id="L195" title="1 of 2 branches missed.">    if ( formatCategoryLocaleAvailable ) {</span>
+      try {
+<span class="fc" id="L197">        locale = (Locale) getDefaultLocaleMethod.invoke( localeCategoryClass, formatCategory );</span>
+<span class="nc" id="L198">      } catch ( Exception ignored ) {</span>
+        //ignored
+<span class="fc" id="L200">      }</span>
+    }
+
+    //for jre 6
+<span class="pc bpc" id="L204" title="1 of 2 branches missed.">    if ( locale == null ) {</span>
+<span class="nc" id="L205">      locale = Locale.getDefault();</span>
+    }
+<span class="fc" id="L207">    return locale;</span>
+  }
+
+  /**
+   * Constructs a &lt;code&gt;SimpleTimestampFormat&lt;/code&gt; using the given pattern and the default date format symbols for the
+   * given locale. &lt;b&gt;Note:&lt;/b&gt; This constructor may not support all locales. For full coverage, use the factory methods
+   * in the {@link SimpleTimestampFormat} class.
+   *
+   * @param pattern the pattern describing the date and time format
+   * @param locale  the locale whose date format symbols should be used
+   * @throws NullPointerException     if the given pattern or locale is null
+   * @throws IllegalArgumentException if the given pattern is invalid
+   */
+  public SimpleTimestampFormat( String pattern, Locale locale ) {
+<span class="fc" id="L221">    this( pattern, DateFormatSymbols.getInstance( locale ) );</span>
+<span class="fc" id="L222">  }</span>
+
+  /**
+   * Constructs a &lt;codeSimpleTimestampFormat&lt;/code&gt; using the given pattern and date format symbols.
+   *
+   * @param pattern       the pattern describing the date and time format
+   * @param formatSymbols the date format symbols to be used for formatting
+   * @throws NullPointerException     if the given pattern or formatSymbols is null
+   * @throws IllegalArgumentException if the given pattern is invalid
+   */
+  public SimpleTimestampFormat( String pattern, DateFormatSymbols formatSymbols ) {
+<span class="fc" id="L233">    super( pattern, formatSymbols );</span>
+<span class="fc" id="L234">    init( pattern, formatSymbols, false );</span>
+<span class="fc" id="L235">  }</span>
+
+  /**
+   * Formats the given &lt;code&gt;Date&lt;/code&gt; or &lt;code&gt;&lt;/&gt;Timestamp&lt;/code&gt; into a date/time string and appends the result to
+   * the given &lt;code&gt;StringBuffer&lt;/code&gt;.
+   *
+   * @param timestamp  the date-time value to be formatted into a date-time string.
+   * @param toAppendTo where the new date-time text is to be appended.
+   * @param pos        the formatting position. On input: an alignment field, if desired. On output: the offsets of the
+   *                   alignment field.
+   * @return the formatted date-time string.
+   * @throws NullPointerException if the given {@code timestamp} is {@code null}.
+   */
+  @Override
+  public StringBuffer format( Date timestamp, StringBuffer toAppendTo, FieldPosition pos ) {
+<span class="fc bfc" id="L250" title="All 2 branches covered.">    if ( compatibleToSuperPattern ) {</span>
+<span class="fc" id="L251">      return super.format( timestamp, toAppendTo, pos );</span>
+    }
+
+    StringBuffer dateBuffer;
+    String nan;
+
+<span class="fc bfc" id="L257" title="All 2 branches covered.">    if ( timestamp instanceof Timestamp ) {</span>
+<span class="fc" id="L258">      Timestamp tmp = (Timestamp) timestamp;</span>
+<span class="fc" id="L259">      Date date = new Date( tmp.getTime() );</span>
+<span class="fc" id="L260">      dateBuffer = super.format( date, toAppendTo, pos );</span>
+<span class="fc" id="L261">      nan = formatNanoseconds( tmp.getNanos() );</span>
+
+<span class="fc" id="L263">    } else {</span>
+<span class="fc" id="L264">      dateBuffer = super.format( timestamp, toAppendTo, pos );</span>
+<span class="fc" id="L265">      String milliseconds = defaultMillisecondDateFormat.format( timestamp );</span>
+<span class="fc" id="L266">      nan = formatNanoseconds( Integer.valueOf( milliseconds ) * Math.pow( 10, 6 ) );</span>
+    }
+
+<span class="fc" id="L269">    int placeholderPosition = replaceHolder( dateBuffer, false );</span>
+<span class="fc" id="L270">    return dateBuffer.insert( pos.getBeginIndex() + placeholderPosition, nan );</span>
+  }
+
+  private String formatNanoseconds( Double v ) {
+<span class="fc" id="L274">    return formatNanoseconds( v.intValue() );</span>
+  }
+
+  private String formatNanoseconds( Integer nanos ) {
+<span class="fc" id="L278">    String nan = nanoseconds.format( nanos );</span>
+<span class="fc" id="L279">    return nan.substring( 0, endNanosecondPatternPosition - startNanosecondPatternPosition + 1 );</span>
+  }
+
+  private void initNanosecondsFormat() {
+<span class="fc" id="L283">    StringBuilder nanos = new StringBuilder();</span>
+<span class="fc bfc" id="L284" title="All 2 branches covered.">    for ( int i = startNanosecondPatternPosition; i &lt;= endNanosecondPatternPosition; i++ ) {</span>
+<span class="fc" id="L285">      nanos.append( '0' );</span>
+    }
+<span class="fc" id="L287">    nanoseconds = new DecimalFormat( nanos.toString() );</span>
+<span class="fc" id="L288">  }</span>
+
+  private int replaceHolder( StringBuffer dateBuffer, Boolean inPattern ) {
+<span class="fc bfc" id="L291" title="All 2 branches covered.">    String placeHolder = inPattern ? ESCAPED_NANOSECOND_PLACEHOLDER : NANOSECOND_PLACEHOLDER;</span>
+<span class="fc" id="L292">    int placeholderPosition = dateBuffer.indexOf( placeHolder );</span>
+<span class="pc bpc" id="L293" title="1 of 2 branches missed.">    if ( placeholderPosition == -1 ) {</span>
+<span class="nc" id="L294">      return 0;</span>
+    }
+<span class="fc" id="L296">    dateBuffer.delete( placeholderPosition, placeholderPosition + placeHolder.length() );</span>
+<span class="fc" id="L297">    return placeholderPosition;</span>
+  }
+
+  /**
+   * See &lt;code&gt;SimpleDateFormat&lt;/code&gt; description. This is dummy method to deprecate using parent implementation for
+   * &lt;code&gt;Timestamp&lt;/code&gt; until it is not fully implemented.
+   */
+  @Override
+  public AttributedCharacterIterator formatToCharacterIterator( Object obj ) {
+<span class="nc bnc" id="L306" title="All 2 branches missed.">    if ( obj instanceof Timestamp ) {</span>
+<span class="nc" id="L307">      throw new IllegalArgumentException(</span>
+        &quot;This functionality for Timestamp object has not been implemented yet&quot; );
+    }
+<span class="nc bnc" id="L310" title="All 2 branches missed.">    if ( compatibleToSuperPattern ) {</span>
+<span class="nc" id="L311">      return super.formatToCharacterIterator( obj );</span>
+    } else {
+<span class="nc" id="L313">      throw new IllegalArgumentException(</span>
+        &quot;This functionality for specified format pattern has not been implemented yet&quot; );
+    }
+  }
+
+  /**
+   * Parses text from a string to produce a &lt;code&gt;Timestamp&lt;/code&gt;.
+   * &lt;p/&gt;
+   * The method attempts to parse text starting at the index given by &lt;code&gt;pos&lt;/code&gt;. If parsing succeeds, then the
+   * index of &lt;code&gt;pos&lt;/code&gt; is updated to the index after the last character used (parsing does not necessarily use
+   * all characters up to the end of the string), and the parsed date is returned. The updated &lt;code&gt;pos&lt;/code&gt; can be
+   * used to indicate the starting point for the next call to this method. If an error occurs, then the index of
+   * &lt;code&gt;pos&lt;/code&gt; is not changed, the error index of &lt;code&gt;pos&lt;/code&gt; is set to the index of the character where the
+   * error occurred, and null is returned.
+   * &lt;p/&gt;
+   * &lt;p&gt;This parsing operation uses the {@link SimpleDateFormat#calendar calendar} to produce a {@code Date}. All of the
+   * {@code calendar}'s date-time fields are {@linkplain java.util.Calendar#clear() cleared} before parsing, and the
+   * {@code calendar}'s default values of the date-time fields are used for any missing date-time information. For
+   * example, the year value of the parsed {@code Date} is 1970 with {@link java.util.GregorianCalendar} if no year
+   * value is given from the parsing operation.  The {@code TimeZone} value may be overwritten, depending on the given
+   * pattern and the time zone value in {@code text}. Any {@code TimeZone} value that has previously been set by a call
+   * to {@link #setTimeZone(java.util.TimeZone) setTimeZone} may need to be restored for further operations.
+   *
+   * @param text A &lt;code&gt;String&lt;/code&gt;, part of which should be parsed.
+   * @param pos  A &lt;code&gt;ParsePosition&lt;/code&gt; object with index and error index information as described above.
+   * @return A &lt;code&gt;Date&lt;/code&gt; parsed from the string. In case of error, returns null.
+   * @throws NullPointerException if &lt;code&gt;text&lt;/code&gt; or &lt;code&gt;pos&lt;/code&gt; is null.
+   */
+  @Override
+  public Date parse( String text, ParsePosition pos ) {
+    String timestampFormatDate;
+    Date tempDate;
+<span class="fc bfc" id="L345" title="All 2 branches covered.">    if ( compatibleToSuperPattern ) {</span>
+<span class="fc" id="L346">      tempDate = super.parse( text, pos );</span>
+<span class="fc" id="L347">      return new Timestamp( tempDate.getTime() );</span>
+    }
+
+<span class="fc" id="L350">    StringBuilder dateText = new StringBuilder( text.substring( pos.getIndex() ) );</span>
+<span class="fc" id="L351">    ParsePosition positionError = new ParsePosition( 0 );</span>
+<span class="fc" id="L352">    tempDate = super.parse( dateText.toString(), positionError );</span>
+<span class="pc bpc" id="L353" title="1 of 2 branches missed.">    if ( tempDate != null ) {</span>
+<span class="nc" id="L354">      pos.setErrorIndex( pos.getIndex() );</span>
+<span class="nc" id="L355">      return null;</span>
+    }
+
+<span class="fc" id="L358">    int startNanosecondsPosition = positionError.getErrorIndex();</span>
+<span class="fc" id="L359">    int endNanosecondsPosition =</span>
+      endNanosecondPatternPosition - startNanosecondPatternPosition + 1 + startNanosecondsPosition;
+<span class="fc" id="L361">    endNanosecondsPosition =</span>
+<span class="pc bpc" id="L362" title="1 of 2 branches missed.">      ( endNanosecondsPosition &gt;= dateText.length() ) ? dateText.length() : endNanosecondsPosition;</span>
+<span class="fc" id="L363">    String nanoseconds = String.valueOf( dateText.subSequence( startNanosecondsPosition, endNanosecondsPosition ) );</span>
+<span class="fc" id="L364">    dateText.delete( startNanosecondsPosition, endNanosecondsPosition );</span>
+<span class="fc" id="L365">    ParsePosition position = new ParsePosition( 0 );</span>
+<span class="fc" id="L366">    dateText.append( NANOSECOND_PLACEHOLDER );</span>
+<span class="fc" id="L367">    tempDate = super.parse( dateText.toString(), position );</span>
+<span class="pc bpc" id="L368" title="1 of 2 branches missed.">    if ( tempDate == null ) {</span>
+<span class="nc" id="L369">      pos.setErrorIndex( position.getErrorIndex() );</span>
+<span class="nc" id="L370">      return null;</span>
+    }
+
+<span class="fc" id="L373">    timestampFormatDate = defaultTimestampFormat.format( tempDate );</span>
+<span class="fc" id="L374">    String result = timestampFormatDate + '.' + nanoseconds;</span>
+<span class="fc" id="L375">    Timestamp res = Timestamp.valueOf( timestampFormatDate + '.' + nanoseconds );</span>
+<span class="fc" id="L376">    pos.setIndex( pos.getIndex() + result.length() );</span>
+<span class="fc" id="L377">    return res;</span>
+  }
+
+  /**
+   * Returns a pattern string describing this date format.
+   *
+   * @return a pattern string describing this date format.
+   */
+  @Override
+  public String toPattern() {
+<span class="fc" id="L387">    return originalPattern;</span>
+  }
+
+  /**
+   * Returns a localized pattern string describing this date format.
+   *
+   * @return a localized pattern string describing this date format.
+   */
+  @Override
+  public String toLocalizedPattern() {
+<span class="fc bfc" id="L397" title="All 2 branches covered.">    if ( compatibleToSuperPattern ) {</span>
+<span class="fc" id="L398">      return super.toLocalizedPattern();</span>
+    } else {
+<span class="fc" id="L400">      StringBuffer pattern =</span>
+<span class="fc" id="L401">        new StringBuffer( super.toLocalizedPattern() );</span>
+<span class="fc" id="L402">      int placeholderPosition = replaceHolder( pattern, true );</span>
+<span class="fc bfc" id="L403" title="All 2 branches covered.">      for ( int i = placeholderPosition; i &lt;= endNanosecondPatternPosition - startNanosecondPatternPosition + placeholderPosition; i++ ) {</span>
+<span class="fc" id="L404">        pattern.insert( i, patternNanosecond );</span>
+      }
+<span class="fc" id="L406">      return pattern.toString();</span>
+    }
+
+  }
+
+  /**
+   * Applies the given pattern string to this date format.
+   *
+   * @param pattern the new date and time pattern for this date format
+   * @throws NullPointerException     if the given pattern is null
+   * @throws IllegalArgumentException if the given pattern is invalid
+   */
+  @Override
+  public void applyPattern( String pattern ) {
+<span class="fc" id="L420">    DateFormatSymbols formatSymbols = super.getDateFormatSymbols();</span>
+<span class="fc" id="L421">    init( pattern, formatSymbols, false );</span>
+<span class="fc" id="L422">  }</span>
+
+  /**
+   * Applies the given localized pattern string to this date format.
+   *
+   * @param pattern a String to be mapped to the new date and time format pattern for this format
+   * @throws NullPointerException     if the given pattern is null
+   * @throws IllegalArgumentException if the given pattern is invalid
+   */
+  @Override
+  public void applyLocalizedPattern( String pattern ) {
+<span class="fc" id="L433">    DateFormatSymbols formatSymbols = super.getDateFormatSymbols();</span>
+<span class="fc" id="L434">    init( pattern, formatSymbols, true );</span>
+<span class="fc" id="L435">  }</span>
+
+  /**
+   * Parses text from the beginning of the given string to produce a date. The method may not use the entire text of the
+   * given string.
+   * &lt;p/&gt;
+   * See the {@link #parse(String, java.text.ParsePosition)} method for more information on date parsing.
+   *
+   * @param source A &lt;code&gt;String&lt;/code&gt; whose beginning should be parsed.
+   * @return A &lt;code&gt;Date&lt;/code&gt; parsed from the string.
+   * @throws java.text.ParseException if the beginning of the specified string cannot be parsed.
+   */
+  @Override
+  public Date parse( String source ) throws ParseException {
+<span class="fc" id="L449">    return super.parse( source );</span>
+  }
+
+  /**
+   * Parses text from a string to produce a &lt;code&gt;Date&lt;/code&gt;.
+   * &lt;p/&gt;
+   * The method attempts to parse text starting at the index given by &lt;code&gt;pos&lt;/code&gt;. If parsing succeeds, then the
+   * index of &lt;code&gt;pos&lt;/code&gt; is updated to the index after the last character used (parsing does not necessarily use
+   * all characters up to the end of the string), and the parsed date is returned. The updated &lt;code&gt;pos&lt;/code&gt; can be
+   * used to indicate the starting point for the next call to this method. If an error occurs, then the index of
+   * &lt;code&gt;pos&lt;/code&gt; is not changed, the error index of &lt;code&gt;pos&lt;/code&gt; is set to the index of the character where the
+   * error occurred, and null is returned.
+   * &lt;p/&gt;
+   * See the {@link #parse(String, java.text.ParsePosition)} method for more information on date parsing.
+   *
+   * @param source A &lt;code&gt;String&lt;/code&gt;, part of which should be parsed.
+   * @param pos    A &lt;code&gt;ParsePosition&lt;/code&gt; object with index and error index information as described above.
+   * @return A &lt;code&gt;Date&lt;/code&gt; parsed from the string. In case of error, returns null.
+   * @throws NullPointerException if &lt;code&gt;pos&lt;/code&gt; is null.
+   */
+  @Override
+  public Object parseObject( String source, ParsePosition pos ) {
+<span class="nc" id="L471">    return parse( source, pos );</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

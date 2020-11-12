@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MemoryMetadataSerializer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.metadata.serializer.memory</a> &gt; <span class="el_source">MemoryMetadataSerializer.java</span></div><h1>MemoryMetadataSerializer.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.metadata.serializer.memory;
+
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.metadata.api.IHopMetadata;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
+import org.apache.hop.metadata.api.IHopMetadataSerializer;
+import org.apache.hop.metadata.util.ReflectionUtil;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public class MemoryMetadataSerializer&lt;T extends IHopMetadata&gt; implements IHopMetadataSerializer&lt;T&gt; {
+
+  private final IVariables variables;
+  private IHopMetadataProvider metadataProvider;
+  private Class&lt;T&gt; managedClass;
+  private Map&lt;String, T&gt; objectMap;
+  protected String description;
+
+<span class="nc" id="L45">  public MemoryMetadataSerializer( IHopMetadataProvider provider, Class&lt;T&gt; managedClass, IVariables variables, String description ) {</span>
+<span class="nc" id="L46">    this.metadataProvider = provider;</span>
+<span class="nc" id="L47">    this.managedClass = managedClass;</span>
+<span class="nc" id="L48">    this.variables = variables;</span>
+<span class="nc" id="L49">    this.description = description;</span>
+
+<span class="nc" id="L51">    objectMap = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L52">  }</span>
+
+  @Override public List&lt;T&gt; loadAll() throws HopException {
+<span class="nc" id="L55">    List&lt;T&gt; list = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L56" title="All 2 branches missed.">    for ( String name : listObjectNames() ) {</span>
+<span class="nc" id="L57">      list.add( load( name ) );</span>
+<span class="nc" id="L58">    }</span>
+<span class="nc" id="L59">    return list;</span>
+  }
+
+  @Override public T load( String name ) throws HopException {
+<span class="nc bnc" id="L63" title="All 2 branches missed.">    if ( name == null ) {</span>
+<span class="nc" id="L64">      throw new HopException( &quot;Error: you need to specify the name of the metadata object to load&quot; );</span>
+    }
+<span class="nc bnc" id="L66" title="All 2 branches missed.">    if ( !exists( name ) ) {</span>
+<span class="nc" id="L67">      return null;</span>
+    }
+<span class="nc" id="L69">    T t = objectMap.get( name );</span>
+
+<span class="nc bnc" id="L71" title="All 2 branches missed.">    if ( t instanceof IVariables ) {</span>
+<span class="nc" id="L72">      ( (IVariables) t ).initializeVariablesFrom( variables );</span>
+    }
+
+<span class="nc" id="L75">    return t;</span>
+  }
+
+  @Override public void save( T object ) throws HopException {
+<span class="nc" id="L79">    String name = ReflectionUtil.getObjectName( object );</span>
+<span class="nc" id="L80">    objectMap.put( name, object );</span>
+<span class="nc" id="L81">  }</span>
+
+  @Override public T delete( String name ) throws HopException {
+<span class="nc bnc" id="L84" title="All 2 branches missed.">    if ( name == null ) {</span>
+<span class="nc" id="L85">      throw new HopException( &quot;Error: you need to specify the name of the metadata object to delete&quot; );</span>
+    }
+<span class="nc bnc" id="L87" title="All 2 branches missed.">    if ( !exists( name ) ) {</span>
+<span class="nc" id="L88">      throw new HopException( &quot;Error: Object '&quot; + name + &quot;' doesn't exist&quot; );</span>
+    }
+<span class="nc" id="L90">    T t = objectMap.get( name );</span>
+<span class="nc" id="L91">    objectMap.remove( name );</span>
+<span class="nc" id="L92">    return t;</span>
+  }
+
+  @Override public List&lt;String&gt; listObjectNames() throws HopException {
+<span class="nc" id="L96">    List&lt;String&gt; names = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L97">    names.addAll( objectMap.keySet() );</span>
+<span class="nc" id="L98">    return names;</span>
+  }
+
+  @Override public boolean exists( String name ) throws HopException {
+<span class="nc" id="L102">    return objectMap.containsKey( name );</span>
+  }
+
+  /**
+   * Gets metadataProvider
+   *
+   * @return value of metadataProvider
+   */
+  @Override public IHopMetadataProvider getMetadataProvider() {
+<span class="nc" id="L111">    return metadataProvider;</span>
+  }
+
+  /**
+   * @param metadataProvider The metadataProvider to set
+   */
+  public void setMetadataProvider( IHopMetadataProvider metadataProvider ) {
+<span class="nc" id="L118">    this.metadataProvider = metadataProvider;</span>
+<span class="nc" id="L119">  }</span>
+
+  /**
+   * Gets managedClass
+   *
+   * @return value of managedClass
+   */
+  @Override public Class&lt;T&gt; getManagedClass() {
+<span class="nc" id="L127">    return managedClass;</span>
+  }
+
+  /**
+   * @param managedClass The managedClass to set
+   */
+  public void setManagedClass( Class&lt;T&gt; managedClass ) {
+<span class="nc" id="L134">    this.managedClass = managedClass;</span>
+<span class="nc" id="L135">  }</span>
+
+  /**
+   * Gets objectMap
+   *
+   * @return value of objectMap
+   */
+  public Map&lt;String, T&gt; getObjectMap() {
+<span class="nc" id="L143">    return objectMap;</span>
+  }
+
+  /**
+   * @param objectMap The objectMap to set
+   */
+  public void setObjectMap( Map&lt;String, T&gt; objectMap ) {
+<span class="nc" id="L150">    this.objectMap = objectMap;</span>
+<span class="nc" id="L151">  }</span>
+
+  /**
+   * Gets variables
+   *
+   * @return value of variables
+   */
+  public IVariables getVariables() {
+<span class="nc" id="L159">    return variables;</span>
+  }
+
+  /**
+   * Gets description
+   *
+   * @return value of description
+   */
+  @Override public String getDescription() {
+<span class="nc" id="L168">    return description;</span>
+  }
+
+  /**
+   * @param description The description to set
+   */
+  public void setDescription( String description ) {
+<span class="nc" id="L175">    this.description = description;</span>
+<span class="nc" id="L176">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

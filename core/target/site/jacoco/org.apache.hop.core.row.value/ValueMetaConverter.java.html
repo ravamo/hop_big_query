@@ -1,0 +1,489 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ValueMetaConverter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.row.value</a> &gt; <span class="el_source">ValueMetaConverter.java</span></div><h1>ValueMetaConverter.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+package org.apache.hop.core.row.value;
+
+import org.apache.hop.core.plugins.IValueMetaConverter;
+import org.apache.hop.core.row.IValueMeta;
+
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
+import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+/**
+ * This class is intended to facilitate any needed conversions of a IValueMeta field from one type to another.
+ * It was initially implemented for Orc storage in the hadoop shims project.  This class is added here because
+ * the converstions are not dependendant on orc in any way.
+ * &lt;p&gt;
+ * Created by tkafalas on 12/8/2017.
+ */
+<span class="fc" id="L42">public class ValueMetaConverter implements Serializable, IValueMetaConverter {</span>
+<span class="fc" id="L43">  private static final String DEFAULT_DATE_FORMAT = ValueMetaBase.DEFAULT_DATE_FORMAT_MASK;</span>
+<span class="fc" id="L44">  private SimpleDateFormat datePattern = new SimpleDateFormat( DEFAULT_DATE_FORMAT );</span>
+<span class="fc" id="L45">  private int precision = 0;</span>
+
+  public SimpleDateFormat getDatePattern() {
+<span class="nc" id="L48">    return datePattern;</span>
+  }
+
+  public void setDatePattern( SimpleDateFormat datePattern ) {
+<span class="nc bnc" id="L52" title="All 2 branches missed.">    if ( datePattern != null ) {</span>
+<span class="nc" id="L53">      this.datePattern = datePattern;</span>
+    }
+<span class="nc" id="L55">  }</span>
+
+  public int getPrecision() {
+<span class="fc" id="L58">    return precision;</span>
+  }
+
+  public void setPrecision( int precision ) {
+<span class="nc" id="L62">    this.precision = precision;</span>
+<span class="nc" id="L63">  }</span>
+
+  @Override
+  public Object convertFromSourceToTargetDataType( int sourceValueMetaType, int targetValueMetaType, Object value )
+    throws ValueMetaConversionException {
+<span class="fc bfc" id="L68" title="All 2 branches covered.">    if ( value == null ) {</span>
+<span class="fc" id="L69">      return null;</span>
+    }
+
+<span class="pc bpc" id="L72" title="1 of 11 branches missed.">    switch ( sourceValueMetaType ) {</span>
+      case IValueMeta.TYPE_INET:
+<span class="fc" id="L74">        return convertFromInetMetaInterface( targetValueMetaType, value );</span>
+      case IValueMeta.TYPE_STRING:
+<span class="fc" id="L76">        return convertFromStringMetaInterface( targetValueMetaType, value );</span>
+      case IValueMeta.TYPE_INTEGER:
+<span class="fc" id="L78">        return convertFromIntegerMetaInterface( targetValueMetaType, value );</span>
+      case IValueMeta.TYPE_NUMBER:
+<span class="fc" id="L80">        return convertFromNumberMetaInterface( targetValueMetaType, value );</span>
+      case IValueMeta.TYPE_BIGNUMBER:
+<span class="fc" id="L82">        return convertFromBigNumberMetaInterface( targetValueMetaType, value );</span>
+      case IValueMeta.TYPE_TIMESTAMP:
+<span class="fc" id="L84">        return convertFromTimestampMetaInterface( targetValueMetaType, value );</span>
+      case IValueMeta.TYPE_DATE:
+
+<span class="fc" id="L87">        return convertFromDateMetaInterface( targetValueMetaType, value );</span>
+      case IValueMeta.TYPE_BOOLEAN:
+<span class="fc" id="L89">        return convertFromBooleanMetaInterface( targetValueMetaType, value );</span>
+      case IValueMeta.TYPE_BINARY:
+<span class="fc" id="L91">        return convertFromBinaryMetaInterface( targetValueMetaType, value );</span>
+      case IValueMeta.TYPE_SERIALIZABLE:
+<span class="fc" id="L93">        return convertFromSerializableMetaInterface( targetValueMetaType, value );</span>
+      default:
+<span class="nc" id="L95">        throwBadConversionCombination( sourceValueMetaType, targetValueMetaType, value );</span>
+    }
+<span class="nc" id="L97">    return null;</span>
+  }
+
+  protected Object convertFromStringMetaInterface( int targetValueMetaType, Object value )
+    throws ValueMetaConversionException {
+<span class="pc bpc" id="L102" title="1 of 2 branches missed.">    if ( value == null ) {</span>
+<span class="nc" id="L103">      return null;</span>
+    }
+
+<span class="fc bfc" id="L106" title="All 2 branches covered.">    if ( !( value instanceof String ) ) {</span>
+<span class="pc" id="L107">      handleConversionError(</span>
+<span class="fc" id="L108">        &quot;Error.  Expecting value of type string.    actual value type = '&quot; + value.getClass() + &quot;'.    value = '&quot;</span>
+          + value + &quot;'.&quot; );
+    }
+<span class="fc" id="L111">    String stringValue = (String) value;</span>
+
+    try {
+<span class="fc bfc" id="L114" title="All 10 branches covered.">      switch ( targetValueMetaType ) {</span>
+        case IValueMeta.TYPE_INET:
+          try {
+<span class="fc" id="L117">            return InetAddress.getByName( value.toString() );</span>
+<span class="nc" id="L118">          } catch ( UnknownHostException e ) {</span>
+<span class="nc" id="L119">            return null;</span>
+          }
+        case IValueMeta.TYPE_STRING:
+<span class="fc" id="L122">          return new String( stringValue );</span>
+        case IValueMeta.TYPE_INTEGER:
+<span class="fc" id="L124">          return Long.parseLong( stripDecimal( stringValue ) );</span>
+        case IValueMeta.TYPE_NUMBER:
+<span class="fc" id="L126">          Double doubleValue = Double.parseDouble( stringValue );</span>
+<span class="pc bpc" id="L127" title="1 of 2 branches missed.">          if ( getPrecision() &gt; 0 ) {</span>
+<span class="nc" id="L128">            BigDecimal bigDecimal = new BigDecimal( doubleValue );</span>
+<span class="nc" id="L129">            bigDecimal = bigDecimal.setScale( getPrecision(), RoundingMode.HALF_UP );</span>
+<span class="nc" id="L130">            doubleValue = bigDecimal.doubleValue();</span>
+          }
+<span class="fc" id="L132">          return doubleValue;</span>
+        case IValueMeta.TYPE_BIGNUMBER:
+<span class="fc" id="L134">          return new BigDecimal( stringValue );</span>
+        case IValueMeta.TYPE_TIMESTAMP:
+<span class="fc" id="L136">          return new Timestamp( ( datePattern.parse( stringValue ) ).getTime() );</span>
+        case IValueMeta.TYPE_DATE:
+<span class="fc" id="L138">          return datePattern.parse( stringValue );</span>
+        case IValueMeta.TYPE_BOOLEAN:
+<span class="fc" id="L140">          return Boolean.parseBoolean( stringValue );</span>
+        case IValueMeta.TYPE_BINARY:
+<span class="fc" id="L142">          return stringValue.getBytes();</span>
+        default:
+<span class="nc" id="L144">          throwBadConversionCombination( IValueMeta.TYPE_STRING, targetValueMetaType, value );</span>
+      }
+<span class="fc" id="L146">    } catch ( Exception e ) {</span>
+<span class="nc" id="L147">      throwErroredConversion( IValueMeta.TYPE_STRING, targetValueMetaType, value, e );</span>
+<span class="nc" id="L148">    }</span>
+<span class="nc" id="L149">    return null;</span>
+  }
+
+  protected Object convertFromDateMetaInterface( int targetValueMetaType, Object value )
+    throws ValueMetaConversionException {
+
+<span class="pc bpc" id="L155" title="1 of 2 branches missed.">    if ( value == null ) {</span>
+<span class="nc" id="L156">      return null;</span>
+    }
+
+    // value is expected to be of type Date
+<span class="fc bfc" id="L160" title="All 2 branches covered.">    if ( !( value instanceof Date ) ) {</span>
+<span class="pc" id="L161">      handleConversionError(</span>
+<span class="fc" id="L162">        &quot;Error.  Expecting value of type Date.    actual value type = '&quot; + value.getClass() + &quot;'.    value = '&quot;</span>
+          + value + &quot;'.&quot; );
+    }
+
+    try {
+<span class="fc" id="L167">      Date dateValue = (Date) value;</span>
+<span class="fc bfc" id="L168" title="All 5 branches covered.">      switch ( targetValueMetaType ) {</span>
+        case IValueMeta.TYPE_INTEGER:
+<span class="fc" id="L170">          return dateValue.getTime();</span>
+        case IValueMeta.TYPE_STRING:
+<span class="fc" id="L172">          return datePattern.format( dateValue );</span>
+        case IValueMeta.TYPE_TIMESTAMP:
+<span class="fc" id="L174">          return new Timestamp( dateValue.getTime() );</span>
+        case IValueMeta.TYPE_DATE:
+<span class="fc" id="L176">          return new Date( dateValue.getTime() );</span>
+        default:
+<span class="nc" id="L178">          throwBadConversionCombination( IValueMeta.TYPE_DATE, targetValueMetaType, value );</span>
+      }
+<span class="fc" id="L180">    } catch ( Exception e ) {</span>
+<span class="nc" id="L181">      throwErroredConversion( IValueMeta.TYPE_DATE, targetValueMetaType, value, e );</span>
+<span class="nc" id="L182">    }</span>
+<span class="nc" id="L183">    return null;</span>
+  }
+
+  protected Object convertFromNumberMetaInterface( int targetValueMetaType, Object value )
+    throws ValueMetaConversionException {
+
+<span class="pc bpc" id="L189" title="1 of 2 branches missed.">    if ( value == null ) {</span>
+<span class="nc" id="L190">      return null;</span>
+    }
+<span class="fc bfc" id="L192" title="All 2 branches covered.">    if ( !( value instanceof Double ) ) {</span>
+<span class="pc" id="L193">      handleConversionError(</span>
+<span class="fc" id="L194">        &quot;Error.  Expecting value of type Double.    actual value type = '&quot; + value.getClass() + &quot;'.    value = '&quot;</span>
+          + value + &quot;'.&quot; );
+    }
+
+    try {
+<span class="fc bfc" id="L199" title="All 5 branches covered.">      switch ( targetValueMetaType ) {</span>
+        case IValueMeta.TYPE_STRING:
+<span class="fc" id="L201">          return Double.toString( (Double) value );</span>
+        case IValueMeta.TYPE_NUMBER:
+<span class="fc" id="L203">          Double doubleValue = (Double) value;</span>
+<span class="pc bpc" id="L204" title="1 of 2 branches missed.">          if ( getPrecision() &gt; 0 ) {</span>
+<span class="nc" id="L205">            BigDecimal bigDecimal = new BigDecimal( doubleValue );</span>
+<span class="nc" id="L206">            bigDecimal = bigDecimal.setScale( getPrecision(), RoundingMode.HALF_UP );</span>
+<span class="nc" id="L207">            doubleValue = bigDecimal.doubleValue();</span>
+          }
+<span class="fc" id="L209">          return doubleValue;</span>
+        case IValueMeta.TYPE_INTEGER:
+<span class="fc" id="L211">          return ( (Double) value ).longValue();</span>
+        case IValueMeta.TYPE_BIGNUMBER:
+<span class="fc" id="L213">          return new BigDecimal( (Double) value );</span>
+        default:
+<span class="nc" id="L215">          throwBadConversionCombination( IValueMeta.TYPE_NUMBER, targetValueMetaType, value );</span>
+      }
+<span class="fc" id="L217">    } catch ( Exception e ) {</span>
+<span class="nc" id="L218">      throwErroredConversion( IValueMeta.TYPE_NUMBER, targetValueMetaType, value, e );</span>
+<span class="nc" id="L219">    }</span>
+<span class="nc" id="L220">    return null;</span>
+  }
+
+  protected Object convertFromBooleanMetaInterface( int targetValueMetaType, Object value )
+    throws ValueMetaConversionException {
+
+<span class="pc bpc" id="L226" title="1 of 2 branches missed.">    if ( value == null ) {</span>
+<span class="nc" id="L227">      return null;</span>
+    }
+
+<span class="fc bfc" id="L230" title="All 2 branches covered.">    if ( !( value instanceof Boolean ) ) {</span>
+<span class="pc" id="L231">      handleConversionError(</span>
+<span class="fc" id="L232">        &quot;Error.  Expecting value of type Boolean.    actual value type = '&quot; + value.getClass() + &quot;'.    value = '&quot;</span>
+          + value + &quot;'.&quot; );
+    }
+
+    try {
+<span class="fc bfc" id="L237" title="All 3 branches covered.">      switch ( targetValueMetaType ) {</span>
+        case IValueMeta.TYPE_STRING:
+<span class="fc" id="L239">          return Boolean.toString( (Boolean) value );</span>
+        case IValueMeta.TYPE_BOOLEAN:
+<span class="fc" id="L241">          return (Boolean) value;</span>
+        default:
+<span class="nc" id="L243">          throwBadConversionCombination( IValueMeta.TYPE_BOOLEAN, targetValueMetaType, value );</span>
+      }
+<span class="fc" id="L245">    } catch ( Exception e ) {</span>
+<span class="nc" id="L246">      throwErroredConversion( IValueMeta.TYPE_BOOLEAN, targetValueMetaType, value, e );</span>
+<span class="nc" id="L247">    }</span>
+
+<span class="nc" id="L249">    return null;</span>
+  }
+
+  protected Object convertFromIntegerMetaInterface( int targetValueMetaType, Object value )
+    throws ValueMetaConversionException {
+
+<span class="pc bpc" id="L255" title="1 of 2 branches missed.">    if ( value == null ) {</span>
+<span class="nc" id="L256">      return value;</span>
+    }
+
+<span class="fc bfc" id="L259" title="All 2 branches covered.">    if ( !( value instanceof Long ) ) {</span>
+<span class="pc" id="L260">      handleConversionError(</span>
+<span class="fc" id="L261">        &quot;Error.  Expecting value of type Long.    actual value type = '&quot; + value.getClass() + &quot;'.    value = '&quot; + value</span>
+          + &quot;'.&quot; );
+    }
+
+    try {
+<span class="fc bfc" id="L266" title="All 7 branches covered.">      switch ( targetValueMetaType ) {</span>
+        case IValueMeta.TYPE_STRING:
+<span class="fc" id="L268">          return Long.toString( (Long) value );</span>
+        case IValueMeta.TYPE_INTEGER:
+<span class="fc" id="L270">          return (Long) value;</span>
+        case IValueMeta.TYPE_NUMBER:
+<span class="fc" id="L272">          Double doubleValue = ( (Long) value ).doubleValue();</span>
+<span class="pc bpc" id="L273" title="1 of 2 branches missed.">          if ( getPrecision() &gt; 0 ) {</span>
+<span class="nc" id="L274">            BigDecimal bigDecimal = new BigDecimal( doubleValue );</span>
+<span class="nc" id="L275">            bigDecimal = bigDecimal.setScale( getPrecision(), RoundingMode.HALF_UP );</span>
+<span class="nc" id="L276">            doubleValue = bigDecimal.doubleValue();</span>
+          }
+<span class="fc" id="L278">          return doubleValue;</span>
+        case IValueMeta.TYPE_BIGNUMBER:
+<span class="fc" id="L280">           return BigDecimal.valueOf( (long) value );</span>
+        case IValueMeta.TYPE_DATE:
+<span class="fc" id="L282">          return new Date( (long) value );</span>
+        case IValueMeta.TYPE_TIMESTAMP:
+<span class="fc" id="L284">          return new Timestamp( (long) value );</span>
+        default:
+<span class="nc" id="L286">          throwBadConversionCombination( IValueMeta.TYPE_INTEGER, targetValueMetaType, value );</span>
+      }
+<span class="fc" id="L288">    } catch ( Exception e ) {</span>
+<span class="nc" id="L289">      throwErroredConversion( IValueMeta.TYPE_INTEGER, targetValueMetaType, value, e );</span>
+<span class="nc" id="L290">    }</span>
+<span class="nc" id="L291">    return value;</span>
+  }
+
+  protected Object convertFromBigNumberMetaInterface( int targetValueMetaType, Object value )
+    throws ValueMetaConversionException {
+
+<span class="pc bpc" id="L297" title="1 of 2 branches missed.">    if ( value == null ) {</span>
+<span class="nc" id="L298">      return null;</span>
+    }
+
+    // value is expected to be of type BigDecimal
+<span class="fc bfc" id="L302" title="All 2 branches covered.">    if ( !( value instanceof BigDecimal ) ) {</span>
+<span class="pc" id="L303">      handleConversionError(</span>
+<span class="fc" id="L304">        &quot;Error.  Expecting value of type BigNumber(BigDecimal).    actual value type = '&quot; + value.getClass()</span>
+          + &quot;'.    value = '&quot; + value + &quot;'.&quot; );
+    }
+
+    try {
+<span class="fc bfc" id="L309" title="All 4 branches covered.">      switch ( targetValueMetaType ) {</span>
+        case IValueMeta.TYPE_STRING:
+<span class="fc" id="L311">          return value.toString();</span>
+        case IValueMeta.TYPE_NUMBER:
+<span class="fc" id="L313">          Double doubleValue = ( (BigDecimal) value ).doubleValue();</span>
+<span class="pc bpc" id="L314" title="1 of 2 branches missed.">          if ( getPrecision() &gt; 0 ) {</span>
+<span class="nc" id="L315">            BigDecimal bigDecimal = new BigDecimal( doubleValue );</span>
+<span class="nc" id="L316">            bigDecimal = bigDecimal.setScale( getPrecision(), RoundingMode.HALF_UP );</span>
+<span class="nc" id="L317">            doubleValue = bigDecimal.doubleValue();</span>
+          }
+<span class="fc" id="L319">          return doubleValue;</span>
+        case IValueMeta.TYPE_BIGNUMBER:
+<span class="fc" id="L321">          return new BigDecimal( ( (BigDecimal) value ).toString() );</span>
+        default:
+<span class="nc" id="L323">          throwBadConversionCombination( IValueMeta.TYPE_BIGNUMBER, targetValueMetaType, value );</span>
+      }
+<span class="fc" id="L325">    } catch ( Exception e ) {</span>
+<span class="nc" id="L326">      throwErroredConversion( IValueMeta.TYPE_BIGNUMBER, targetValueMetaType, value, e );</span>
+<span class="nc" id="L327">    }</span>
+
+<span class="nc" id="L329">    return value;</span>
+  }
+
+  protected Object convertFromTimestampMetaInterface( int targetValueMetaType, Object value )
+    throws ValueMetaConversionException {
+
+<span class="pc bpc" id="L335" title="1 of 2 branches missed.">    if ( value == null ) {</span>
+<span class="nc" id="L336">      return null;</span>
+    }
+
+<span class="fc bfc" id="L339" title="All 2 branches covered.">    if ( !( value instanceof Timestamp ) ) {</span>
+<span class="pc" id="L340">      handleConversionError(</span>
+<span class="fc" id="L341">        &quot;Error.  Expecting value of type Timestamp.    actual value type = '&quot; + value.getClass() + &quot;'.    value = '&quot;</span>
+          + value + &quot;'.&quot; );
+    }
+
+    Date dateValue;
+    try {
+<span class="fc bfc" id="L347" title="All 5 branches covered.">      switch ( targetValueMetaType ) {</span>
+        case IValueMeta.TYPE_STRING:
+<span class="fc" id="L349">          dateValue = new Date( ( (Timestamp) value ).getTime() );</span>
+<span class="fc" id="L350">          return datePattern.format( dateValue );</span>
+        case IValueMeta.TYPE_INTEGER:
+<span class="fc" id="L352">          return ( (Timestamp) value ).getTime();</span>
+        case IValueMeta.TYPE_TIMESTAMP:
+<span class="fc" id="L354">          return new Timestamp( ( (Timestamp) value ).getTime() );</span>
+        case IValueMeta.TYPE_DATE:
+<span class="fc" id="L356">          return new Date( ( (Timestamp) value ).getTime() );</span>
+        default:
+<span class="nc" id="L358">          throwBadConversionCombination( IValueMeta.TYPE_NUMBER, targetValueMetaType, value );</span>
+      }
+<span class="fc" id="L360">    } catch ( Exception e ) {</span>
+<span class="nc" id="L361">      throwErroredConversion( IValueMeta.TYPE_TIMESTAMP, targetValueMetaType, value, e );</span>
+<span class="nc" id="L362">    }</span>
+
+<span class="nc" id="L364">    return value;</span>
+  }
+
+  protected Object convertFromInetMetaInterface( int targetValueMetaType, Object value )
+    throws ValueMetaConversionException {
+
+<span class="pc bpc" id="L370" title="1 of 2 branches missed.">    if ( value == null ) {</span>
+<span class="nc" id="L371">      return null;</span>
+    }
+
+<span class="fc bfc" id="L374" title="All 2 branches covered.">    if ( !( value instanceof InetAddress ) ) {</span>
+<span class="pc" id="L375">      handleConversionError(</span>
+<span class="fc" id="L376">        &quot;Error.  Expecting value of type InetAddress.    actual value type = '&quot; + value.getClass() + &quot;'.    value = '&quot;</span>
+          + value + &quot;'.&quot; );
+    }
+
+<span class="fc" id="L380">    InetAddress origInetAddress = (InetAddress) value;</span>
+    try {
+<span class="fc bfc" id="L382" title="All 3 branches covered.">      switch ( targetValueMetaType ) {</span>
+        case IValueMeta.TYPE_INET:
+          try {
+<span class="fc" id="L385">            return InetAddress.getByName( origInetAddress.getHostAddress() );</span>
+<span class="nc" id="L386">          } catch ( UnknownHostException e ) {</span>
+<span class="nc" id="L387">            return null;</span>
+          }
+        case IValueMeta.TYPE_STRING:
+<span class="fc" id="L390">          return origInetAddress.getHostAddress();</span>
+        default:
+<span class="nc" id="L392">          throwBadConversionCombination( IValueMeta.TYPE_INET, targetValueMetaType, value );</span>
+      }
+<span class="fc" id="L394">    } catch ( Exception e ) {</span>
+<span class="nc" id="L395">      throwErroredConversion( IValueMeta.TYPE_INET, targetValueMetaType, value, e );</span>
+<span class="nc" id="L396">    }</span>
+
+<span class="nc" id="L398">    return null;</span>
+  }
+
+  protected Object convertFromBinaryMetaInterface( int targetValueMetaType, Object value )
+    throws ValueMetaConversionException {
+
+<span class="pc bpc" id="L404" title="1 of 2 branches missed.">    if ( value == null ) {</span>
+<span class="nc" id="L405">      return null;</span>
+    }
+
+<span class="pc bpc" id="L408" title="1 of 4 branches missed.">    if ( !( value instanceof ByteBuffer ) &amp;&amp; !( value instanceof byte[] ) ) {</span>
+<span class="pc" id="L409">      handleConversionError(</span>
+<span class="fc" id="L410">        &quot;Error.  Expecting value of type ByteBuffer.    actual value type = '&quot; + value.getClass() + &quot;'.    value = '&quot;</span>
+          + value + &quot;'.&quot; );
+    }
+
+    try {
+<span class="fc bfc" id="L415" title="All 2 branches covered.">      switch ( targetValueMetaType ) {</span>
+        case IValueMeta.TYPE_BINARY:
+<span class="pc bpc" id="L417" title="1 of 2 branches missed.">          if ( value instanceof byte[] ) {</span>
+<span class="fc" id="L418">            return value;</span>
+          }
+<span class="nc" id="L420">          return ( (ByteBuffer) value ).array();</span>
+        default:
+<span class="nc" id="L422">          throwBadConversionCombination( IValueMeta.TYPE_BINARY, targetValueMetaType, value );</span>
+      }
+<span class="fc" id="L424">    } catch ( Exception e ) {</span>
+<span class="nc" id="L425">      throwErroredConversion( IValueMeta.TYPE_BINARY, targetValueMetaType, value, e );</span>
+<span class="nc" id="L426">    }</span>
+<span class="nc" id="L427">    return null;</span>
+  }
+
+  protected Object convertFromSerializableMetaInterface( int targetValueMetaType, Object value )
+    throws ValueMetaConversionException {
+
+<span class="pc bpc" id="L433" title="1 of 2 branches missed.">    if ( value == null ) {</span>
+<span class="nc" id="L434">      return null;</span>
+    }
+
+<span class="fc bfc" id="L437" title="All 2 branches covered.">    if ( !( value instanceof Serializable ) ) {</span>
+<span class="pc" id="L438">      handleConversionError(</span>
+<span class="fc" id="L439">        &quot;Error.  Expecting value of type Serializable.    actual value type = '&quot; + value.getClass()</span>
+          + &quot;'.    value = '&quot; + value + &quot;'.&quot; );
+    }
+
+    try {
+<span class="fc bfc" id="L444" title="All 2 branches covered.">      switch ( targetValueMetaType ) {</span>
+        case IValueMeta.TYPE_SERIALIZABLE:
+<span class="fc" id="L446">          return value;</span>
+        default:
+<span class="nc" id="L448">          throwBadConversionCombination( IValueMeta.TYPE_SERIALIZABLE, targetValueMetaType, value );</span>
+      }
+<span class="fc" id="L450">    } catch ( Exception e ) {</span>
+<span class="nc" id="L451">      throwErroredConversion( IValueMeta.TYPE_SERIALIZABLE, targetValueMetaType, value, e );</span>
+<span class="nc" id="L452">    }</span>
+<span class="nc" id="L453">    return null;</span>
+  }
+
+  private void throwBadConversionCombination( int sourceValueMetaType, int targetValueMetaType, Object sourceValue )
+    throws ValueMetaConversionException {
+
+<span class="pc" id="L459">    handleConversionError(</span>
+<span class="fc" id="L460">      &quot;Error.  Can not convert from &quot; + IValueMeta.getTypeDescription( sourceValueMetaType ) + &quot; to &quot;</span>
+<span class="fc" id="L461">        + IValueMeta.getTypeDescription( targetValueMetaType ) + &quot;.  Actual value type = '&quot; + sourceValue</span>
+<span class="fc" id="L462">        .getClass()</span>
+        + &quot;'.    value = '&quot; + sourceValue + &quot;'.&quot; );
+<span class="nc" id="L464">  }</span>
+
+  private void throwErroredConversion( int sourceValueMetaType, int targetValueMetaType, Object sourceValue,
+                                       Exception e ) throws ValueMetaConversionException {
+<span class="pc" id="L468">    handleConversionError(</span>
+<span class="fc" id="L469">      &quot;Error trying to convert from &quot; + IValueMeta.getTypeDescription( sourceValueMetaType ) + &quot; to &quot;</span>
+<span class="fc" id="L470">        + IValueMeta.getTypeDescription( targetValueMetaType ) + &quot;.  value = '&quot; + sourceValue + &quot;'.  Error:  &quot;</span>
+<span class="fc" id="L471">        + e.getClass() + &quot;:  &quot; + e.getMessage(), e );</span>
+<span class="nc" id="L472">  }</span>
+
+  private void handleConversionError( String errorMessage ) throws ValueMetaConversionException {
+<span class="nc" id="L475">    handleConversionError( errorMessage, null );</span>
+<span class="nc" id="L476">  }</span>
+
+  private void handleConversionError( String errorMessage, Exception e ) throws ValueMetaConversionException {
+<span class="fc" id="L479">    throw new ValueMetaConversionException( errorMessage, e );</span>
+    //      TODO - log an error message to let the user know there's a problem.  For now, return null
+  }
+
+  private String stripDecimal( String s ) {
+<span class="fc" id="L484">    int decimalPosition = s.indexOf( &quot;.&quot; );</span>
+<span class="pc bpc" id="L485" title="1 of 2 branches missed.">    return decimalPosition != -1 ? s.substring( 0, decimalPosition ) : s;</span>
+  }
+}
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

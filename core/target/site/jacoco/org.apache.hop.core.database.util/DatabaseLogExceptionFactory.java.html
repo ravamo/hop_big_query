@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DatabaseLogExceptionFactory.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.database.util</a> &gt; <span class="el_source">DatabaseLogExceptionFactory.java</span></div><h1>DatabaseLogExceptionFactory.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.database.util;
+
+import org.apache.hop.core.database.IDatabase;
+import org.apache.hop.core.exception.HopDatabaseException;
+import org.apache.hop.core.logging.ILogChannel;
+import org.apache.hop.core.logging.ILogTableCore;
+import org.apache.hop.core.row.value.ValueMetaBase;
+import org.apache.hop.i18n.BaseMessages;
+
+<span class="nc" id="L32">public class DatabaseLogExceptionFactory {</span>
+
+  public static final String HOP_GLOBAL_PROP_NAME = &quot;HOP_FAIL_ON_LOGGING_ERROR&quot;;
+
+<span class="fc" id="L36">  private static final ILogExceptionBehaviour throwable = new ThrowableBehaviour();</span>
+<span class="fc" id="L37">  private static final ILogExceptionBehaviour suppressable = new SuppressBehaviour();</span>
+<span class="fc" id="L38">  private static final ILogExceptionBehaviour suppressableWithShortMessage = new SuppressableWithShortMessage();</span>
+
+  /**
+   * &lt;p&gt;
+   * Returns throw exception strategy depends on defined behavior. Default is suppress exception.
+   * &lt;/p&gt;
+   * &lt;p/&gt;
+   * &lt;p&gt;
+   * This behavior can be overridden with 'hop.properties' key-value using 'Edit hop.properties file' in HopGui or
+   * other.
+   * &lt;/p&gt;
+   * &lt;p/&gt;
+   * &lt;p&gt;
+   * Following this strategy - &lt;code&gt;System.getProperty(String key)&lt;/code&gt; call will be used to check if key-value pair
+   * is defined. If not found default behavior will be used. If not found and value is TRUE/Y - throwable behavior will
+   * be used.
+   * &lt;/p&gt;
+   *
+   * @param table logging table that participated in exception. Must be instance of {@link ILogTableCore}, otherwise
+   *              default suppress exception behavior will be used.
+   * @return
+   * @see {@link org.apache.hop.core.Const#HOP_VARIABLES_FILE}
+   */
+  public static ILogExceptionBehaviour getExceptionStrategy( ILogTableCore table ) {
+<span class="fc" id="L62">    return getExceptionStrategy( table, null );</span>
+  }
+
+  /**
+   * &lt;p&gt;
+   * Returns throw exception strategy depends on defined behavior. Default is suppress exception.
+   * &lt;/p&gt;
+   * &lt;p/&gt;
+   * &lt;p&gt;
+   * This behavior can be overridden with 'hop.properties' key-value using 'Edit hop.properties file' in HopGui or
+   * other.
+   * &lt;/p&gt;
+   * &lt;p/&gt;
+   * &lt;p&gt;
+   * Following this strategy - &lt;code&gt;System.getProperty(String key)&lt;/code&gt; call will be used to check if key-value pair
+   * is defined. If key-value pair is not defined or value is set to FALSE/N, exception will be checked and suppressable strategy
+   * with short message can be chosen, otherwise throwable behavior will be used
+   * &lt;/p&gt;
+   *
+   * @param table logging table that participated in exception. Must be instance of {@link ILogTableCore}, otherwise
+   *              default suppress exception behavior will be used.
+   * @param e     if key-value pair is not defined or value is set to FALSE/N, e will be checked and suppressable strategy
+   *              with short message can be chosen.
+   * @return
+   * @see {@link org.apache.hop.core.Const#HOP_VARIABLES_FILE}
+   */
+  public static ILogExceptionBehaviour getExceptionStrategy( ILogTableCore table, Exception e ) {
+<span class="fc" id="L89">    IDatabase iDatabase = extractDatabase( table );</span>
+<span class="fc" id="L90">    ILogExceptionBehaviour suppressableResult = suppressable;</span>
+
+<span class="pc bpc" id="L92" title="3 of 4 branches missed.">    if ( iDatabase != null &amp;&amp; !iDatabase.fullExceptionLog( e ) ) {</span>
+<span class="nc" id="L93">      suppressableResult = suppressableWithShortMessage;</span>
+    }
+
+<span class="fc" id="L96">    String val = System.getProperty( HOP_GLOBAL_PROP_NAME );</span>
+    // with a small penalty for backward compatibility
+<span class="fc bfc" id="L98" title="All 2 branches covered.">    if ( val == null ) {</span>
+      // same as before
+<span class="fc" id="L100">      return suppressableResult;</span>
+    }
+
+<span class="pc bpc" id="L103" title="1 of 2 branches missed.">    return ValueMetaBase.convertStringToBoolean( val ) ? throwable : suppressableResult;</span>
+  }
+
+  private static IDatabase extractDatabase( ILogTableCore table ) {
+<span class="fc" id="L107">    IDatabase result = null;</span>
+<span class="pc bpc" id="L108" title="2 of 4 branches missed.">    if ( table != null &amp;&amp; table.getDatabaseMeta() != null ) {</span>
+<span class="nc" id="L109">      return table.getDatabaseMeta().getIDatabase();</span>
+    }
+<span class="fc" id="L111">    return result;</span>
+  }
+
+  /**
+   * Throw exception back to caller, this will be logged somewhere else.
+   */
+  private static class ThrowableBehaviour implements ILogExceptionBehaviour {
+
+    @Override
+    public void registerException( ILogChannel log, Class&lt;?&gt; packageClass, String key, String... parameters )
+      throws HopDatabaseException {
+<span class="nc" id="L122">      throw new HopDatabaseException( BaseMessages.getString( packageClass, key, parameters ) );</span>
+    }
+
+    @Override public void registerException( ILogChannel log, Exception e, Class&lt;?&gt; packageClass, String key,
+                                             String... parameters ) throws HopDatabaseException {
+<span class="nc" id="L127">      throw new HopDatabaseException( BaseMessages.getString( packageClass, key, parameters ), e );</span>
+    }
+  }
+
+  /**
+   * Suppress exception, but still add a log record about it
+   */
+  private static class SuppressBehaviour implements ILogExceptionBehaviour {
+
+    @Override
+    public void registerException( ILogChannel log, Class&lt;?&gt; packageClass, String key, String... parameters ) {
+<span class="nc" id="L138">      log.logError( BaseMessages.getString( packageClass, key, parameters ) );</span>
+<span class="nc" id="L139">    }</span>
+
+    @Override public void registerException( ILogChannel log, Exception e, Class&lt;?&gt; packageClass, String key,
+                                             String... parameters ) throws HopDatabaseException {
+<span class="nc" id="L143">      log.logError( BaseMessages.getString( packageClass, key, parameters ), e );</span>
+<span class="nc" id="L144">    }</span>
+  }
+
+  /**
+   * Suppress exception, but still add a log record about it without stacktrace
+   */
+<span class="fc" id="L150">  private static class SuppressableWithShortMessage extends SuppressBehaviour {</span>
+
+    @Override public void registerException( ILogChannel log, Exception e, Class&lt;?&gt; packageClass, String key,
+                                             String... parameters ) throws HopDatabaseException {
+<span class="nc" id="L154">      registerException( log, packageClass, key, parameters );</span>
+<span class="nc" id="L155">      log.logError( e.getMessage() );</span>
+<span class="nc" id="L156">    }</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

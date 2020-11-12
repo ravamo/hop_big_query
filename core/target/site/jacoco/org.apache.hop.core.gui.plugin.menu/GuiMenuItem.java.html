@@ -1,0 +1,350 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GuiMenuItem.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.gui.plugin.menu</a> &gt; <span class="el_source">GuiMenuItem.java</span></div><h1>GuiMenuItem.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.gui.plugin.menu;
+
+import org.apache.hop.core.gui.plugin.BaseGuiElements;
+
+import java.lang.reflect.Method;
+import java.util.Objects;
+
+/**
+ * This represents a list of GUI Menu elements under a certain heading or ID
+ */
+public class GuiMenuItem extends BaseGuiElements implements Comparable&lt;GuiMenuItem&gt; {
+
+  private String root;
+
+  private String id;
+
+  private String parentId;
+
+  private String label;
+
+  private String toolTip;
+
+  private String i18nPackage;
+
+  private GuiMenuElementType type;
+
+  private String image;
+  private String disabledImage;
+
+  private boolean ignored;
+
+  private boolean addingSeparator;
+
+  private ClassLoader classLoader;
+
+  private boolean singleTon;
+  private String listenerClassName;
+  private String listenerMethod;
+
+<span class="nc" id="L62">  public GuiMenuItem() {</span>
+<span class="nc" id="L63">  }</span>
+
+
+  public GuiMenuItem( GuiMenuElement guiElement, Method guiPluginMethod, String guiPluginClassName, ClassLoader classLoader ) {
+<span class="nc" id="L67">    this();</span>
+
+<span class="nc" id="L69">    this.root = guiElement.root();</span>
+<span class="nc" id="L70">    this.id = guiElement.id();</span>
+<span class="nc" id="L71">    this.type = guiElement.type();</span>
+<span class="nc" id="L72">    this.parentId = guiElement.parentId();</span>
+<span class="nc" id="L73">    this.image = guiElement.image();</span>
+<span class="nc" id="L74">    this.i18nPackage = calculateI18nPackage( guiElement.i18nPackageClass(), guiElement.i18nPackage() );</span>
+<span class="nc" id="L75">    this.ignored = guiElement.ignored();</span>
+<span class="nc" id="L76">    this.addingSeparator = guiElement.separator();</span>
+<span class="nc" id="L77">    this.listenerMethod = guiPluginMethod.getName();</span>
+<span class="nc" id="L78">    this.listenerClassName = guiPluginClassName; // Ask the classloader for the class</span>
+<span class="nc" id="L79">    this.singleTon = true; // Always a singleton for now</span>
+<span class="nc" id="L80">    this.label = calculateI18n( i18nPackage, guiElement.label() );</span>
+<span class="nc" id="L81">    this.toolTip = calculateI18n( i18nPackage, guiElement.toolTip() );</span>
+<span class="nc" id="L82">    this.classLoader = classLoader;</span>
+<span class="nc" id="L83">  }</span>
+
+  @Override public boolean equals( Object o ) {
+<span class="nc bnc" id="L86" title="All 2 branches missed.">    if ( this == o ) {</span>
+<span class="nc" id="L87">      return true;</span>
+    }
+<span class="nc bnc" id="L89" title="All 4 branches missed.">    if ( o == null || getClass() != o.getClass() ) {</span>
+<span class="nc" id="L90">      return false;</span>
+    }
+<span class="nc" id="L92">    GuiMenuItem that = (GuiMenuItem) o;</span>
+<span class="nc" id="L93">    return id.equals( that.id );</span>
+  }
+
+  @Override public int hashCode() {
+<span class="nc" id="L97">    return Objects.hash( id );</span>
+  }
+
+  @Override public int compareTo( GuiMenuItem o ) {
+<span class="nc" id="L101">    return id.compareTo( o.id );</span>
+  }
+
+  @Override public String toString() {
+<span class="nc" id="L105">    return &quot;GuiMenuItem{&quot; +</span>
+      &quot;id='&quot; + id + '\'' +
+      '}';
+  }
+
+  /**
+   * Gets root
+   *
+   * @return value of root
+   */
+  public String getRoot() {
+<span class="nc" id="L116">    return root;</span>
+  }
+
+  /**
+   * @param root The root to set
+   */
+  public void setRoot( String root ) {
+<span class="nc" id="L123">    this.root = root;</span>
+<span class="nc" id="L124">  }</span>
+
+  /**
+   * Gets id
+   *
+   * @return value of id
+   */
+  public String getId() {
+<span class="nc" id="L132">    return id;</span>
+  }
+
+  /**
+   * @param id The id to set
+   */
+  public void setId( String id ) {
+<span class="nc" id="L139">    this.id = id;</span>
+<span class="nc" id="L140">  }</span>
+
+  /**
+   * Gets parentId
+   *
+   * @return value of parentId
+   */
+  public String getParentId() {
+<span class="nc" id="L148">    return parentId;</span>
+  }
+
+  /**
+   * @param parentId The parentId to set
+   */
+  public void setParentId( String parentId ) {
+<span class="nc" id="L155">    this.parentId = parentId;</span>
+<span class="nc" id="L156">  }</span>
+
+  /**
+   * Gets label
+   *
+   * @return value of label
+   */
+  public String getLabel() {
+<span class="nc" id="L164">    return label;</span>
+  }
+
+  /**
+   * @param label The label to set
+   */
+  public void setLabel( String label ) {
+<span class="nc" id="L171">    this.label = label;</span>
+<span class="nc" id="L172">  }</span>
+
+  /**
+   * Gets toolTip
+   *
+   * @return value of toolTip
+   */
+  public String getToolTip() {
+<span class="nc" id="L180">    return toolTip;</span>
+  }
+
+  /**
+   * @param toolTip The toolTip to set
+   */
+  public void setToolTip( String toolTip ) {
+<span class="nc" id="L187">    this.toolTip = toolTip;</span>
+<span class="nc" id="L188">  }</span>
+
+  /**
+   * Gets i18nPackage
+   *
+   * @return value of i18nPackage
+   */
+  public String getI18nPackage() {
+<span class="nc" id="L196">    return i18nPackage;</span>
+  }
+
+  /**
+   * @param i18nPackage The i18nPackage to set
+   */
+  public void setI18nPackage( String i18nPackage ) {
+<span class="nc" id="L203">    this.i18nPackage = i18nPackage;</span>
+<span class="nc" id="L204">  }</span>
+
+  /**
+   * Gets type
+   *
+   * @return value of type
+   */
+  public GuiMenuElementType getType() {
+<span class="nc" id="L212">    return type;</span>
+  }
+
+  /**
+   * @param type The type to set
+   */
+  public void setType( GuiMenuElementType type ) {
+<span class="nc" id="L219">    this.type = type;</span>
+<span class="nc" id="L220">  }</span>
+
+  /**
+   * Gets image
+   *
+   * @return value of image
+   */
+  public String getImage() {
+<span class="nc" id="L228">    return image;</span>
+  }
+
+  /**
+   * @param image The image to set
+   */
+  public void setImage( String image ) {
+<span class="nc" id="L235">    this.image = image;</span>
+<span class="nc" id="L236">  }</span>
+
+  /**
+   * Gets disabledImage
+   *
+   * @return value of disabledImage
+   */
+  public String getDisabledImage() {
+<span class="nc" id="L244">    return disabledImage;</span>
+  }
+
+  /**
+   * @param disabledImage The disabledImage to set
+   */
+  public void setDisabledImage( String disabledImage ) {
+<span class="nc" id="L251">    this.disabledImage = disabledImage;</span>
+<span class="nc" id="L252">  }</span>
+
+  /**
+   * Gets ignored
+   *
+   * @return value of ignored
+   */
+  public boolean isIgnored() {
+<span class="nc" id="L260">    return ignored;</span>
+  }
+
+  /**
+   * @param ignored The ignored to set
+   */
+  public void setIgnored( boolean ignored ) {
+<span class="nc" id="L267">    this.ignored = ignored;</span>
+<span class="nc" id="L268">  }</span>
+
+  /**
+   * Gets addingSeparator
+   *
+   * @return value of addingSeparator
+   */
+  public boolean isAddingSeparator() {
+<span class="nc" id="L276">    return addingSeparator;</span>
+  }
+
+  /**
+   * @param addingSeparator The addingSeparator to set
+   */
+  public void setAddingSeparator( boolean addingSeparator ) {
+<span class="nc" id="L283">    this.addingSeparator = addingSeparator;</span>
+<span class="nc" id="L284">  }</span>
+
+  /**
+   * Gets classLoader
+   *
+   * @return value of classLoader
+   */
+  public ClassLoader getClassLoader() {
+<span class="nc" id="L292">    return classLoader;</span>
+  }
+
+  /**
+   * @param classLoader The classLoader to set
+   */
+  public void setClassLoader( ClassLoader classLoader ) {
+<span class="nc" id="L299">    this.classLoader = classLoader;</span>
+<span class="nc" id="L300">  }</span>
+
+  /**
+   * Gets singleTon
+   *
+   * @return value of singleTon
+   */
+  public boolean isSingleTon() {
+<span class="nc" id="L308">    return singleTon;</span>
+  }
+
+  /**
+   * @param singleTon The singleTon to set
+   */
+  public void setSingleTon( boolean singleTon ) {
+<span class="nc" id="L315">    this.singleTon = singleTon;</span>
+<span class="nc" id="L316">  }</span>
+
+  /**
+   * Gets listenerClassName
+   *
+   * @return value of listenerClassName
+   */
+  public String getListenerClassName() {
+<span class="nc" id="L324">    return listenerClassName;</span>
+  }
+
+  /**
+   * @param listenerClassName The listenerClassName to set
+   */
+  public void setListenerClassName( String listenerClassName ) {
+<span class="nc" id="L331">    this.listenerClassName = listenerClassName;</span>
+<span class="nc" id="L332">  }</span>
+
+  /**
+   * Gets listenerMethod
+   *
+   * @return value of listenerMethod
+   */
+  public String getListenerMethod() {
+<span class="nc" id="L340">    return listenerMethod;</span>
+  }
+
+  /**
+   * @param listenerMethod The listenerMethod to set
+   */
+  public void setListenerMethod( String listenerMethod ) {
+<span class="nc" id="L347">    this.listenerMethod = listenerMethod;</span>
+<span class="nc" id="L348">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

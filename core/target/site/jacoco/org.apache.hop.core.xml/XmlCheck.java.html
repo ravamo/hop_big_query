@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>XmlCheck.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core.xml</a> &gt; <span class="el_source">XmlCheck.java</span></div><h1>XmlCheck.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core.xml;
+
+import org.apache.commons.vfs2.FileObject;
+import org.apache.hop.core.exception.HopException;
+import org.xml.sax.helpers.DefaultHandler;
+
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
+import java.io.InputStream;
+
+<span class="nc" id="L33">public class XmlCheck {</span>
+
+<span class="fc" id="L35">  public static class XMLTreeHandler extends DefaultHandler {</span>
+
+  }
+
+  /**
+   * Checks an xml file is well formed.
+   *
+   * @param file The file to check
+   * @return true if the file is well formed.
+   */
+  public static final boolean isXmlFileWellFormed(FileObject file ) throws HopException {
+<span class="nc" id="L46">    boolean retval = false;</span>
+    try {
+<span class="nc" id="L48">      retval = isXmlWellFormed( file.getContent().getInputStream() );</span>
+<span class="nc" id="L49">    } catch ( Exception e ) {</span>
+<span class="nc" id="L50">      throw new HopException( e );</span>
+<span class="nc" id="L51">    }</span>
+
+<span class="nc" id="L53">    return retval;</span>
+  }
+
+  /**
+   * Checks an xml string is well formed.
+   *
+   * @param is inputstream
+   * @return true if the xml is well formed.
+   */
+  public static boolean isXmlWellFormed(InputStream is ) throws HopException {
+<span class="fc" id="L63">    boolean retval = false;</span>
+    try {
+<span class="fc" id="L65">      SAXParserFactory factory = XmlParserFactoryProducer.createSecureSAXParserFactory();</span>
+<span class="fc" id="L66">      XMLTreeHandler handler = new XMLTreeHandler();</span>
+
+      // Parse the input.
+<span class="fc" id="L69">      SAXParser saxParser = factory.newSAXParser();</span>
+<span class="nc" id="L70">      saxParser.parse( is, handler );</span>
+<span class="nc" id="L71">      retval = true;</span>
+<span class="fc" id="L72">    } catch ( Exception e ) {</span>
+<span class="fc" id="L73">      throw new HopException( e );</span>
+<span class="nc" id="L74">    }</span>
+<span class="nc" id="L75">    return retval;</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

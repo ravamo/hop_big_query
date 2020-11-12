@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BlockingBatchingRowSet.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core</a> &gt; <span class="el_source">BlockingBatchingRowSet.java</span></div><h1>BlockingBatchingRowSet.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core;
+
+import org.apache.hop.core.row.IRowMeta;
+
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * Contains a buffer of rows. Instead of passing rows along the chain immediately we will batch them up to lower locking
+ * overhead. The row set will start in accepting mode (accepting = true) It will remain there until the buffer is full.
+ * Then it will switch to delivering mode (accepting = false) It will remain there until the buffer is empty.
+ * &lt;p&gt;
+ * When the row set is done and no more rows will be entering the row set we will switch to delivering mode.
+ *
+ * @author Matt
+ * @since 04-05-2011
+ */
+public class BlockingBatchingRowSet extends BaseRowSet implements Comparable&lt;IRowSet&gt;, IRowSet {
+  private BlockingQueue&lt;Object[][]&gt; putArray, getArray;
+
+  private int putIndex, getIndex;
+  private Object[][] inputBuffer, outputBuffer;
+
+  private int size;
+
+<span class="fc" id="L49">  private final int BATCHSIZE = 2;</span>
+
+  // private long inputTID = -1, outputTID = -1;
+
+  /**
+   * Create new non-blocking-queue with maxSize capacity.
+   *
+   * @param maxSize
+   */
+  public BlockingBatchingRowSet( int maxSize ) {
+<span class="fc" id="L59">    super();</span>
+
+    // create a fixed sized queue for max performance
+    //
+<span class="fc" id="L63">    putArray = new ArrayBlockingQueue&lt;Object[][]&gt;( BATCHSIZE, true );</span>
+<span class="fc" id="L64">    getArray = new ArrayBlockingQueue&lt;Object[][]&gt;( BATCHSIZE, true );</span>
+
+<span class="fc" id="L66">    size = maxSize / BATCHSIZE; // each buffer's size</span>
+    Object[][] buffer;
+<span class="fc bfc" id="L68" title="All 2 branches covered.">    for ( int i = 0; i &lt; BATCHSIZE; i++ ) {</span>
+<span class="fc" id="L69">      buffer = new Object[ size ][];</span>
+<span class="fc" id="L70">      putArray.offer( buffer );</span>
+    }
+<span class="fc" id="L72">    outputBuffer = null;</span>
+<span class="fc" id="L73">    putIndex = getIndex = size;</span>
+<span class="fc" id="L74">  }</span>
+
+  @Override
+  public boolean putRow( IRowMeta rowMeta, Object[] rowData ) {
+
+<span class="fc" id="L79">    return putRowWait( rowMeta, rowData, Const.TIMEOUT_PUT_MILLIS, TimeUnit.MILLISECONDS );</span>
+  }
+
+  /**
+   * We need to wait until
+   */
+  @Override
+  public boolean putRowWait( IRowMeta rowMeta, Object[] rowData, long time, TimeUnit tu ) {
+
+<span class="fc" id="L88">    this.rowMeta = rowMeta;</span>
+
+    // If we're not accepting we block until we do
+    //
+<span class="fc bfc" id="L92" title="All 2 branches covered.">    if ( inputBuffer == null ) {</span>
+      try {
+<span class="fc" id="L94">        inputBuffer = putArray.poll( time, tu );</span>
+<span class="nc" id="L95">      } catch ( InterruptedException e ) {</span>
+<span class="nc" id="L96">        return false;</span>
+<span class="fc" id="L97">      }</span>
+<span class="pc bpc" id="L98" title="1 of 2 branches missed.">      if ( inputBuffer == null ) {</span>
+<span class="nc" id="L99">        return false;</span>
+      }
+<span class="fc" id="L101">      putIndex = 0;</span>
+    }
+<span class="fc" id="L103">    inputBuffer[ putIndex++ ] = rowData;</span>
+<span class="fc bfc" id="L104" title="All 2 branches covered.">    if ( putIndex == size ) {</span>
+      try {
+<span class="fc" id="L106">        getArray.offer( inputBuffer, time, tu );</span>
+<span class="fc" id="L107">        inputBuffer = null;</span>
+<span class="nc" id="L108">      } catch ( InterruptedException e ) {</span>
+<span class="nc" id="L109">        return false;</span>
+<span class="fc" id="L110">      }</span>
+    }
+
+<span class="fc" id="L113">    return true;</span>
+  }
+
+  // default getRow with wait time = 100ms
+  //
+  /*
+   * (non-Javadoc)
+   *
+   * @see org.apache.hop.core.RowSetInterface#getRow()
+   */
+  @Override
+  public Object[] getRow() {
+<span class="fc" id="L125">    return getRowWait( Const.TIMEOUT_GET_MILLIS, TimeUnit.MILLISECONDS );</span>
+  }
+
+  /*
+   * (non-Javadoc)
+   *
+   * @see org.apache.hop.core.RowSetInterface#getRowImmediate()
+   */
+  @Override
+  public Object[] getRowImmediate() {
+
+<span class="nc" id="L136">    return getRow();</span>
+  }
+
+  @Override
+  public Object[] getRowWait( long timeout, TimeUnit tu ) {
+<span class="fc bfc" id="L141" title="All 2 branches covered.">    if ( outputBuffer == null ) {</span>
+      try {
+<span class="fc" id="L143">        outputBuffer = getArray.poll( timeout, tu );</span>
+<span class="nc" id="L144">      } catch ( InterruptedException e ) {</span>
+<span class="nc" id="L145">        return null;</span>
+<span class="fc" id="L146">      }</span>
+<span class="fc bfc" id="L147" title="All 2 branches covered.">      if ( outputBuffer == null ) {</span>
+<span class="fc" id="L148">        return null;</span>
+      }
+<span class="fc" id="L150">      getIndex = 0;</span>
+    }
+
+<span class="fc" id="L153">    Object[] row = outputBuffer[ getIndex ];</span>
+<span class="fc" id="L154">    outputBuffer[ getIndex++ ] = null; // prevent any hold-up to GC</span>
+<span class="pc bpc" id="L155" title="1 of 2 branches missed.">    if ( getIndex == size ) {</span>
+<span class="nc" id="L156">      putArray.offer( outputBuffer );</span>
+<span class="nc" id="L157">      outputBuffer = null;</span>
+    }
+
+<span class="fc" id="L160">    return row;</span>
+  }
+
+  @Override
+  public int size() {
+    // does BlockingQueue.size() grab a lock? If so, frequent call to this method
+    // may stress the locking system
+<span class="fc" id="L167">    return size - getIndex + size * getArray.size();</span>
+  }
+
+  @Override
+  public void setDone() {
+<span class="fc" id="L172">    super.setDone();</span>
+<span class="pc bpc" id="L173" title="4 of 6 branches missed.">    if ( putIndex &gt; 0 &amp;&amp; putIndex &lt; size &amp;&amp; inputBuffer != null ) {</span>
+<span class="nc" id="L174">      inputBuffer[ putIndex ] = null; // signal the end of buffer</span>
+<span class="nc bnc" id="L175" title="All 2 branches missed.">      for ( int i = putIndex + 1; i &lt; size; i++ ) {</span>
+<span class="nc" id="L176">        inputBuffer[ i ] = null;</span>
+      }
+<span class="nc" id="L178">      getArray.offer( inputBuffer );</span>
+    }
+<span class="fc" id="L180">    putArray.clear();</span>
+<span class="fc" id="L181">  }</span>
+
+  @Override
+  public void clear() {
+<span class="nc" id="L185">    putArray.clear();</span>
+<span class="nc" id="L186">    getArray.clear();</span>
+<span class="nc" id="L187">    done.set( false );</span>
+<span class="nc" id="L188">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>

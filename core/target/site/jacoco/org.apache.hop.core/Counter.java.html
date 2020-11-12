@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Counter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Hop Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.hop.core</a> &gt; <span class="el_source">Counter.java</span></div><h1>Counter.java</h1><pre class="source lang-java linenums">/*! ******************************************************************************
+ *
+ * Hop : The Hop Orchestration Platform
+ *
+ * http://www.project-hop.org
+ *
+ *******************************************************************************
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
+package org.apache.hop.core;
+
+/**
+ * Is used to keep the state of sequences / counters throughout a single session of a Pipeline, but across transforms.
+ *
+ * @author Matt
+ * @since 13-05-2003
+ */
+public class Counter {
+  private long counter;
+  private long start;
+  private long increment;
+  private long maximum;
+  private boolean loop;
+
+<span class="fc" id="L38">  public Counter() {</span>
+<span class="fc" id="L39">    start = 1L;</span>
+<span class="fc" id="L40">    increment = 1L;</span>
+<span class="fc" id="L41">    maximum = 0L;</span>
+<span class="fc" id="L42">    loop = false;</span>
+<span class="fc" id="L43">    counter = start;</span>
+<span class="fc" id="L44">  }</span>
+
+  public Counter( long start ) {
+<span class="fc" id="L47">    this();</span>
+<span class="fc" id="L48">    this.start = start;</span>
+<span class="fc" id="L49">    counter = start;</span>
+<span class="fc" id="L50">  }</span>
+
+  public Counter( long start, long increment ) {
+<span class="fc" id="L53">    this( start );</span>
+<span class="fc" id="L54">    this.increment = increment;</span>
+<span class="fc" id="L55">  }</span>
+
+  public Counter( long start, long increment, long maximum ) {
+<span class="fc" id="L58">    this( start, increment );</span>
+<span class="fc" id="L59">    this.loop = true;</span>
+<span class="fc" id="L60">    this.maximum = maximum;</span>
+<span class="fc" id="L61">  }</span>
+
+  /**
+   * @return Returns the counter.
+   */
+  public long getCounter() {
+<span class="fc" id="L67">    return counter;</span>
+  }
+
+  /**
+   * @return Returns the increment.
+   */
+  public long getIncrement() {
+<span class="fc" id="L74">    return increment;</span>
+  }
+
+  /**
+   * @return Returns the maximum.
+   */
+  public long getMaximum() {
+<span class="fc" id="L81">    return maximum;</span>
+  }
+
+  /**
+   * @return Returns the start.
+   */
+  public long getStart() {
+<span class="fc" id="L88">    return start;</span>
+  }
+
+  /**
+   * @return Returns the loop.
+   */
+  public boolean isLoop() {
+<span class="fc" id="L95">    return loop;</span>
+  }
+
+  /**
+   * @param counter The counter to set.
+   */
+  public void setCounter( long counter ) {
+<span class="fc" id="L102">    this.counter = counter;</span>
+<span class="fc" id="L103">  }</span>
+
+  /**
+   * @param increment The increment to set.
+   */
+  public void setIncrement( long increment ) {
+<span class="fc" id="L109">    this.increment = increment;</span>
+<span class="fc" id="L110">  }</span>
+
+  /**
+   * @param loop The loop to set.
+   */
+  public void setLoop( boolean loop ) {
+<span class="fc" id="L116">    this.loop = loop;</span>
+<span class="fc" id="L117">  }</span>
+
+  /**
+   * @param maximum The maximum to set.
+   */
+  public void setMaximum( long maximum ) {
+<span class="fc" id="L123">    this.maximum = maximum;</span>
+<span class="fc" id="L124">  }</span>
+
+  public long next() {
+<span class="fc" id="L127">    long retval = counter;</span>
+
+<span class="fc" id="L129">    counter += increment;</span>
+<span class="fc bfc" id="L130" title="All 4 branches covered.">    if ( loop &amp;&amp; counter &gt; maximum ) {</span>
+<span class="fc" id="L131">      counter = start;</span>
+    }
+
+<span class="fc" id="L134">    return retval;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.1.201803210924</span></div></body></html>
